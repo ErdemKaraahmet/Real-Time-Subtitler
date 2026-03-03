@@ -1,3 +1,0 @@
-D:/Code Projects/RTS/build/CMakeFiles/auto-subtitler.dir
-D:/Code Projects/RTS/build/CMakeFiles/edit_cache.dir
-D:/Code Projects/RTS/build/CMakeFiles/rebuild_cache.dir

@@ -1,26 +1,24 @@
-cmake_minimum_required(VERSION 3.15)
-project(auto-subtitler C)
+cmake_minimum_required(VERSION 3.20)
+project(Real-Time-Subtitler C)
 
-set(CMAKE_C_STANDARD 99)
-set(CMAKE_C_STANDARD_REQUIRED ON)
+set(CMAKE_C_STANDARD 11)
 
-add_executable(auto-subtitler src/main.c)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
 
-# Project-local include and lib folders
-set(PROJ_ROOT "${CMAKE_SOURCE_DIR}")
-set(EXTRA_INCLUDE "${PROJ_ROOT}/include")   # path that contains SDL3/ or SDL.h
-set(EXTRA_LIB    "${PROJ_ROOT}/lib")       # path that contains libSDL3.a
+# Build SDL3 from source
+add_subdirectory(deps/SDL)
 
-target_include_directories(auto-subtitler PRIVATE ${EXTRA_INCLUDE})
+find_package(SDL3 REQUIRED)
 
-# Prefer importing the static library as an imported target
-add_library(SDL3_static STATIC IMPORTED)
-set_target_properties(SDL3_static PROPERTIES
-  IMPORTED_LOCATION "${EXTRA_LIB}/libSDL3.a"      # adjust filename if different
-  INTERFACE_INCLUDE_DIRECTORIES "${EXTRA_INCLUDE}"
+add_executable(Real-Time-Subtitler
+    src/transparentWindow.c
 )
 
-# Link the imported SDL3 static library and common Win32 system libs
-target_link_libraries(auto-subtitler PRIVATE SDL3_static opengl32 gdi32 user32 dwmapi)
+target_link_libraries(Real-Time-Subtitler SDL3::SDL3)
 
-
+# Copy SDL3.dll next to the exe automatically
+add_custom_command(TARGET Real-Time-Subtitler POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    $<TARGET_FILE:SDL3::SDL3>
+    $<TARGET_FILE_DIR:Real-Time-Subtitler>
+)

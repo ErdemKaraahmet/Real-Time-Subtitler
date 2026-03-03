@@ -1,0 +1,23 @@
+show text on screen
+clean up setup sh
+clean up file tree
+clean up read me 
+
+subtitle-app/
+├── bin/                # Compiled executables (ignored by git)
+├── build/              # Build artifacts (CMake/Make files)
+├── data/               # Model files (Vosk models, fonts)
+│   └── model-en/       # The 50MB Vosk model folder
+├── include/            # Header files (.h)
+│   ├── audio.h         # Logic for capturing system sound
+│   ├── engine.h        # Interface for STT (Vosk/Whisper)
+│   ├── ui.h            # Overlay and transparency logic
+│   └── common.h        # Shared structs, constants, and logging macros
+├── src/                # Implementation files (.c)
+│   ├── main.c          # Entry point and thread orchestration
+│   ├── audio.c         # WASAPI/PortAudio implementation
+│   ├── engine_vosk.c   # Vosk-specific implementation
+│   └── ui_raylib.c     # Raylib/GLFW implementation
+├── lib/                # External static libraries (.lib / .a)
+├── Makefile            # Or CMakeLists.txt (Your build instructions)
+└── README.md
