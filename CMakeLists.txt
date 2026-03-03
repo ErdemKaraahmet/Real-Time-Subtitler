@@ -8,8 +8,6 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
 # Build SDL3 from source
 add_subdirectory(deps/SDL)
 
-find_package(SDL3 REQUIRED)
-
 add_executable(Real-Time-Subtitler
     src/transparentWindow.c
 )
