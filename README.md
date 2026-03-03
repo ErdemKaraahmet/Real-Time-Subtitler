@@ -1,6 +1,3 @@
-<<<<<<< HEAD
-# Real-Time-Subtitler
-=======
 # Real-Time-Subtitler
 
 A lightweight, cross-platform real-time subtitle clickthrough overlay that captures system audio and converts it to live subtitles.
@@ -8,9 +5,9 @@ A lightweight, cross-platform real-time subtitle clickthrough overlay that captu
 Which hopefully will be a usefull alternative to native windows and chrome live captions for inviduals with hearing impairment.
 
 
-### Clean Build
+## Build
 ```bash
-rm -rf build
+git clone --recurse-submodules https://github.com/ErdemKaraahmet/Real-Time-Subtitler.git
 cmake -B build
 cmake --build build
 ```
@@ -27,5 +24,3 @@ cmake --build build
 - Cross-platform (Windows, macOS, Linux)
 - Low memory footprint
 
-
->>>>>>> dev
