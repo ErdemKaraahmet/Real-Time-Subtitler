@@ -19,14 +19,34 @@ set(SDL_GPU_OPENXR OFF)
 set(SDL_RENDER_VULKAN OFF) 
 set(SDL_OPENGLES OFF)
 
+# Apply SDL mouse passthrough patch if not already applied
+execute_process(
+    COMMAND git apply --check ${CMAKE_SOURCE_DIR}/deps/patches/sdl_mouse_passthrough.patch
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/deps/SDL
+    RESULT_VARIABLE patch_check
+    ERROR_QUIET
+    OUTPUT_QUIET
+)
+if(patch_check EQUAL 0)
+    message(STATUS "Applying SDL mouse passthrough patch...")
+    execute_process(
+        COMMAND git apply ${CMAKE_SOURCE_DIR}/deps/patches/sdl_mouse_passthrough.patch
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/deps/SDL
+    )
+endif()
+
 # Build SDL3 from source
 add_subdirectory(deps/SDL)
+add_subdirectory(deps/SDL_ttf)
 
 add_executable(Real-Time-Subtitler
     src/transparentWindow.c
 )
 
-target_link_libraries(Real-Time-Subtitler SDL3::SDL3)
+target_link_libraries(Real-Time-Subtitler 
+    SDL3::SDL3
+    SDL3_ttf::SDL3_ttf
+)
 
 # Copy SDL3.dll next to the exe automatically
 add_custom_command(TARGET Real-Time-Subtitler POST_BUILD

@@ -1,0 +1,316 @@
+From d60272ec6d08d2df963559783f94aba3f145bb33 Mon Sep 17 00:00:00 2001
+From: AQtun81 <lysy9990@gmail.com>
+Date: Mon, 1 Dec 2025 09:15:26 +0100
+Subject: [PATCH] Added SDL_SetWindowMousePassthrough
+
+---
+ include/SDL3/SDL_video.h              | 12 +++++++++++
+ src/dynapi/SDL_dynapi.sym             |  1 +
+ src/dynapi/SDL_dynapi_overrides.h     |  1 +
+ src/dynapi/SDL_dynapi_procs.h         |  1 +
+ src/video/SDL_sysvideo.h              |  1 +
+ src/video/SDL_video.c                 | 10 +++++++++
+ src/video/cocoa/SDL_cocoavideo.m      |  1 +
+ src/video/cocoa/SDL_cocoawindow.h     |  1 +
+ src/video/cocoa/SDL_cocoawindow.m     |  7 +++++++
+ src/video/wayland/SDL_waylandvideo.c  |  1 +
+ src/video/wayland/SDL_waylandwindow.c | 14 +++++++++++++
+ src/video/wayland/SDL_waylandwindow.h |  1 +
+ src/video/windows/SDL_windowsvideo.c  |  1 +
+ src/video/windows/SDL_windowswindow.c | 29 +++++++++++++++++++++++++++
+ src/video/windows/SDL_windowswindow.h |  1 +
+ src/video/x11/SDL_x11video.c          |  1 +
+ src/video/x11/SDL_x11window.c         | 14 +++++++++++++
+ src/video/x11/SDL_x11window.h         |  1 +
+ 18 files changed, 98 insertions(+)
+
+diff --git a/include/SDL3/SDL_video.h b/include/SDL3/SDL_video.h
+index b35d80113f18f..48cc46d7e0d3b 100644
+--- a/include/SDL3/SDL_video.h
++++ b/include/SDL3/SDL_video.h
+@@ -2703,6 +2703,18 @@ extern SDL_DECLSPEC bool SDLCALL SDL_SetWindowOpacity(SDL_Window *window, float
+  */
+ extern SDL_DECLSPEC float SDLCALL SDL_GetWindowOpacity(SDL_Window *window);
+ 
++/**
++ * Enable or disable mouse passthrough for a window.
++ *
++ * \param window the window to set mouse passthrough for.
++ * \param passthrough true to make the window transparent to mouse input, false to capture mouse input.
++ *
++ * \threadsafety This function should only be called on the main thread.
++ *
++ * \since This function is available since SDL 3.6.0.
++ */
++extern SDL_DECLSPEC void SDLCALL SDL_SetWindowMousePassthrough(SDL_Window *window, bool passthrough);
++
+ /**
+  * Set the window as a child of a parent window.
+  *
+diff --git a/src/dynapi/SDL_dynapi.sym b/src/dynapi/SDL_dynapi.sym
+index de64a3efad92a..7b73836973e42 100644
+--- a/src/dynapi/SDL_dynapi.sym
++++ b/src/dynapi/SDL_dynapi.sym
+@@ -1270,6 +1270,7 @@ SDL3_0.0.0 {
+     SDL_RotateSurface;
+     SDL_LoadSurface_IO;
+     SDL_LoadSurface;
++    SDL_SetWindowMousePassthrough;
+     # extra symbols go here (don't modify this line)
+   local: *;
+ };
+diff --git a/src/dynapi/SDL_dynapi_overrides.h b/src/dynapi/SDL_dynapi_overrides.h
+index cc53044efb606..c708071706d9b 100644
+--- a/src/dynapi/SDL_dynapi_overrides.h
++++ b/src/dynapi/SDL_dynapi_overrides.h
+@@ -1296,3 +1296,4 @@
+ #define SDL_RotateSurface SDL_RotateSurface_REAL
+ #define SDL_LoadSurface_IO SDL_LoadSurface_IO_REAL
+ #define SDL_LoadSurface SDL_LoadSurface_REAL
++#define SDL_SetWindowMousePassthrough SDL_SetWindowMousePassthrough_REAL
+diff --git a/src/dynapi/SDL_dynapi_procs.h b/src/dynapi/SDL_dynapi_procs.h
+index 9e3c9cdbef2bd..86e12f93832ea 100644
+--- a/src/dynapi/SDL_dynapi_procs.h
++++ b/src/dynapi/SDL_dynapi_procs.h
+@@ -1304,3 +1304,4 @@ SDL_DYNAPI_PROC(SDL_Cursor*,SDL_CreateAnimatedCursor,(SDL_CursorFrameInfo *a,int
+ SDL_DYNAPI_PROC(SDL_Surface*,SDL_RotateSurface,(SDL_Surface *a,float b),(a,b),return)
+ SDL_DYNAPI_PROC(SDL_Surface*,SDL_LoadSurface_IO,(SDL_IOStream *a,bool b),(a,b),return)
+ SDL_DYNAPI_PROC(SDL_Surface*,SDL_LoadSurface,(const char *a),(a),return)
++SDL_DYNAPI_PROC(void,SDL_SetWindowMousePassthrough,(SDL_Window *a,bool b),(a,b),)
+diff --git a/src/video/SDL_sysvideo.h b/src/video/SDL_sysvideo.h
+index 27819d4e7c038..c2cfebc559369 100644
+--- a/src/video/SDL_sysvideo.h
++++ b/src/video/SDL_sysvideo.h
+@@ -284,6 +284,7 @@ struct SDL_VideoDevice
+     float (*GetWindowContentScale)(SDL_VideoDevice *_this, SDL_Window *window);
+     void (*GetWindowSizeInPixels)(SDL_VideoDevice *_this, SDL_Window *window, int *w, int *h);
+     bool (*SetWindowOpacity)(SDL_VideoDevice *_this, SDL_Window *window, float opacity);
++    void (*SetWindowMousePassthrough)(SDL_VideoDevice *_this, SDL_Window *window, bool passthrough);
+     bool (*SetWindowParent)(SDL_VideoDevice *_this, SDL_Window *window, SDL_Window *parent);
+     bool (*SetWindowModal)(SDL_VideoDevice *_this, SDL_Window *window, bool modal);
+     void (*ShowWindow)(SDL_VideoDevice *_this, SDL_Window *window);
+diff --git a/src/video/SDL_video.c b/src/video/SDL_video.c
+index 4f9bb6a437c86..f2a54442d8c2e 100644
+--- a/src/video/SDL_video.c
++++ b/src/video/SDL_video.c
+@@ -3793,6 +3793,16 @@ float SDL_GetWindowOpacity(SDL_Window *window)
+     return window->opacity;
+ }
+ 
++void SDL_SetWindowMousePassthrough(SDL_Window *window, bool passthrough)
++{
++    if (!_this->SetWindowMousePassthrough) {
++        SDL_Unsupported();
++        return;
++    }
++
++    _this->SetWindowMousePassthrough(_this, window, passthrough);
++}
++
+ bool SDL_SetWindowParent(SDL_Window *window, SDL_Window *parent)
+ {
+     CHECK_WINDOW_MAGIC(window, false);
+diff --git a/src/video/cocoa/SDL_cocoavideo.m b/src/video/cocoa/SDL_cocoavideo.m
+index d77080779d848..55e5b39ddfcab 100644
+--- a/src/video/cocoa/SDL_cocoavideo.m
++++ b/src/video/cocoa/SDL_cocoavideo.m
+@@ -101,6 +101,7 @@ static void Cocoa_DeleteDevice(SDL_VideoDevice *device)
+         device->SetWindowMaximumSize = Cocoa_SetWindowMaximumSize;
+         device->SetWindowAspectRatio = Cocoa_SetWindowAspectRatio;
+         device->SetWindowOpacity = Cocoa_SetWindowOpacity;
++        device->SetWindowMousePassthrough = Cocoa_SetWindowMousePassthrough;
+         device->GetWindowSizeInPixels = Cocoa_GetWindowSizeInPixels;
+         device->ShowWindow = Cocoa_ShowWindow;
+         device->HideWindow = Cocoa_HideWindow;
+diff --git a/src/video/cocoa/SDL_cocoawindow.h b/src/video/cocoa/SDL_cocoawindow.h
+index f5ca4ab894960..1361713ebc27f 100644
+--- a/src/video/cocoa/SDL_cocoawindow.h
++++ b/src/video/cocoa/SDL_cocoawindow.h
+@@ -173,6 +173,7 @@ extern void Cocoa_SetWindowMaximumSize(SDL_VideoDevice *_this, SDL_Window *windo
+ extern void Cocoa_SetWindowAspectRatio(SDL_VideoDevice *_this, SDL_Window *window);
+ extern void Cocoa_GetWindowSizeInPixels(SDL_VideoDevice *_this, SDL_Window *window, int *w, int *h);
+ extern bool Cocoa_SetWindowOpacity(SDL_VideoDevice *_this, SDL_Window *window, float opacity);
++extern void Cocoa_SetWindowMousePassthrough(SDL_VideoDevice *_this, SDL_Window *window, bool passthrough);
+ extern void Cocoa_ShowWindow(SDL_VideoDevice *_this, SDL_Window *window);
+ extern void Cocoa_HideWindow(SDL_VideoDevice *_this, SDL_Window *window);
+ extern void Cocoa_RaiseWindow(SDL_VideoDevice *_this, SDL_Window *window);
+diff --git a/src/video/cocoa/SDL_cocoawindow.m b/src/video/cocoa/SDL_cocoawindow.m
+index d377bdbfc09e4..41a27fd463414 100644
+--- a/src/video/cocoa/SDL_cocoawindow.m
++++ b/src/video/cocoa/SDL_cocoawindow.m
+@@ -3416,6 +3416,13 @@ bool Cocoa_SetWindowOpacity(SDL_VideoDevice *_this, SDL_Window *window, float op
+     }
+ }
+ 
++void Cocoa_SetWindowMousePassthrough(SDL_VideoDevice *_this, SDL_Window *window, bool passthrough) {
++    @autoreleasepool {
++        SDL_CocoaWindowData *data = (__bridge SDL_CocoaWindowData *)window->internal;
++        [data.nswindow setIgnoresMouseEvents:passthrough];
++    }
++}
++
+ bool Cocoa_SyncWindow(SDL_VideoDevice *_this, SDL_Window *window)
+ {
+     bool result = false;
+diff --git a/src/video/wayland/SDL_waylandvideo.c b/src/video/wayland/SDL_waylandvideo.c
+index 9cd6de66876e4..b8a8712e214ae 100644
+--- a/src/video/wayland/SDL_waylandvideo.c
++++ b/src/video/wayland/SDL_waylandvideo.c
+@@ -656,6 +656,7 @@ static SDL_VideoDevice *Wayland_CreateDevice(bool require_preferred_protocols)
+     device->SetWindowParent = Wayland_SetWindowParent;
+     device->SetWindowModal = Wayland_SetWindowModal;
+     device->SetWindowOpacity = Wayland_SetWindowOpacity;
++    device->SetWindowMousePassthrough = Wayland_SetWindowMousePassthrough;
+     device->SetWindowTitle = Wayland_SetWindowTitle;
+     device->SetWindowIcon = Wayland_SetWindowIcon;
+     device->GetWindowSizeInPixels = Wayland_GetWindowSizeInPixels;
+diff --git a/src/video/wayland/SDL_waylandwindow.c b/src/video/wayland/SDL_waylandwindow.c
+index 5fddec7221fda..2d6addb1f10f2 100644
+--- a/src/video/wayland/SDL_waylandwindow.c
++++ b/src/video/wayland/SDL_waylandwindow.c
+@@ -2961,6 +2961,20 @@ bool Wayland_SetWindowOpacity(SDL_VideoDevice *_this, SDL_Window *window, float
+     return SDL_SetError("wayland: set window opacity failed; compositor lacks support for the required wp_alpha_modifier_v1 protocol");
+ }
+ 
++void Wayland_SetWindowMousePassthrough(SDL_VideoDevice *_this, SDL_Window *window, bool passthrough)
++{
++    SDL_VideoData *viddata = _this->internal;
++    SDL_WindowData *data = window->internal;
++
++    if (passthrough) {
++        struct wl_region *region = wl_compositor_create_region(viddata->compositor);
++        wl_surface_set_input_region(data->surface, region);
++        wl_region_destroy(region);
++    } else {
++        wl_surface_set_input_region(data->surface, NULL);
++    }
++}
++
+ void Wayland_SetWindowTitle(SDL_VideoDevice *_this, SDL_Window *window)
+ {
+     SDL_WindowData *wind = window->internal;
+diff --git a/src/video/wayland/SDL_waylandwindow.h b/src/video/wayland/SDL_waylandwindow.h
+index eeec232b7a9cc..3449bf4976fb5 100644
+--- a/src/video/wayland/SDL_waylandwindow.h
++++ b/src/video/wayland/SDL_waylandwindow.h
+@@ -243,6 +243,7 @@ extern SDL_DisplayID Wayland_GetDisplayForWindow(SDL_VideoDevice *_this, SDL_Win
+ extern bool Wayland_SetWindowParent(SDL_VideoDevice *_this, SDL_Window *window, SDL_Window *parent_window);
+ extern bool Wayland_SetWindowModal(SDL_VideoDevice *_this, SDL_Window *window, bool modal);
+ extern bool Wayland_SetWindowOpacity(SDL_VideoDevice *_this, SDL_Window *window, float opacity);
++extern void Wayland_SetWindowMousePassthrough(SDL_VideoDevice *_this, SDL_Window *window, bool passthrough);
+ extern void Wayland_SetWindowTitle(SDL_VideoDevice *_this, SDL_Window *window);
+ extern void Wayland_ShowWindowSystemMenu(SDL_Window *window, int x, int y);
+ extern void Wayland_DestroyWindow(SDL_VideoDevice *_this, SDL_Window *window);
+diff --git a/src/video/windows/SDL_windowsvideo.c b/src/video/windows/SDL_windowsvideo.c
+index 3db7614b46391..8484fe894e124 100644
+--- a/src/video/windows/SDL_windowsvideo.c
++++ b/src/video/windows/SDL_windowsvideo.c
+@@ -336,6 +336,7 @@ static SDL_VideoDevice *WIN_CreateDevice(void)
+     device->GetWindowBordersSize = WIN_GetWindowBordersSize;
+     device->GetWindowSizeInPixels = WIN_GetWindowSizeInPixels;
+     device->SetWindowOpacity = WIN_SetWindowOpacity;
++    device->SetWindowMousePassthrough = WIN_SetWindowMousePassthrough;
+     device->ShowWindow = WIN_ShowWindow;
+     device->HideWindow = WIN_HideWindow;
+     device->RaiseWindow = WIN_RaiseWindow;
+diff --git a/src/video/windows/SDL_windowswindow.c b/src/video/windows/SDL_windowswindow.c
+index b3cedbbf1c5ea..61fd7d31046ba 100644
+--- a/src/video/windows/SDL_windowswindow.c
++++ b/src/video/windows/SDL_windowswindow.c
+@@ -1675,6 +1675,35 @@ bool WIN_SetWindowOpacity(SDL_VideoDevice *_this, SDL_Window *window, float opac
+ #endif // !defined(SDL_PLATFORM_XBOXONE) && !defined(SDL_PLATFORM_XBOXSERIES)
+ }
+ 
++void WIN_SetWindowMousePassthrough(SDL_VideoDevice *_this, SDL_Window *window, bool passthrough)
++{
++#if defined(SDL_PLATFORM_XBOXONE) || defined(SDL_PLATFORM_XBOXSERIES)
++#else
++    SDL_WindowData *data = window->internal;
++    HWND hwnd = data->hwnd;
++    LONG style = GetWindowLong(hwnd, GWL_EXSTYLE);
++
++    if (passthrough) {
++        COLORREF key = 0;
++        BYTE alpha = 0;
++        DWORD flags = 0;
++        if (style & WS_EX_LAYERED) {
++            GetLayeredWindowAttributes(hwnd, &key, &alpha, &flags);
++        }
++        style |= (WS_EX_TRANSPARENT | WS_EX_LAYERED);
++        SetWindowLong(hwnd, GWL_EXSTYLE, style);
++        SetLayeredWindowAttributes(hwnd, key, alpha, flags);
++    } else {
++        style &= ~WS_EX_TRANSPARENT;
++
++        if ((style & (WS_EX_LAYERED | LWA_ALPHA)) == WS_EX_LAYERED) {
++            style &= ~WS_EX_LAYERED;
++        }
++        SetWindowLong(hwnd, GWL_EXSTYLE, style);
++    }
++#endif // !defined(SDL_PLATFORM_XBOXONE) && !defined(SDL_PLATFORM_XBOXSERIES)
++}
++
+ #if !defined(SDL_PLATFORM_XBOXONE) && !defined(SDL_PLATFORM_XBOXSERIES)
+ 
+ static const char *SDLGetClipboardFormatName(UINT cf, char *text, int len)
+diff --git a/src/video/windows/SDL_windowswindow.h b/src/video/windows/SDL_windowswindow.h
+index d461660d017d1..88f1537c26a05 100644
+--- a/src/video/windows/SDL_windowswindow.h
++++ b/src/video/windows/SDL_windowswindow.h
+@@ -115,6 +115,7 @@ extern void WIN_SetWindowSize(SDL_VideoDevice *_this, SDL_Window *window);
+ extern bool WIN_GetWindowBordersSize(SDL_VideoDevice *_this, SDL_Window *window, int *top, int *left, int *bottom, int *right);
+ extern void WIN_GetWindowSizeInPixels(SDL_VideoDevice *_this, SDL_Window *window, int *width, int *height);
+ extern bool WIN_SetWindowOpacity(SDL_VideoDevice *_this, SDL_Window *window, float opacity);
++extern void WIN_SetWindowMousePassthrough(SDL_VideoDevice *_this, SDL_Window *window, bool passthrough);
+ extern void WIN_ShowWindow(SDL_VideoDevice *_this, SDL_Window *window);
+ extern void WIN_HideWindow(SDL_VideoDevice *_this, SDL_Window *window);
+ extern void WIN_RaiseWindow(SDL_VideoDevice *_this, SDL_Window *window);
+diff --git a/src/video/x11/SDL_x11video.c b/src/video/x11/SDL_x11video.c
+index 55002abe45c54..d12750db837d3 100644
+--- a/src/video/x11/SDL_x11video.c
++++ b/src/video/x11/SDL_x11video.c
+@@ -161,6 +161,7 @@ static SDL_VideoDevice *X11_CreateDevice(void)
+     device->SetWindowAspectRatio = X11_SetWindowAspectRatio;
+     device->GetWindowBordersSize = X11_GetWindowBordersSize;
+     device->SetWindowOpacity = X11_SetWindowOpacity;
++    device->SetWindowMousePassthrough = X11_SetWindowMousePassthrough;
+     device->SetWindowParent = X11_SetWindowParent;
+     device->SetWindowModal = X11_SetWindowModal;
+     device->ShowWindow = X11_ShowWindow;
+diff --git a/src/video/x11/SDL_x11window.c b/src/video/x11/SDL_x11window.c
+index b44690878825e..57b616d23c41f 100644
+--- a/src/video/x11/SDL_x11window.c
++++ b/src/video/x11/SDL_x11window.c
+@@ -1395,6 +1395,20 @@ bool X11_SetWindowOpacity(SDL_VideoDevice *_this, SDL_Window *window, float opac
+     return true;
+ }
+ 
++void X11_SetWindowMousePassthrough(SDL_VideoDevice *_this, SDL_Window *window, bool passthrough)
++{
++    SDL_WindowData *data = window->internal;
++    Display *display = data->videodata->display;
++
++    if (passthrough) {
++        Region region = X11_XCreateRegion();
++        X11_XShapeCombineRegion(display, data->xwindow, ShapeInput, 0, 0, region, ShapeSet);
++        X11_XDestroyRegion(region);
++    } else {
++        X11_XShapeCombineMask(display, data->xwindow, ShapeInput, 0, 0, None, ShapeSet);
++    }
++}
++
+ bool X11_SetWindowParent(SDL_VideoDevice *_this, SDL_Window *window, SDL_Window *parent)
+ {
+     SDL_WindowData *data = window->internal;
+diff --git a/src/video/x11/SDL_x11window.h b/src/video/x11/SDL_x11window.h
+index a7fad8982b14e..00210a6751b4d 100644
+--- a/src/video/x11/SDL_x11window.h
++++ b/src/video/x11/SDL_x11window.h
+@@ -141,6 +141,7 @@ extern void X11_SetWindowMaximumSize(SDL_VideoDevice *_this, SDL_Window *window)
+ extern void X11_SetWindowAspectRatio(SDL_VideoDevice *_this, SDL_Window *window);
+ extern bool X11_GetWindowBordersSize(SDL_VideoDevice *_this, SDL_Window *window, int *top, int *left, int *bottom, int *right);
+ extern bool X11_SetWindowOpacity(SDL_VideoDevice *_this, SDL_Window *window, float opacity);
++extern void X11_SetWindowMousePassthrough(SDL_VideoDevice *_this, SDL_Window *window, bool passthrough);
+ extern bool X11_SetWindowParent(SDL_VideoDevice *_this, SDL_Window *window, SDL_Window *parent);
+ extern bool X11_SetWindowModal(SDL_VideoDevice *_this, SDL_Window *window, bool modal);
+ extern void X11_SetWindowSize(SDL_VideoDevice *_this, SDL_Window *window);

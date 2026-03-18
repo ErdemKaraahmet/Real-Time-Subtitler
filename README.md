@@ -12,7 +12,7 @@ cmake -B build
 cmake --build build
 ```
 
----
+> A patch to SDL3 to enable mouse passthrough functionality will be automatically applied ([SDL PR #14561](https://github.com/libsdl-org/SDL/pull/14561) by [AQtun81](https://github.com/AQtun81)). This patch will be removed from the build process once it is merged into the official SDL3 release.
 
 ## Dependencies
 
