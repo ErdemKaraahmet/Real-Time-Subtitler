@@ -42,6 +42,8 @@ add_subdirectory(deps/SDL_ttf)
 add_executable(Real-Time-Subtitler
     src/transparentWindow.c
     src/loadConfig.c
+    src/windowManager.c
+    src/textTexture.c
 )
 
 target_link_libraries(Real-Time-Subtitler 
