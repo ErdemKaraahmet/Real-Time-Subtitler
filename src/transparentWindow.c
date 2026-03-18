@@ -1,10 +1,15 @@
 #include <SDL3/SDL.h>
 #include <SDL3_ttf/SDL_ttf.h>
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include "loadConfig.h"
 
 bool createWindow(SDL_Window** window, SDL_Renderer** renderer, int width, int height);
 
 int main(int argc, char* argv[]) {
-    // Initialize  TTF
+    // Initialize SDL and TTF
+    SDL_Init(SDL_INIT_VIDEO);
     TTF_Init();
 
     // Create a transparent window
@@ -12,10 +17,12 @@ int main(int argc, char* argv[]) {
     SDL_Renderer *renderer;
     int width = 640, height = 480;
     createWindow(&window, &renderer, width, height);
-    
+
+    // Load user config
+    AppConfig config = loadConfig();
 
     // Load a font
-    TTF_Font* font = TTF_OpenFont("fonts/cascadia.mono.ttf", 36); // Path to your font and size
+    TTF_Font* font = TTF_OpenFont("fonts/cascadia.mono.ttf", config.font_size); // Path to your font and size
     if (!font) {
         SDL_Log("Couldn't load font: %s", SDL_GetError());
         return 1;
@@ -24,10 +31,10 @@ int main(int argc, char* argv[]) {
     // Create the text surface and texture
     char *text = "Hello World"; // Read-only text
 
-    SDL_Color bgColor = {0,0,0,0};
-    SDL_Color fgColor = {255, 255, 255, 255};
+    SDL_Color bgColor = config.text_outline_color;
+    SDL_Color fgColor = config.text_color;
 
-    int thickness = 4;
+    int thickness = config.outline_thickness;
     TTF_SetFontOutline(font, thickness); // set thickness
     SDL_Surface* backGroundText = TTF_RenderText_Blended(font, text, 0, bgColor);
     
@@ -128,8 +135,6 @@ int main(int argc, char* argv[]) {
 }
 
 bool createWindow(SDL_Window** window, SDL_Renderer** renderer, int width, int height){
-    // Initialize SDL
-    SDL_Init(SDL_INIT_VIDEO);
     // Create a transparent window
     *window = SDL_CreateWindow("Subtitle Overlay", width, height, SDL_WINDOW_TRANSPARENT | SDL_WINDOW_BORDERLESS | SDL_WINDOW_ALWAYS_ON_TOP);
 
