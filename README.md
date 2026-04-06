@@ -28,7 +28,7 @@ bash deps/whisper.cpp/models/download-ggml-model.sh
 Download a Whisper model into the `models/` folder:
 ```bash
 # Recommended: fast with good accuracy
-bash deps/whisper.cpp/models/download-ggml-model.sh tiny.en-q8_0 models/
+bash deps/whisper.cpp/models/download-ggml-model.sh tiny-q8_0 models/
 
 # Higher accuracy, slower
 bash deps/whisper.cpp/models/download-ggml-model.sh base.en models/
