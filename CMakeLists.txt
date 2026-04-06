@@ -1,4 +1,12 @@
 cmake_minimum_required(VERSION 3.20)
+
+find_program(CCACHE_PROGRAM ccache)
+if(CCACHE_PROGRAM)
+    message(STATUS "Found ccache: ${CCACHE_PROGRAM}")
+    set(CMAKE_C_COMPILER_LAUNCHER "${CCACHE_PROGRAM}")
+    set(CMAKE_CXX_COMPILER_LAUNCHER "${CCACHE_PROGRAM}")
+endif()
+
 project(Real-Time-Subtitler C CXX)
 
 set(CMAKE_C_STANDARD 11)
