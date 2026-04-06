@@ -100,6 +100,9 @@ int main(int argc, char *argv[])
         }
 
         SDL_RenderPresent(renderer);
+
+        int fps = 30;
+        SDL_Delay(1000 / fps);
     }
 
     // Close and destroy the window
