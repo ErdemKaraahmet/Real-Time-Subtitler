@@ -109,6 +109,8 @@ int main(int argc, char *argv[])
     SDL_DestroyWindow(window);
 
     // Clean up
+    whisperFree();
+    cleanupAudio();
     SDL_DestroyTexture(texture);
     TTF_CloseFont(font);
     TTF_Quit();
