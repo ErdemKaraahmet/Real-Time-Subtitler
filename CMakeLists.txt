@@ -44,7 +44,7 @@ endif()
 add_subdirectory(deps/SDL)
 add_subdirectory(deps/SDL_ttf)
 set(GGML_OPENMP OFF)
-set(BUILD_SHARED_LIBS OFF) # staticly link whisper
+set(GGML_VULKAN ON)
 add_subdirectory(deps/whisper.cpp)
 
 add_executable(Real-Time-Subtitler
@@ -76,5 +76,11 @@ target_link_libraries(Real-Time-Subtitler
 add_custom_command(TARGET Real-Time-Subtitler POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
     $<TARGET_FILE:SDL3::SDL3>
+    $<TARGET_FILE:SDL3_ttf::SDL3_ttf>
+    $<TARGET_FILE:whisper>
+    $<TARGET_FILE:ggml>
+    $<TARGET_FILE:ggml-base>
+    $<TARGET_FILE:ggml-cpu>
+    $<TARGET_FILE:ggml-vulkan>
     $<TARGET_FILE_DIR:Real-Time-Subtitler>
 )
