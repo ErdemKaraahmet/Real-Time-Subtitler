@@ -9,7 +9,7 @@ static struct whisper_context* ctx = NULL;
 // Initialize
 bool whisperInit(const char* modelPath) {
     struct whisper_context_params cparams = whisper_context_default_params();
-    //cparams.use_gpu = true;
+    cparams.use_gpu = true;
     ctx = whisper_init_from_file_with_params(modelPath, cparams);
     return (ctx != NULL);
 }
