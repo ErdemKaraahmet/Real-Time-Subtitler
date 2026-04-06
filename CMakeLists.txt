@@ -45,6 +45,7 @@ add_executable(Real-Time-Subtitler
     src/windowManager.c
     src/textTexture.c
     src/whisperEngine.c
+    src/audioCapture.c
 )
 
 target_include_directories(Real-Time-Subtitler PRIVATE
