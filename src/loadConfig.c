@@ -10,7 +10,8 @@ AppConfig loadConfig() {
         .font_size = 36,
         .outline_thickness = 4,
         .text_color = {255, 255, 255, 255},
-        .text_outline_color = {0, 0, 0, 255}
+        .text_outline_color = {0, 0, 0, 255},
+        .modelPath = "models/ggml-base.en.bin"  // default
     };
 
     char configPath[512];
@@ -33,20 +34,26 @@ AppConfig loadConfig() {
             int r, g, b;
             if (strcmp(key, "font_size") == 0) { // Get font size
                 conf.font_size = atoi(val);
-            } else if (strcmp(key, "outline_thickness") == 0) { // Get outline thickness
+            }
+            else if (strcmp(key, "outline_thickness") == 0) { // Get outline thickness
                 conf.outline_thickness = atoi(val);
-            } else if (strcmp(key, "text_color") == 0) {
+            } 
+            else if (strcmp(key, "text_color") == 0) {
                 if (sscanf(val, "%d,%d,%d", &r, &g, &b) == 3) {
                     conf.text_color.r = r;
                     conf.text_color.g = g;
                     conf.text_color.b = b;
                 }
-            } else if (strcmp(key, "text_outline_color") == 0) {
+            } 
+            else if (strcmp(key, "text_outline_color") == 0) {
                 if (sscanf(val, "%d,%d,%d", &r, &g, &b) == 3) {
                     conf.text_outline_color.r = r;
                     conf.text_outline_color.g = g;
                     conf.text_outline_color.b = b;
                 }
+            }
+            else if (strcmp(key, "modelPath") == 0) {
+                strncpy(conf.modelPath, val, sizeof(conf.modelPath) - 1);
             }
         }
     }

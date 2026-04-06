@@ -6,6 +6,7 @@ typedef struct {
     int outline_thickness;
     SDL_Color text_color;
     SDL_Color text_outline_color;
+    char modelPath[512];
 } AppConfig;
 
 AppConfig loadConfig();
