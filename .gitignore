@@ -55,6 +55,7 @@ dkms.conf
 *.dwo
 
 # folders
+bin/
 build/
 models/*
 !models/.gitkeep

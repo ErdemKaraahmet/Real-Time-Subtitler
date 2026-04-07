@@ -14,15 +14,22 @@ AppConfig loadConfig() {
         .modelPath = "models/ggml-base.en.bin"  // default
     };
 
+    // Search parent directory
     char configPath[512];
     const char* basePath = SDL_GetBasePath();
-    snprintf(configPath, sizeof(configPath), "%sconfig.ini", basePath);
+    snprintf(configPath, sizeof(configPath), "%s../config.ini", basePath);
     SDL_free((void*)basePath);
-    
+
     FILE *file = fopen(configPath, "r");
+
+    // Search basepath if its not in parent dir
     if (!file) {
-        SDL_Log("Couldnt open config file");
-       return conf; // return default
+        snprintf(configPath, sizeof(configPath), "%sconfig.ini", basePath);
+        file = fopen(configPath, "r");
+        if(!file){
+            SDL_Log("Couldnt open config file");
+            return conf; // return default
+        }
     }
     char line[100];
     char key[50];
