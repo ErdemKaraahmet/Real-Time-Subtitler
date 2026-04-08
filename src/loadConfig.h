@@ -2,6 +2,7 @@
 #include <SDL3/SDL.h>
 
 typedef struct {
+    char font[512];
     int font_size;
     int outline_thickness;
     SDL_Color text_color;

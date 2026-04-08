@@ -30,7 +30,11 @@ bool loadConfig(AppConfig* conf) {
     while (fgets(line, sizeof(line), file)) {
         if (sscanf(line, "%[^=]=%s", key, val) == 2) {
             int r, g, b;
-            if (strcmp(key, "font_size") == 0) { // Get font size
+            if (strcmp(key, "font") == 0) {
+                strncpy(conf->font, val, sizeof(conf->font) - 1);
+                conf->font[sizeof(conf->font) - 1] = '\0'; // Ensure null-termination
+            }
+            else if (strcmp(key, "font_size") == 0) { // Get font size
                 conf->font_size = atoi(val);
             }
             else if (strcmp(key, "outline_thickness") == 0) { // Get outline thickness
@@ -84,6 +88,7 @@ bool saveConfig(const AppConfig* conf) {
     }
 
     // Write formatted key=value pairs
+    fprintf(file, "font=%s\n", conf->font);
     fprintf(file, "font_size=%d\n", conf->font_size);
     fprintf(file, "outline_thickness=%d\n", conf->outline_thickness);
     fprintf(file, "text_color=%d,%d,%d\n", conf->text_color.r, conf->text_color.g, conf->text_color.b);
@@ -97,6 +102,7 @@ bool saveConfig(const AppConfig* conf) {
 AppConfig loadDefaultConfig(){
     
     AppConfig conf = {
+        .font = "fonts/cascadia.mono.ttf",
         .font_size = 24,
         .outline_thickness = 4,
         .text_color = {255, 255, 255, 255},
