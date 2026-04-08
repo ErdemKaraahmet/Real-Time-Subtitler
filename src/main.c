@@ -46,7 +46,7 @@ int main(int argc, char *argv[])
     // Create a transparent window
     SDL_Window *window;
     SDL_Renderer *renderer;
-    int width = 640, height = 480;
+    int width = 240, height = 80;
     if (!createWindow(&window, &renderer, width, height))
     {
         SDL_Log("Couldn't load font: %s", SDL_GetError());
@@ -86,6 +86,19 @@ int main(int argc, char *argv[])
             if (texture != NULL) SDL_DestroyTexture(texture);
             if (!strcmp(subtitleText, " [BLANK_AUDIO]")) subtitleText[0] = '\0'; // whisper outputs " [BLANK_AUDIO]" on empty audio, to not print it exactly
             texture = createTextTexture(renderer, font, subtitleText, config, &text_width, &text_height);
+
+            // Resize the window to fit snugly to the text
+            if (texture != NULL) {
+                
+                int currentX, currentY;
+                SDL_GetWindowPosition(window, &currentX, &currentY);
+                SDL_SetWindowPosition(window, (int)(currentX + (width - text_width)/2), (int)(currentY + (height - text_height)/2));
+
+                width = (int)text_width; // update
+                height = (int)text_height; 
+
+                SDL_SetWindowSize(window, width, height);
+            }
             
             textUpdated = false;
             SDL_UnlockMutex(textMutex);
