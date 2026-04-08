@@ -54,12 +54,9 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    char text[124];
-    // text[0] = '\0'; // Initialize to empty string
-
     // Create the text surface and texture
     float text_width, text_height;
-    SDL_Texture *texture = createTextTexture(renderer, font, text, config, &text_width, &text_height);
+    SDL_Texture *texture = NULL;
 
     DragState dragState = DragState_default;
 
