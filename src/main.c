@@ -24,8 +24,6 @@ int whisperThread(void *data);
 
 void handleEvents(SDL_Window *window, bool *done, DragState *dragState);
 
-void renderText(SDL_Renderer *renderer, TTF_Font *font, char *text, AppConfig config, int window_width, int window_height, float text_width, float text_height);
-
 int main(int argc, char *argv[])
 {
     // Initialize SDL and TTF
@@ -33,10 +31,17 @@ int main(int argc, char *argv[])
     TTF_Init();
 
     // Load user config
-    AppConfig config = loadConfig();
+    AppConfig config_obj = loadDefaultConfig();
+    AppConfig *config = &config_obj;
+    if(loadConfig(config)){
+        SDL_Log("Configuration is loaded");
+    }
+    else {
+        SDL_Log("Default configuration is loaded");
+    }
 
     initAndStartAudio();
-    whisperInit(config.modelPath);
+    whisperInit(config->modelPath);
 
     // Create a transparent window
     SDL_Window *window;
@@ -49,7 +54,7 @@ int main(int argc, char *argv[])
     }
 
     // Load a font
-    TTF_Font *font = TTF_OpenFont("fonts/cascadia.mono.ttf", config.font_size); // Path to your font and size
+    TTF_Font *font = TTF_OpenFont(config->font, config->font_size); // Path to your font and size
     if (!font)
     {
         SDL_Log("Couldn't load font: %s", SDL_GetError());
@@ -68,7 +73,7 @@ int main(int argc, char *argv[])
     bool done = false;
     while (!done)
     {
-
+        
         if (audioChunkReady(SAMPLE_SIZE) && !chunkReady)
         {
             getAudioChunk(audioChunk, SAMPLE_SIZE);

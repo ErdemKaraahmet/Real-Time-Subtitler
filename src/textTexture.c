@@ -2,7 +2,7 @@
 #include <SDL3_ttf/SDL_ttf.h>
 #include "loadConfig.h"
 
-SDL_Texture *createTextTexture(SDL_Renderer *renderer, TTF_Font *font, const char *text, AppConfig config, float *text_width, float *text_height)
+SDL_Texture *createTextTexture(SDL_Renderer *renderer, TTF_Font *font, const char *text, AppConfig *config, float *text_width, float *text_height)
 {
     if (text == NULL || text[0] == '\0')
     {
@@ -10,10 +10,10 @@ SDL_Texture *createTextTexture(SDL_Renderer *renderer, TTF_Font *font, const cha
     }
     else
     {
-        SDL_Color bgColor = config.text_outline_color;
-        SDL_Color fgColor = config.text_color;
+        SDL_Color bgColor = config->text_outline_color;
+        SDL_Color fgColor = config->text_color;
 
-        int thickness = config.outline_thickness;
+        int thickness = config->outline_thickness;
         TTF_SetFontOutline(font, thickness); // set thickness
         SDL_Surface *backGroundText = TTF_RenderText_Blended(font, text, 0, bgColor);
 
