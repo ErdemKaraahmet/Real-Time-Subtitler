@@ -79,8 +79,8 @@ int main(int argc, char *argv[])
         if (textUpdated)
         {
             SDL_LockMutex(textMutex);
-            if (texture != NULL)
-                SDL_DestroyTexture(texture);
+            if (texture != NULL) SDL_DestroyTexture(texture);
+            if (!strcmp(subtitleText, " [BLANK_AUDIO]")) subtitleText[0] = '\0'; // whisper outputs " [BLANK_AUDIO]" on empty audio, to not print it exactly
             texture = createTextTexture(renderer, font, subtitleText, config, &text_width, &text_height);
             textUpdated = false;
             SDL_UnlockMutex(textMutex);
