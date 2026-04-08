@@ -11,7 +11,7 @@
 #include "whisperEngine.h"
 
 #define SAMPLE_RATE 16000             // 16Khz
-#define SAMPLE_SIZE (SAMPLE_RATE * 1) // 16000 frames = 1 second
+#define SAMPLE_SIZE (SAMPLE_RATE * 2) // 2 second * sample rate = 32000 frames 
 
 // shared state between threads
 static char subtitleText[124] = "";
@@ -99,6 +99,9 @@ int main(int argc, char *argv[])
         SDL_RenderPresent(renderer);
 
         int fps = 30;
+        if(dragState.isDragging){
+            fps = 60;
+        }
         SDL_Delay(1000 / fps);
     }
 
