@@ -81,12 +81,6 @@ int main(int argc, char *argv[])
             if (texture != NULL) SDL_DestroyTexture(texture);
             if (!strcmp(subtitleText, " [BLANK_AUDIO]")) subtitleText[0] = '\0'; // whisper outputs " [BLANK_AUDIO]" on empty audio, to not print it exactly
             texture = createTextTexture(renderer, font, subtitleText, config, &text_width, &text_height);
-                    
-            // Draw the text in the center
-            if (texture != NULL)
-            {
-                renderText(renderer, font, subtitleText, config, width, height, text_width, text_height);
-            }
             
             textUpdated = false;
             SDL_UnlockMutex(textMutex);
@@ -98,10 +92,15 @@ int main(int argc, char *argv[])
 
         SDL_RenderClear(renderer);
 
-        int fps = 30;
-        if(dragState.isDragging){
-            fps = 60;
+        // Draw the text in the center
+        if (texture != NULL)
+        {
+            SDL_FRect dstRect = {(width - text_width) / 2, (height - text_height) / 2, text_width, text_height};
+            SDL_RenderTexture(renderer, texture, NULL, &dstRect);
         }
+        SDL_RenderPresent(renderer);
+
+        int fps = dragState.isDragging ? 60 : 30;
         SDL_Delay(1000 / fps);
     }
 
@@ -111,7 +110,7 @@ int main(int argc, char *argv[])
     // Clean up
     whisperFree();
     cleanupAudio();
-    SDL_DestroyTexture(texture);
+    if (texture) SDL_DestroyTexture(texture);
     TTF_CloseFont(font);
     TTF_Quit();
     SDL_Quit();
@@ -193,19 +192,4 @@ int whisperThread(void *data)
         SDL_Delay(10);
     }
     return 0;
-}
-
-void renderText(SDL_Renderer *renderer, TTF_Font *font, char *text, AppConfig config, int window_width, int window_height, float text_width, float text_height)
-{
-    SDL_RenderClear(renderer);
-
-    SDL_Texture *texture = createTextTexture(renderer, font, text, config, &text_width, &text_height);
-    // Draw the text in the center
-    if (texture != NULL)
-    {
-        SDL_FRect dstRect = {(window_width - text_width) / 2, (window_height - text_height) / 2, text_width, text_height};
-        SDL_RenderTexture(renderer, texture, NULL, &dstRect);
-    }
-
-    SDL_RenderPresent(renderer);
 }

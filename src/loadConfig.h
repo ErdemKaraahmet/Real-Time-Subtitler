@@ -9,4 +9,6 @@ typedef struct {
     char modelPath[512];
 } AppConfig;
 
-AppConfig loadConfig();
+AppConfig loadDefaultConfig();
+bool loadConfig(AppConfig* conf);
+bool saveConfig(const AppConfig* conf);
