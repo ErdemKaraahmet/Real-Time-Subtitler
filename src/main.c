@@ -9,6 +9,7 @@
 #include "textTexture.h"
 #include "audioCapture.h"
 #include "whisperEngine.h"
+#include "trayManager.h"
 
 #define SAMPLE_RATE 16000             // 16Khz
 #define SAMPLE_SIZE (SAMPLE_RATE * 2) // 2 second * sample rate = 32000 frames 
@@ -18,7 +19,9 @@ static char subtitleText[124] = "";
 static float audioChunk[SAMPLE_SIZE];
 static bool chunkReady = false;
 static bool textUpdated = false;
+static bool paused = false;
 static SDL_Mutex *textMutex;
+static SDL_Texture *texture = NULL; // promoted so pause handler can clear it
 
 int whisperThread(void *data);
 
@@ -53,6 +56,8 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    initTray(window);
+
     // Load a font
     TTF_Font *font = TTF_OpenFont(config->font, config->font_size); // Path to your font and size
     if (!font)
@@ -63,7 +68,6 @@ int main(int argc, char *argv[])
 
     // Create the text surface and texture
     float text_width, text_height;
-    SDL_Texture *texture = NULL;
 
     DragState dragState = DragState_default;
 
@@ -129,6 +133,7 @@ int main(int argc, char *argv[])
     whisperFree();
     cleanupAudio();
     if (texture) SDL_DestroyTexture(texture);
+    destroyTray();
     TTF_CloseFont(font);
     TTF_Quit();
     SDL_Quit();
@@ -146,51 +151,26 @@ void handleEvents(SDL_Window *window, bool *done, DragState *drag)
         {
             *done = true;
         }
-        if (event.type == SDL_EVENT_KEY_DOWN && !event.key.repeat)
-        {
-            if (event.key.key == SDLK_LSHIFT || event.key.key == SDLK_RSHIFT)
-            {
-                drag->shiftHeld = true;
-                SDL_SetWindowMousePassthrough(window, false);
-            }
-        }
-        if (event.type == SDL_EVENT_KEY_UP)
-        {
-            if (event.key.key == SDLK_LSHIFT || event.key.key == SDLK_RSHIFT)
-            {
-                drag->shiftHeld = false;
-                drag->isDragging = false;
-                SDL_SetWindowMousePassthrough(window, true);
-            }
-        }
-        if (event.type == SDL_EVENT_WINDOW_MOUSE_ENTER)
-            drag->isInWindow = true;
-        if (event.type == SDL_EVENT_WINDOW_MOUSE_LEAVE)
-            drag->isInWindow = false;
-        if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN)
-        {
-            if ((SDL_GetModState() & SDL_KMOD_SHIFT) && drag->isInWindow)
-            {
-                drag->isDragging = true;
-                float mouseX, mouseY;
-                int winX, winY;
-                SDL_GetGlobalMouseState(&mouseX, &mouseY);
-                SDL_GetWindowPosition(window, &winX, &winY);
-                drag->dragOffsetX = mouseX - winX;
-                drag->dragOffsetY = mouseY - winY;
-            }
-        }
-        if (event.type == SDL_EVENT_MOUSE_BUTTON_UP)
-            drag->isDragging = false;
-    }
 
-    if (SDL_GetModState() & SDL_KMOD_SHIFT)
-    {
-        SDL_SetWindowMousePassthrough(window, false);
-    }
-    else
-    {
-        SDL_SetWindowMousePassthrough(window, true);
+        if (event.type == SDL_EVENT_USER)
+        {
+            if (event.user.code == 1) {
+                paused = true;
+                pauseAudio();
+                // Immediately clear the on-screen text
+                subtitleText[0] = '\0';
+                if (texture) { SDL_DestroyTexture(texture); texture = NULL; }
+            }
+            else {
+                paused = false;
+                resumeAudio();
+            }
+        }
+        if (event.type == SDL_EVENT_WINDOW_FOCUS_LOST)
+        {
+            SDL_SetWindowMousePassthrough(window, true);
+            SDL_SetWindowBordered(window, false);
+        }
     }
 }
 
@@ -198,7 +178,7 @@ int whisperThread(void *data)
 {
     while (true)
     {
-        if (chunkReady)
+        if (chunkReady && !paused)
         {
             SDL_LockMutex(textMutex);
             subtitleText[0] = '\0';
@@ -206,6 +186,10 @@ int whisperThread(void *data)
             textUpdated = true;
             SDL_UnlockMutex(textMutex);
             chunkReady = false;
+        }
+        else if (chunkReady && paused)
+        {
+            chunkReady = false; // discard stale audio collected while paused
         }
         SDL_Delay(10);
     }

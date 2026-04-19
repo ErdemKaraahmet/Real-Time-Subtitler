@@ -18,12 +18,13 @@ set(SDL_HAPTIC OFF)
 set(SDL_CAMERA OFF) 
 set(SDL_SENSOR OFF) 
 set(SDL_DIALOG OFF) 
-set(SDL_TRAY OFF) 
+set(SDL_TRAY ON) 
 set(SDL_HIDAPI OFF) 
 set(SDL_RENDER_D3D12 OFF)  
 set(SDL_GPU_OPENXR OFF) 
-set(SDL_RENDER_VULKAN OFF) 
+set(SDL_RENDER_VULKAN ON) 
 set(SDL_OPENGLES OFF)
+set(SDL_CCACHE ON)
 
 # Apply SDL mouse passthrough patch if not already applied
 execute_process(
@@ -54,6 +55,7 @@ add_executable(Real-Time-Subtitler
     src/textTexture.c
     src/whisperEngine.c
     src/audioCapture.c
+    src/trayManager.c
 )
 
 target_include_directories(Real-Time-Subtitler PRIVATE

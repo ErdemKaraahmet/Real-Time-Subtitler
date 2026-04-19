@@ -78,7 +78,9 @@ void getAudioChunk(float* outputBuffer, int sampleSize)
     memcpy(outputBuffer, pRingBuffer, sampleSize * sizeof(float));
     ma_pcm_rb_commit_read(&ringBuffer, sampleSize);
     printf("got %d frames\n", sampleSize);  // add this
+
 }
+
 bool audioChunkReady(ma_uint32 sampleSize) {
     return ma_pcm_rb_available_read(&ringBuffer) >= sampleSize;
 }
@@ -87,6 +89,16 @@ bool audioChunkReady(ma_uint32 sampleSize) {
 void cleanupAudio()
 {
     ma_device_uninit(&device);
+}
+
+void pauseAudio()
+{
+    ma_device_stop(&device);
+}
+
+void resumeAudio()
+{
+    ma_device_start(&device);
 }
 
 #elif defined(__linux__)

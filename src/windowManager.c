@@ -5,7 +5,7 @@ DragState DragState_default = {false, false, false, 0, 0};
 
 bool createWindow(SDL_Window** window, SDL_Renderer** renderer, int width, int height){
     // Create a transparent window
-    *window = SDL_CreateWindow("Subtitle Overlay", width, height, SDL_WINDOW_TRANSPARENT | SDL_WINDOW_BORDERLESS | SDL_WINDOW_ALWAYS_ON_TOP);
+    *window = SDL_CreateWindow("Subtitle Overlay", width, height, SDL_WINDOW_TRANSPARENT | SDL_WINDOW_BORDERLESS | SDL_WINDOW_ALWAYS_ON_TOP | SDL_WINDOW_UTILITY);
 
     if (*window == NULL) {
         // In the case that the window could not be made...

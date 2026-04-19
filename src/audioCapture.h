@@ -21,3 +21,9 @@ bool audioChunkReady(unsigned int sampleSize);
 
 // Uninitializes the device and frees allocated memory
 void cleanupAudio();
+
+// Pauses the audio capture device.
+void pauseAudio();
+
+// Resumes the audio capture device.
+void resumeAudio();
