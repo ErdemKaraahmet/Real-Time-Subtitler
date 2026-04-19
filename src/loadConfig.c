@@ -9,17 +9,11 @@ bool loadConfig(AppConfig* conf) {
     // Search parent directory
     char configPath[512];
     const char* basePath = SDL_GetBasePath();
-    snprintf(configPath, sizeof(configPath), "%s../config.ini", basePath);
+    snprintf(configPath, sizeof(configPath), "%sconfig.ini", basePath);
 
     FILE *file = fopen(configPath, "r");
-
-    // Search basepath if its not in parent dir
     if (!file) {
-        snprintf(configPath, sizeof(configPath), "%sconfig.ini", basePath);
-        file = fopen(configPath, "r");
-        if(!file){
-            return false; // return default
-        }
+        return false;
     }
 
     char line[100];

@@ -110,3 +110,29 @@ add_custom_command(TARGET Real-Time-Subtitler POST_BUILD
     $<TARGET_FILE:ggml-vulkan>
     $<TARGET_FILE_DIR:Real-Time-Subtitler>
 )
+
+# copy icon asset next to the exe
+add_custom_command(TARGET Real-Time-Subtitler POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    ${CMAKE_SOURCE_DIR}/spaceholder_rts_icon.png
+    $<TARGET_FILE_DIR:Real-Time-Subtitler>
+)
+
+# copy config.ini next to the exe
+add_custom_command(TARGET Real-Time-Subtitler POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    ${CMAKE_SOURCE_DIR}/config.ini
+    $<TARGET_FILE_DIR:Real-Time-Subtitler>
+)
+
+# copy fonts/ and models/ directories next to the exe
+add_custom_command(TARGET Real-Time-Subtitler POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+    ${CMAKE_SOURCE_DIR}/fonts
+    $<TARGET_FILE_DIR:Real-Time-Subtitler>/fonts
+)
+add_custom_command(TARGET Real-Time-Subtitler POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+    ${CMAKE_SOURCE_DIR}/models
+    $<TARGET_FILE_DIR:Real-Time-Subtitler>/models
+)
