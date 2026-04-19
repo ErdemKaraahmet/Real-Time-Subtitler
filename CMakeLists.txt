@@ -48,6 +48,14 @@ set(GGML_OPENMP OFF)
 set(GGML_VULKAN ON)
 add_subdirectory(deps/whisper.cpp)
 
+# Build cimgui (Dear ImGui C bindings) as a static library
+set(IMGUI_STATIC "yes" CACHE STRING "" FORCE)
+add_subdirectory(deps/cimgui)
+# Give cimgui access to SDL3 headers so imgui can use SDL types
+target_include_directories(cimgui PRIVATE
+    ${CMAKE_SOURCE_DIR}/deps/SDL/include
+)
+
 add_executable(Real-Time-Subtitler
     src/main.c
     src/loadConfig.c
@@ -56,6 +64,9 @@ add_executable(Real-Time-Subtitler
     src/whisperEngine.c
     src/audioCapture.c
     src/trayManager.c
+    # ImGui SDL3 + SDLRenderer3 backends (not compiled by cimgui target)
+    deps/cimgui/imgui/backends/imgui_impl_sdl3.cpp
+    deps/cimgui/imgui/backends/imgui_impl_sdlrenderer3.cpp
 )
 
 target_include_directories(Real-Time-Subtitler PRIVATE
@@ -64,12 +75,24 @@ target_include_directories(Real-Time-Subtitler PRIVATE
     deps/SDL_ttf
     deps/whisper.cpp/include
     deps/miniAudio
+    deps/cimgui
+    deps/cimgui/imgui
+    deps/cimgui/generator/output
+    deps/cimgui/imgui/backends
+)
+
+target_compile_definitions(Real-Time-Subtitler PRIVATE
+    CIMGUI_DEFINE_ENUMS_AND_STRUCTS
+    CIMGUI_USE_SDL3
+    CIMGUI_USE_SDLRENDERER3
+    IMGUI_USER_CONFIG="../cimconfig.h"
 )
 
 target_link_libraries(Real-Time-Subtitler 
     SDL3::SDL3
     SDL3_ttf::SDL3_ttf
     whisper
+    cimgui
     -static-libgcc
     -static-libstdc++
     -Wl,-Bstatic,--whole-archive -lwinpthread -Wl,--no-whole-archive

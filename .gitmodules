@@ -10,3 +10,6 @@
 	path = deps/whisper.cpp
 	url = https://github.com/ggml-org/whisper.cpp
 	shallow = true
+[submodule "deps/cimgui"]
+	path = deps/cimgui
+	url = https://github.com/cimgui/cimgui.git
