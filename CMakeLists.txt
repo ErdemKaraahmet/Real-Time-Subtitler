@@ -71,6 +71,7 @@ add_executable(Real-Time-Subtitler
 
 target_include_directories(Real-Time-Subtitler PRIVATE
     src
+    include
     deps/SDL
     deps/SDL_ttf
     deps/whisper.cpp/include
