@@ -25,7 +25,7 @@ static SDL_Texture *texture = NULL; // promoted so pause handler can clear it
 
 int whisperThread(void *data);
 
-void handleEvents(SDL_Window *window, bool *done, DragState *dragState);
+void handleEvents(SDL_Window *window, bool *done, DragState *dragState, bool *needsRedraw, int timeout);
 
 int main(int argc, char *argv[])
 {
@@ -75,9 +75,9 @@ int main(int argc, char *argv[])
     SDL_CreateThread(whisperThread, "whisper", NULL);
 
     bool done = false;
+    bool needsRedraw = true;
     while (!done)
     {
-        
         if (audioChunkReady(SAMPLE_SIZE) && !chunkReady)
         {
             getAudioChunk(audioChunk, SAMPLE_SIZE);
@@ -105,25 +105,35 @@ int main(int argc, char *argv[])
             }
             
             textUpdated = false;
+            needsRedraw = true;
             SDL_UnlockMutex(textMutex);
         }
-        handleEvents(window, &done, &dragState);
+
+        // Wait for events. Timeout is 16ms when custom dragging, 100ms when idle/stationary.
+        int timeout = dragState.isDragging ? 16 : 100;
+        handleEvents(window, &done, &dragState, &needsRedraw, timeout);
 
         // If we are dragging move the window
         dragWindow(window, &dragState);
-
-        SDL_RenderClear(renderer);
-
-        // Draw the text in the center
-        if (texture != NULL)
+        if (dragState.isDragging)
         {
-            SDL_FRect dstRect = {(width - text_width) / 2, (height - text_height) / 2, text_width, text_height};
-            SDL_RenderTexture(renderer, texture, NULL, &dstRect);
+            needsRedraw = true;
         }
-        SDL_RenderPresent(renderer);
 
-        int fps = dragState.isDragging ? 60 : 30;
-        SDL_Delay(1000 / fps);
+        if (needsRedraw)
+        {
+            SDL_RenderClear(renderer);
+
+            // Draw the text in the center
+            if (texture != NULL)
+            {
+                SDL_FRect dstRect = {(width - text_width) / 2, (height - text_height) / 2, text_width, text_height};
+                SDL_RenderTexture(renderer, texture, NULL, &dstRect);
+            }
+            SDL_RenderPresent(renderer);
+            needsRedraw = false;
+        }
+        SDL_Delay(1000 / 60); // Limit to 60 FPS
     }
 
     // Close and destroy the window
@@ -141,36 +151,43 @@ int main(int argc, char *argv[])
     return 0;
 }
 
-void handleEvents(SDL_Window *window, bool *done, DragState *drag)
+void handleEvents(SDL_Window *window, bool *done, DragState *drag, bool *needsRedraw, int timeout)
 {
-
     SDL_Event event;
-    while (SDL_PollEvent(&event))
+    if (SDL_WaitEventTimeout(&event, timeout))
     {
-        if (event.type == SDL_EVENT_QUIT)
-        {
-            *done = true;
-        }
+        do {
+            if (event.type == SDL_EVENT_QUIT)
+            {
+                *done = true;
+            }
 
-        if (event.type == SDL_EVENT_USER)
-        {
-            if (event.user.code == 1) {
-                paused = true;
-                pauseAudio();
-                // Immediately clear the on-screen text
-                subtitleText[0] = '\0';
-                if (texture) { SDL_DestroyTexture(texture); texture = NULL; }
+            if (event.type == SDL_EVENT_USER)
+            {
+                if (event.user.code == 1) {
+                    paused = true;
+                    pauseAudio();
+                    // Immediately clear the on-screen text
+                    subtitleText[0] = '\0';
+                    if (texture) { SDL_DestroyTexture(texture); texture = NULL; }
+                }
+                else if (event.user.code == 0) {
+                    paused = false;
+                    resumeAudio();
+                }
+                *needsRedraw = true;
             }
-            else {
-                paused = false;
-                resumeAudio();
+            if (event.type == SDL_EVENT_WINDOW_FOCUS_LOST)
+            {
+                SDL_SetWindowMousePassthrough(window, true);
+                SDL_SetWindowBordered(window, false);
+                *needsRedraw = true;
             }
-        }
-        if (event.type == SDL_EVENT_WINDOW_FOCUS_LOST)
-        {
-            SDL_SetWindowMousePassthrough(window, true);
-            SDL_SetWindowBordered(window, false);
-        }
+            if (event.type >= SDL_EVENT_WINDOW_FIRST && event.type <= SDL_EVENT_WINDOW_LAST)
+            {
+                *needsRedraw = true;
+            }
+        } while (SDL_PollEvent(&event));
     }
 }
 
@@ -186,6 +203,13 @@ int whisperThread(void *data)
             textUpdated = true;
             SDL_UnlockMutex(textMutex);
             chunkReady = false;
+
+            // Wake up the main event loop immediately
+            SDL_Event event;
+            SDL_zero(event);
+            event.type = SDL_EVENT_USER;
+            event.user.code = 2; // code 2: text updated
+            SDL_PushEvent(&event);
         }
         else if (chunkReady && paused)
         {
