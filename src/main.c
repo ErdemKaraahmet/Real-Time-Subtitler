@@ -4,6 +4,10 @@
 #include <string.h>
 #include <stdlib.h>
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 #include "loadConfig.h"
 #include "windowManager.h"
 #include "textTexture.h"
@@ -31,6 +35,15 @@ void handleEvents(SDL_Window *window, bool *done, DragState *dragState, bool *ne
 
 int main(int argc, char *argv[])
 {
+#ifdef _WIN32
+    // Hide the console when double-clicked from Explorer.
+    // When launched from a terminal, other processes share the console so count > 1.
+    DWORD processList[2];
+    if (GetConsoleProcessList(processList, 2) <= 1) {
+        FreeConsole();
+    }
+#endif
+
     // Initialize SDL and TTF
     SDL_Init(SDL_INIT_VIDEO);
     TTF_Init();
