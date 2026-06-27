@@ -11,8 +11,9 @@
 #include "whisperEngine.h"
 #include "trayManager.h"
 
+#define CHUNK_LENGTH_SECONDS 2
 #define SAMPLE_RATE 16000             // 16Khz
-#define SAMPLE_SIZE (SAMPLE_RATE * 2) // 2 second * sample rate = 32000 frames 
+#define SAMPLE_SIZE (CHUNK_LENGTH_SECONDS * SAMPLE_RATE) // CHUNK_LENGTH_SECONDS second * sample rate = 32000 frames 
 
 // shared state between threads
 static char subtitleText[124] = "";
@@ -22,6 +23,7 @@ static bool textUpdated = false;
 static bool paused = false;
 static SDL_Mutex *textMutex;
 static SDL_Texture *texture = NULL; // promoted so pause handler can clear it
+static Uint64 lastTextUpdateTime = 0; // timestamp of the last whisper text update (ms)
 
 int whisperThread(void *data);
 
@@ -52,7 +54,7 @@ int main(int argc, char *argv[])
     int width = 240, height = 80;
     if (!createWindow(&window, &renderer, width, height))
     {
-        SDL_Log("Couldn't load font: %s", SDL_GetError());
+        SDL_Log("Couldn't create window: %s", SDL_GetError());
         return 1;
     }
 
@@ -107,6 +109,7 @@ int main(int argc, char *argv[])
             
             textUpdated = false;
             needsRedraw = true;
+            lastTextUpdateTime = SDL_GetTicks();
             SDL_UnlockMutex(textMutex);
         }
 
@@ -118,6 +121,15 @@ int main(int argc, char *argv[])
         dragWindow(window, &dragState);
         if (dragState.isDragging)
         {
+            needsRedraw = true;
+        }
+
+        // Clear the subtitle overlay if no new text has arrived within the timeout
+        if (texture != NULL && lastTextUpdateTime > 0 &&
+            SDL_GetTicks() - lastTextUpdateTime > (Uint64)(CHUNK_LENGTH_SECONDS + 1) * 1000)
+        {
+            SDL_DestroyTexture(texture);
+            texture = NULL;
             needsRedraw = true;
         }
 
