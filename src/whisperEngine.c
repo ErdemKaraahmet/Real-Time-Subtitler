@@ -6,8 +6,13 @@
 
 static struct whisper_context* ctx = NULL;
 
+void quiet_log_callback(enum ggml_log_level level, const char * text, void * user_data) {
+    // Leave this completely empty to discard all logs
+}
+
 // Initialize
 bool whisperInit(const char* modelPath) {
+    whisper_log_set(quiet_log_callback, NULL); // Disable logging whispers own logging
     struct whisper_context_params cparams = whisper_context_default_params();
     cparams.use_gpu = true;
     ctx = whisper_init_from_file_with_params(modelPath, cparams);
@@ -28,10 +33,12 @@ bool whisperProcess(float* pcmf32, int n_samples, char* outputText, int outputLe
     }
 
     const int n_segments = whisper_full_n_segments(ctx);
-    printf("segments: %d\n", n_segments);  // add this
     for (int i = 0; i < n_segments; ++i) {
         const char * text = whisper_full_get_segment_text(ctx, i);
         strncat(outputText, text, outputLength);
+        if (text && strlen(text) > 0) {
+            printf("%s", text);
+        }
     }
 
     return true;
