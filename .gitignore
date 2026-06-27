@@ -61,5 +61,3 @@ models/*
 !models/.gitkeep
 .vscode/
 
-setup.sh
-to-do.txt

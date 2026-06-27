@@ -39,6 +39,13 @@ bash deps/whisper.cpp/models/download-ggml-model.sh base.en models/
 ./bin/Real-Time-Subtitler
 ```
 
+## Testing
+
+For convenience during development, helper scripts are provided that build the project, attempt to play the first MP3 file found in the `bin/` directory as a test audio source, and launch the application:s
+
+- **Windows (PowerShell)**: `./build_and_test.ps1`
+- **Linux / MSYS2 (Bash)**: `./build_and_test.sh` *(Requires `ffplay` from FFmpeg)*
+
 ## Configuration
 
 Edit `bin/config.ini` to customize the overlay:
