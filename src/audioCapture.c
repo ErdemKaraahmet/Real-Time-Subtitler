@@ -12,6 +12,7 @@
     #define SAMPLE_RATE 16000 // 16Khz 
     #define SECONDS_IN_BUFFER 5
     #define BUFFER_SIZE_IN_FRAMES (SAMPLE_RATE * SECONDS_IN_BUFFER)
+    #define RMS_THRESHOLD 0.001f
 
     static ma_device device;
     static ma_pcm_rb ringBuffer;
@@ -70,15 +71,21 @@ Fetches available 16kHz float samples from the internal buffer.
 @param outBuffer Target array to store samples.
 @param sampleSize used in Whisper also
  */
-void getAudioChunk(float* outputBuffer, int sampleSize)
+bool getAudioChunk(float* outputBuffer, int sampleSize)
 {
     void *pRingBuffer;
     
     ma_pcm_rb_acquire_read(&ringBuffer, &sampleSize, &pRingBuffer);
     memcpy(outputBuffer, pRingBuffer, sampleSize * sizeof(float));
     ma_pcm_rb_commit_read(&ringBuffer, sampleSize);
-    printf("got %d frames\n", sampleSize);  // add this
 
+    // Check for sound activity (VAD)
+    float sum = 0.0f;
+    for (int i = 0; i < sampleSize; ++i) {
+        float val = outputBuffer[i];
+        sum += (val < 0.0f) ? -val : val;
+    }
+    return (sum / sampleSize) > RMS_THRESHOLD;
 }
 
 bool audioChunkReady(ma_uint32 sampleSize) {

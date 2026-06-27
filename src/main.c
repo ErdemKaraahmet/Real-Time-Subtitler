@@ -80,8 +80,9 @@ int main(int argc, char *argv[])
     {
         if (audioChunkReady(SAMPLE_SIZE) && !chunkReady)
         {
-            getAudioChunk(audioChunk, SAMPLE_SIZE);
-            chunkReady = true; // signal the whisper thread
+            if (getAudioChunk(audioChunk, SAMPLE_SIZE)) {
+                chunkReady = true; // signal the whisper thread
+            }
         }
 
         if (textUpdated)
