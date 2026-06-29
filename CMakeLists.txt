@@ -43,9 +43,17 @@ if(patch_check EQUAL 0)
 endif()
 
 add_subdirectory(deps/SDL)
+set(SDLTTF_VENDORED ON CACHE BOOL "Use vendored third-party libraries" FORCE)
 add_subdirectory(deps/SDL_ttf)
 set(GGML_OPENMP OFF)
-set(GGML_VULKAN ON)
+find_package(Vulkan QUIET)
+if(Vulkan_FOUND)
+    message(STATUS "Vulkan SDK found. Building with GPU acceleration.")
+    set(GGML_VULKAN ON)
+else()
+    message(STATUS "Vulkan SDK not found. Building with CPU only.")
+    set(GGML_VULKAN OFF)
+endif()
 add_subdirectory(deps/whisper.cpp)
 
 # Build cimgui (Dear ImGui C bindings) as a static library
@@ -98,16 +106,22 @@ target_link_libraries(Real-Time-Subtitler
     -static-libstdc++
     -Wl,-Bstatic,--whole-archive -lwinpthread -Wl,--no-whole-archive
 )
-# copy SDL dll
-add_custom_command(TARGET Real-Time-Subtitler POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+# copy SDL dll and whisper/ggml runtimes next to the exe
+set(RTS_COPY_LIBS
     $<TARGET_FILE:SDL3::SDL3>
     $<TARGET_FILE:SDL3_ttf::SDL3_ttf>
     $<TARGET_FILE:whisper>
     $<TARGET_FILE:ggml>
     $<TARGET_FILE:ggml-base>
     $<TARGET_FILE:ggml-cpu>
-    $<TARGET_FILE:ggml-vulkan>
+)
+if(GGML_VULKAN)
+    list(APPEND RTS_COPY_LIBS $<TARGET_FILE:ggml-vulkan>)
+endif()
+
+add_custom_command(TARGET Real-Time-Subtitler POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+    ${RTS_COPY_LIBS}
     $<TARGET_FILE_DIR:Real-Time-Subtitler>
 )
 
