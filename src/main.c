@@ -51,15 +51,30 @@ int main(int argc, char *argv[])
     // Load user config
     AppConfig config_obj = loadDefaultConfig();
     AppConfig *config = &config_obj;
-    if(loadConfig(config)){
-        SDL_Log("Configuration is loaded");
-    }
-    else {
-        SDL_Log("Default configuration is loaded");
+    ConfigLoadStatus loadStatus = loadConfig(config);
+    switch (loadStatus) {
+        case CONFIG_LOAD_FULL:
+            SDL_Log("Config is fully loaded.");
+            break;
+        case CONFIG_LOAD_PARTIAL:
+            SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Config is partially loaded, defaults are loaded for some.");
+            break;
+        case CONFIG_LOAD_NONE:
+            SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Configur file exists but could not parse any valid settings, using default config.");
+            break;
+        case CONFIG_LOAD_FILE_NOT_FOUND:
+        default:
+            SDL_Log("Could not open config.ini, default config is loaded.");
+            break;
     }
 
     initAndStartAudio();
-    whisperInit(config->modelPath);
+    if(whisperInit(config->modelPath)){
+        SDL_Log("Whisper model loaded");
+    }
+    else {
+        SDL_Log("Couldn't load whisper model");
+    }
 
     // Create a transparent window
     SDL_Window *window;

@@ -3,8 +3,11 @@
 #include <string.h>
 #include <stdlib.h>
 
-// returns false on default values, true on successful load
-bool loadConfig(AppConfig* conf) {
+// returns CONFIG_LOAD_FILE_NOT_FOUND if file can't be opened,
+// CONFIG_LOAD_NONE if file exists but nothing loaded,
+// CONFIG_LOAD_PARTIAL if some fields loaded,
+// CONFIG_LOAD_FULL if all fields loaded
+ConfigLoadStatus loadConfig(AppConfig* conf) {
 
     // Search parent directory
     char configPath[512];
@@ -13,32 +16,41 @@ bool loadConfig(AppConfig* conf) {
 
     FILE *file = fopen(configPath, "r");
     if (!file) {
-        return false;
+        return CONFIG_LOAD_FILE_NOT_FOUND;
     }
 
     char line[100];
     char key[50];
     char val[50];
 
+    int total = 0;
+    int loadedCount = 0;
+
     // Read line by line: "key=value"
     while (fgets(line, sizeof(line), file)) {
+        total++;
+
         if (sscanf(line, "%[^=]=%s", key, val) == 2) {
             int r, g, b;
             if (strcmp(key, "font") == 0) {
                 strncpy(conf->font, val, sizeof(conf->font) - 1);
                 conf->font[sizeof(conf->font) - 1] = '\0'; // Ensure null-termination
+                loadedCount++;
             }
-            else if (strcmp(key, "font_size") == 0) { // Get font size
+            else if (strcmp(key, "font_size") == 0) {
                 conf->font_size = atoi(val);
+                loadedCount++;
             }
-            else if (strcmp(key, "outline_thickness") == 0) { // Get outline thickness
+            else if (strcmp(key, "outline_thickness") == 0) {
                 conf->outline_thickness = atoi(val);
+                loadedCount++;
             } 
             else if (strcmp(key, "text_color") == 0) {
                 if (sscanf(val, "%d,%d,%d", &r, &g, &b) == 3) {
                     conf->text_color.r = (uint8_t)r;
                     conf->text_color.g = (uint8_t)g;
                     conf->text_color.b = (uint8_t)b;
+                    loadedCount++;
                 }
             } 
             else if (strcmp(key, "text_outline_color") == 0) {
@@ -46,16 +58,28 @@ bool loadConfig(AppConfig* conf) {
                     conf->text_outline_color.r = (uint8_t)r;
                     conf->text_outline_color.g = (uint8_t)g;
                     conf->text_outline_color.b = (uint8_t)b;
+                    loadedCount++;
                 }
             }
             else if (strcmp(key, "modelPath") == 0) {
                 strncpy(conf->modelPath, val, sizeof(conf->modelPath) - 1);
+                conf->modelPath[sizeof(conf->modelPath) - 1] = '\0'; // Ensure null-termination
+                loadedCount++;
             }
         }
     }
 
     fclose(file);
-    return true;
+
+    if (loadedCount == total && total > 0) {
+        return CONFIG_LOAD_FULL;
+    }
+    else if (loadedCount > 0) {
+        return CONFIG_LOAD_PARTIAL;
+    }
+    else {
+        return CONFIG_LOAD_NONE;
+    }
 }
 
 bool saveConfig(const AppConfig* conf) {
