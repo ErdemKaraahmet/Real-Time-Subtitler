@@ -6,7 +6,7 @@ Which hopefully will be a useful alternative to native Windows and Chrome live c
 
 ## Prerequisites
 
-- [MSYS2](https://www.msys2.org/) with the UCRT64 toolchain
+- A C/C++ compiler with MinGW (e.g. [MSYS2](https://www.msys2.org/) UCRT64 toolchain on Windows)
 - CMake 3.20+
 - Git
 
@@ -17,6 +17,10 @@ cd Real-Time-Subtitler
 cmake -B build
 cmake --build build
 ```
+
+## GPU Acceleration
+
+The build automatically detects the [Vulkan SDK](https://vulkan.lunarg.com/sdk/home). If found, whisper.cpp will be compiled with Vulkan GPU acceleration for faster inference. If not found, it falls back to CPU only.
 
 ## Models
 
