@@ -60,4 +60,6 @@ build/
 models/*
 !models/.gitkeep
 .vscode/
+imgui.ini
+config.ini
 

@@ -48,19 +48,22 @@ bash deps/whisper.cpp/models/download-ggml-model.sh base.en models/
 For convenience during development, helper scripts are provided that build the project, attempt to play the first MP3 file found in the `bin/` directory as a test audio source, and launch the application:s
 
 - **Windows (PowerShell)**: `./build_and_test.ps1`
-- **Linux / MSYS2 (Bash)**: `./build_and_test.sh` *(Requires `ffplay` from FFmpeg)*
+- **Linux / MSYS2 (Bash)**: `./build_and_test.sh` 
+*both (Requires `ffplay` from FFmpeg)*
 
 ## Configuration
 
-Edit `bin/config.ini` to customize the overlay:
+Real-Time-Subtitler includes a **graphical Control Panel** that allows you to adjust settings on the fly. 
+To access it, right-click the RTS icon in your system tray and select **Control Panel**. 
 
-| Key | Default | Description |
-|-----|---------|-------------|
-| `font_size` | `36` | Font size in points |
-| `outline_thickness` | `4` | Text outline thickness in pixels |
-| `text_color` | `255,255,255` | Subtitle text color (R,G,B) |
-| `text_outline_color` | `0,0,0` | Outline color (R,G,B) |
-| `modelPath` | `models/ggml-base.en.bin` | Path to Whisper model |
+From the Control Panel you can:
+- Change the subtitle **Font** (loads fonts from the `fonts/` directory)
+- Adjust **Font Size** and **Outline Thickness**
+- Pick custom **Text** and **Outline Colors** with a live preview
+- Hot-swap the active **Whisper Model** (loads models from the `models/` directory)
+- **Pause/Resume** transcription or **Focus Window** to drag the subtitle overlay around your screen.
+
+*Settings are automatically saved to `bin/config.ini` when you hit Save.*
 
 ## Dependencies
 
@@ -69,6 +72,7 @@ Edit `bin/config.ini` to customize the overlay:
 - SDL3
 - SDL3_ttf
 - whisper.cpp
+- cimgui (Dear ImGui)
 
 > A patch to SDL3 to enable mouse passthrough functionality will be automatically applied ([SDL PR #14561](https://github.com/libsdl-org/SDL/pull/14561) by [AQtun81](https://github.com/AQtun81)). This patch will be removed from the build process once it is merged into the official SDL3 release.
 
@@ -76,11 +80,12 @@ Edit `bin/config.ini` to customize the overlay:
 ## To-Do
 
 - [x] Clickthrough transparent text overlay
+- [x] Graphical Control Panel for UI customization
 - [x] Configurable font, color, and outline
 - [x] System audio capture (Windows)
 - [ ] System audio capture (Linux)
 - [ ] System audio capture (macOS)
-- [ ] Live Whisper transcription (working, latency improvements needed)
+- [X] Live Whisper transcription (working, latency improvements needed)
 - [ ] Confidence-based text coloring
 - [ ] Speaker diarization
 - [X] Multiple model support

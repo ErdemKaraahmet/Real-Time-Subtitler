@@ -4,7 +4,7 @@
 
 SDL_Texture *createTextTexture(SDL_Renderer *renderer, TTF_Font *font, const char *text, AppConfig *config, float *text_width, float *text_height)
 {
-    if (text == NULL || text[0] == '\0')
+    if (font == NULL || text == NULL || text[0] == '\0')
     {
         return NULL;
     }
