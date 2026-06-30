@@ -1,0 +1,120 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*' # Triggers on any tag starting with 'v', e.g., v1.0.0
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            artifact_name: RTS-Windows.zip
+          # Linux and macOS are commented out until system audio capture is implemented on those platforms
+          # - os: ubuntu-latest
+          #   artifact_name: RTS-Linux.zip
+          # - os: macos-latest
+          #   artifact_name: RTS-macOS.zip
+    
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      
+      - name: Setup MSYS2 (Windows)
+        if: runner.os == 'Windows'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          cache: true
+          install: >-
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-vulkan-devel
+            mingw-w64-ucrt-x86_64-shaderc
+            mingw-w64-ucrt-x86_64-pkgconf
+            mingw-w64-ucrt-x86_64-ccache
+      
+      - name: Cache Whisper Model
+        id: cache-whisper
+        uses: actions/cache@v4
+        with:
+          path: models/ggml-base.en.bin
+          key: whisper-model-base.en
+          
+      - name: Download Base Whisper Model
+        if: steps.cache-whisper.outputs.cache-hit != 'true'
+        shell: msys2 {0}
+        run: bash deps/whisper.cpp/models/download-ggml-model.sh base.en models/
+
+      # - name: Install Dependencies (Linux)
+      #   if: runner.os == 'Linux'
+      #   run: |
+      #     sudo apt-get update
+      #     sudo apt-get install -y cmake gcc g++ libvulkan-dev glslang-tools libasound2-dev libpulse-dev libx11-dev libwayland-dev libxkbcommon-dev
+      
+      # - name: Install Dependencies (macOS)
+      #   if: runner.os == 'macOS'
+      #   run: |
+      #     brew install cmake vulkan-headers vulkan-loader glslang
+      
+      - name: Configure CMake (Windows)
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
+        run: cmake -B build -S . -G Ninja
+        
+      # - name: Configure CMake (Unix)
+      #   if: runner.os != 'Windows'
+      #   run: cmake -B build -S .
+        
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
+        run: cmake --build build --config Release
+        
+      # - name: Build (Unix)
+      #   if: runner.os != 'Windows'
+      #   run: cmake --build build --config Release
+        
+      - name: Copy MSYS2 DLLs (Windows)
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
+        run: |
+          cp /ucrt64/bin/libstdc++-6.dll bin/
+          cp /ucrt64/bin/libgcc_s_seh-1.dll bin/
+          cp /ucrt64/bin/libwinpthread-1.dll bin/
+          
+      - name: Prepare Artifacts
+        run: |
+          cmake -E rename bin Real-Time-Subtitler
+          cmake -E tar "cfv" "${{ matrix.artifact_name }}" --format=zip Real-Time-Subtitler/
+          
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.artifact_name }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+        
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            */*.zip
+          generate_release_notes: true
