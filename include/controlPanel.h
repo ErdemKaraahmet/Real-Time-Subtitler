@@ -1,0 +1,15 @@
+#pragma once
+#include <SDL3/SDL.h>
+#include "loadConfig.h"
+
+typedef struct {
+    bool configSaved;
+    bool modelChanged;
+} ControlPanelStatus;
+
+void openControlPanel(AppConfig* liveConfig);
+void handleControlPanelEvent(const SDL_Event* event);
+ControlPanelStatus updateAndRenderControlPanel(SDL_Renderer* overlayRenderer);
+void closeControlPanel(void);
+bool isControlPanelOpen(void);
+void setControlPanelWhisperError(bool error, const char* message);
