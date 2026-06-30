@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "trayManager.h"
+#include "appEvents.h"
 #include <SDL3/SDL.h>
 
 static SDL_Tray *s_tray = NULL;
@@ -12,6 +13,7 @@ static bool s_paused = false;
 // Forward declarations
 static void buildMenu(void);
 static void cb_focus(void *userdata, SDL_TrayEntry *entry);
+static void cb_control_panel(void *userdata, SDL_TrayEntry *entry);
 static void cb_toggle(void *userdata, SDL_TrayEntry *entry);
 static void cb_quit(void *userdata, SDL_TrayEntry *entry);
 
@@ -72,6 +74,10 @@ static void buildMenu(void)
 
     SDL_InsertTrayEntryAt(menu, -1, NULL, 0);
 
+    SDL_TrayEntry *controlPanel = SDL_InsertTrayEntryAt(menu, -1,
+                               "Control Panel", SDL_TRAYENTRY_BUTTON);
+    SDL_SetTrayEntryCallback(controlPanel, cb_control_panel, NULL);
+
     SDL_TrayEntry *focus = SDL_InsertTrayEntryAt(menu, -1,
                                "Focus Window", SDL_TRAYENTRY_BUTTON);
     SDL_SetTrayEntryCallback(focus, cb_focus, NULL);
@@ -87,6 +93,14 @@ static void buildMenu(void)
     SDL_SetTrayEntryCallback(quit, cb_quit, NULL);
 }
 
+void setTrayPauseState(bool paused)
+{
+    if (s_paused != paused) {
+        s_paused = paused;
+        buildMenu();
+    }
+}
+
 // --- Callbacks (called on the main thread via SDL's event pump) ---
 
 static void cb_focus(void *userdata, SDL_TrayEntry *entry)
@@ -95,6 +109,17 @@ static void cb_focus(void *userdata, SDL_TrayEntry *entry)
     
     SDL_SetWindowMousePassthrough(s_window, false);
     SDL_SetWindowBordered(s_window, true);
+}
+
+static void cb_control_panel(void *userdata, SDL_TrayEntry *entry)
+{
+    (void)userdata; (void)entry;
+    
+    SDL_Event e;
+    SDL_zero(e);
+    e.type = SDL_EVENT_USER;
+    e.user.code = APP_EVENT_OPEN_CONTROL;
+    SDL_PushEvent(&e);
 }
 
 static void cb_toggle(void *userdata, SDL_TrayEntry *entry)
@@ -110,7 +135,7 @@ static void cb_toggle(void *userdata, SDL_TrayEntry *entry)
     SDL_Event e;
     SDL_zero(e);
     e.type = SDL_EVENT_USER;
-    e.user.code = s_paused ? 1 : 0; // 1 = pause, 0 = resume
+    e.user.code = s_paused ? APP_EVENT_PAUSE : APP_EVENT_RESUME;
     SDL_PushEvent(&e);
 }
 

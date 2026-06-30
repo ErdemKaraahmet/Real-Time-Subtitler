@@ -14,6 +14,8 @@
 #include "audioCapture.h"
 #include "whisperEngine.h"
 #include "trayManager.h"
+#include "controlPanel.h"
+#include "appEvents.h"
 
 #define CHUNK_LENGTH_SECONDS 2
 #define SAMPLE_RATE 16000             // 16Khz
@@ -31,7 +33,7 @@ static Uint64 lastTextUpdateTime = 0; // timestamp of the last whisper text upda
 
 int whisperThread(void *data);
 
-void handleEvents(SDL_Window *window, bool *done, DragState *dragState, bool *needsRedraw, int timeout);
+void handleEvents(SDL_Window *window, bool *done, DragState *dragState, bool *needsRedraw, int timeout, AppConfig *config);
 
 int main(int argc, char *argv[])
 {
@@ -89,11 +91,16 @@ int main(int argc, char *argv[])
     initTray(window);
 
     // Load a font
-    TTF_Font *font = TTF_OpenFont(config->font, config->font_size); // Path to your font and size
+    TTF_Font *font = TTF_OpenFont(config->font, config->font_size);
     if (!font)
     {
-        SDL_Log("Couldn't load font: %s", SDL_GetError());
-        return 1;
+        SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Couldn't load configured font: %s. Trying fallback default font.", SDL_GetError());
+        SDL_strlcpy(config->font, "fonts/cascadia.mono.ttf", sizeof(config->font));
+        font = TTF_OpenFont(config->font, config->font_size);
+        if (!font) {
+            SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Couldn't load fallback font: %s", SDL_GetError());
+            return 1;
+        }
     }
 
     // Create the text surface and texture
@@ -141,9 +148,11 @@ int main(int argc, char *argv[])
             SDL_UnlockMutex(textMutex);
         }
 
-        // Wait for events. Timeout is 16ms when custom dragging, 100ms when idle/stationary.
-        int timeout = dragState.isDragging ? 16 : 100;
-        handleEvents(window, &done, &dragState, &needsRedraw, timeout);
+        bool cpOpen = isControlPanelOpen();
+
+        // Wait for events. Timeout is 16ms when custom dragging or Control Panel is open, 100ms when idle/stationary.
+        int timeout = (dragState.isDragging || cpOpen) ? 16 : 100;
+        handleEvents(window, &done, &dragState, &needsRedraw, timeout, config);
 
         // If we are dragging move the window
         dragWindow(window, &dragState);
@@ -156,6 +165,10 @@ int main(int argc, char *argv[])
         if (texture != NULL && lastTextUpdateTime > 0 &&
             SDL_GetTicks() - lastTextUpdateTime > (Uint64)(CHUNK_LENGTH_SECONDS + 1) * 1000)
         {
+            SDL_LockMutex(textMutex);
+            subtitleText[0] = '\0';
+            SDL_UnlockMutex(textMutex);
+
             SDL_DestroyTexture(texture);
             texture = NULL;
             needsRedraw = true;
@@ -174,6 +187,57 @@ int main(int argc, char *argv[])
             SDL_RenderPresent(renderer);
             needsRedraw = false;
         }
+
+        // Render Control Panel if open
+        if (isControlPanelOpen())
+        {
+            // Snapshot font config before the CP call may modify it via pLiveConfig
+            char prevFont[512];
+            int prevFontSize = config->font_size;
+            SDL_strlcpy(prevFont, config->font, sizeof(prevFont));
+
+            ControlPanelStatus cpStatus = updateAndRenderControlPanel(renderer);
+            if (cpStatus.configSaved)
+            {
+                // Only reload font if the font path or size actually changed
+                if (strcmp(config->font, prevFont) != 0 || config->font_size != prevFontSize)
+                {
+                    TTF_Font *new_font = TTF_OpenFont(config->font, config->font_size);
+                    if (new_font)
+                    {
+                        if (font) TTF_CloseFont(font);
+                        font = new_font;
+                    }
+                    else
+                    {
+                        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to reload font: %s", SDL_GetError());
+                        // Revert config to previous working font settings
+                        SDL_strlcpy(config->font, prevFont, sizeof(config->font));
+                        config->font_size = prevFontSize;
+                    }
+                }
+                // Trigger subtitle redraw
+                SDL_LockMutex(textMutex);
+                textUpdated = true;
+                SDL_UnlockMutex(textMutex);
+            }
+            if (cpStatus.modelChanged)
+            {
+                // Reload the Whisper model
+                whisperFree();
+                if (whisperInit(config->modelPath))
+                {
+                    SDL_Log("Whisper model reloaded: %s", config->modelPath);
+                    setControlPanelWhisperError(false, "Status: Active (Model Reloaded)");
+                }
+                else
+                {
+                    SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to reload Whisper model: %s", config->modelPath);
+                    setControlPanelWhisperError(true, "Status: Whisper Offline (Model Load Failed)");
+                }
+            }
+        }
+
         SDL_Delay(1000 / 60); // Limit to 60 FPS
     }
 
@@ -181,6 +245,7 @@ int main(int argc, char *argv[])
     SDL_DestroyWindow(window);
 
     // Clean up
+    closeControlPanel();
     whisperFree();
     cleanupAudio();
     if (texture) SDL_DestroyTexture(texture);
@@ -192,12 +257,20 @@ int main(int argc, char *argv[])
     return 0;
 }
 
-void handleEvents(SDL_Window *window, bool *done, DragState *drag, bool *needsRedraw, int timeout)
+bool isAppPaused(void)
+{
+    return paused;
+}
+
+void handleEvents(SDL_Window *window, bool *done, DragState *drag, bool *needsRedraw, int timeout, AppConfig *config)
 {
     SDL_Event event;
     if (SDL_WaitEventTimeout(&event, timeout))
     {
         do {
+            // Pass event to Control Panel
+            handleControlPanelEvent(&event);
+
             if (event.type == SDL_EVENT_QUIT)
             {
                 *done = true;
@@ -205,16 +278,23 @@ void handleEvents(SDL_Window *window, bool *done, DragState *drag, bool *needsRe
 
             if (event.type == SDL_EVENT_USER)
             {
-                if (event.user.code == 1) {
+                if (event.user.code == APP_EVENT_PAUSE) {
                     paused = true;
                     pauseAudio();
+                    setTrayPauseState(true);
                     // Immediately clear the on-screen text
+                    SDL_LockMutex(textMutex);
                     subtitleText[0] = '\0';
+                    SDL_UnlockMutex(textMutex);
                     if (texture) { SDL_DestroyTexture(texture); texture = NULL; }
                 }
-                else if (event.user.code == 0) {
+                else if (event.user.code == APP_EVENT_RESUME) {
                     paused = false;
                     resumeAudio();
+                    setTrayPauseState(false);
+                }
+                else if (event.user.code == APP_EVENT_OPEN_CONTROL) {
+                    openControlPanel(config);
                 }
                 *needsRedraw = true;
             }
@@ -249,7 +329,7 @@ int whisperThread(void *data)
             SDL_Event event;
             SDL_zero(event);
             event.type = SDL_EVENT_USER;
-            event.user.code = 2; // code 2: text updated
+            event.user.code = APP_EVENT_TEXT_UPDATED;
             SDL_PushEvent(&event);
         }
         else if (chunkReady && paused)

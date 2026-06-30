@@ -4,3 +4,4 @@
 
 bool initTray(SDL_Window *window);
 void destroyTray(void);
+void setTrayPauseState(bool paused);
