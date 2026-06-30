@@ -72,6 +72,8 @@ add_executable(Real-Time-Subtitler
     src/whisperEngine.c
     src/audioCapture.c
     src/trayManager.c
+    src/controlPanel.c
+    src/imgui_impl_sdlrenderer3_c.cpp
     # ImGui SDL3 + SDLRenderer3 backends (not compiled by cimgui target)
     deps/cimgui/imgui/backends/imgui_impl_sdl3.cpp
     deps/cimgui/imgui/backends/imgui_impl_sdlrenderer3.cpp
@@ -132,11 +134,11 @@ add_custom_command(TARGET Real-Time-Subtitler POST_BUILD
     $<TARGET_FILE_DIR:Real-Time-Subtitler>
 )
 
-# copy config.ini next to the exe
+# copy config.ini.example as config.ini next to the exe
 add_custom_command(TARGET Real-Time-Subtitler POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-    ${CMAKE_SOURCE_DIR}/config.ini
-    $<TARGET_FILE_DIR:Real-Time-Subtitler>
+    ${CMAKE_SOURCE_DIR}/config.ini.example
+    $<TARGET_FILE_DIR:Real-Time-Subtitler>/config.ini
 )
 
 # copy fonts/ and models/ directories next to the exe
