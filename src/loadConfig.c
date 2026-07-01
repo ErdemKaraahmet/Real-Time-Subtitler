@@ -66,6 +66,10 @@ ConfigLoadStatus loadConfig(AppConfig* conf) {
                 conf->modelPath[sizeof(conf->modelPath) - 1] = '\0'; // Ensure null-termination
                 loadedCount++;
             }
+            else if (strcmp(key, "use_gpu") == 0) {
+                conf->use_gpu = (atoi(val) != 0);
+                loadedCount++;
+            }
         }
     }
 
@@ -112,6 +116,7 @@ bool saveConfig(const AppConfig* conf) {
     fprintf(file, "text_color=%d,%d,%d\n", conf->text_color.r, conf->text_color.g, conf->text_color.b);
     fprintf(file, "text_outline_color=%d,%d,%d\n", conf->text_outline_color.r, conf->text_outline_color.g, conf->text_outline_color.b);
     fprintf(file, "modelPath=%s\n", conf->modelPath);
+    fprintf(file, "use_gpu=%d\n", conf->use_gpu ? 1 : 0);
 
     fclose(file);
     return true;
@@ -126,6 +131,7 @@ AppConfig loadDefaultConfig(){
         .text_color = {255, 255, 255, 255},
         .text_outline_color = {0, 0, 0, 255},
         .modelPath = "models/ggml-base.en.bin",
+        .use_gpu = false,
     };
 
     return conf;

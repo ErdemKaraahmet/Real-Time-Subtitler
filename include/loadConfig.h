@@ -1,5 +1,6 @@
 #pragma once
 #include <SDL3/SDL.h>
+#include <stdbool.h>
 
 typedef enum {
     CONFIG_LOAD_FILE_NOT_FOUND = -2,
@@ -15,6 +16,7 @@ typedef struct {
     SDL_Color text_color;
     SDL_Color text_outline_color;
     char modelPath[512];
+    bool use_gpu;
 } AppConfig;
 
 AppConfig loadDefaultConfig();

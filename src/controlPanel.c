@@ -229,6 +229,12 @@ ControlPanelStatus updateAndRenderControlPanel(SDL_Renderer* overlayRenderer) {
     ImGui_ImplSDL3_NewFrame();
     igNewFrame();
 
+    // ponytail: sync UI if live config changed externally due to CPU fallback
+    if (pLiveConfig && savedConfig.use_gpu != pLiveConfig->use_gpu) {
+        uiConfig.use_gpu = pLiveConfig->use_gpu;
+        savedConfig.use_gpu = pLiveConfig->use_gpu;
+    }
+
     // Check dirty state
     bool isDirty = false;
     if (strcmp(uiConfig.font, savedConfig.font) != 0 ||
@@ -240,7 +246,8 @@ ControlPanelStatus updateAndRenderControlPanel(SDL_Renderer* overlayRenderer) {
         uiConfig.text_outline_color.r != savedConfig.text_outline_color.r ||
         uiConfig.text_outline_color.g != savedConfig.text_outline_color.g ||
         uiConfig.text_outline_color.b != savedConfig.text_outline_color.b ||
-        strcmp(uiConfig.modelPath, savedConfig.modelPath) != 0) {
+        strcmp(uiConfig.modelPath, savedConfig.modelPath) != 0 ||
+        uiConfig.use_gpu != savedConfig.use_gpu) {
         isDirty = true;
     }
 
@@ -391,6 +398,10 @@ ControlPanelStatus updateAndRenderControlPanel(SDL_Renderer* overlayRenderer) {
         igEndCombo();
     }
 
+    igSpacing();
+    // GPU Toggle
+    igCheckbox("Use GPU (Vulkan)", &uiConfig.use_gpu);
+
     igColumns(1, NULL, false); // Restore to single column
 
     igSpacing();
@@ -506,7 +517,8 @@ ControlPanelStatus updateAndRenderControlPanel(SDL_Renderer* overlayRenderer) {
                     *pLiveConfig = uiConfig;
                 }
                 status.configSaved = true;
-                if (strcmp(uiConfig.modelPath, savedConfig.modelPath) != 0) {
+                if (strcmp(uiConfig.modelPath, savedConfig.modelPath) != 0 ||
+                    uiConfig.use_gpu != savedConfig.use_gpu) {
                     status.modelChanged = true;
                 }
                 savedConfig = uiConfig;

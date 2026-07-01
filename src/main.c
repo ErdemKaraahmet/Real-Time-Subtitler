@@ -70,15 +70,24 @@ int main(int argc, char *argv[])
             break;
     }
 
+    SDL_Log("Initializing audio capture...");
     initAndStartAudio();
-    if(whisperInit(config->modelPath)){
+    SDL_Log("Audio capture initialized.");
+
+    SDL_Log("Loading whisper model: %s", config->modelPath);
+    bool prevGpu = config->use_gpu;
+    if (whisperInit(config->modelPath, &config->use_gpu)) {
         SDL_Log("Whisper model loaded");
+        if (prevGpu != config->use_gpu) {
+            saveConfig(config); // Save the CPU fallback configuration
+        }
     }
     else {
         SDL_Log("Couldn't load whisper model");
     }
 
     // Create a transparent window
+    SDL_Log("Creating window...");
     SDL_Window *window;
     SDL_Renderer *renderer;
     int width = 240, height = 80;
@@ -87,7 +96,9 @@ int main(int argc, char *argv[])
         SDL_Log("Couldn't create window: %s", SDL_GetError());
         return 1;
     }
+    SDL_Log("Window created.");
 
+    SDL_Log("Initializing system tray...");
     initTray(window);
 
     // Load a font
@@ -225,10 +236,20 @@ int main(int argc, char *argv[])
             {
                 // Reload the Whisper model
                 whisperFree();
-                if (whisperInit(config->modelPath))
+                bool prevGpu = config->use_gpu;
+                if (whisperInit(config->modelPath, &config->use_gpu))
                 {
-                    SDL_Log("Whisper model reloaded: %s", config->modelPath);
-                    setControlPanelWhisperError(false, "Status: Active (Model Reloaded)");
+                    SDL_Log("Whisper model reloaded: %s (GPU: %s)", config->modelPath, config->use_gpu ? "yes" : "no");
+                    if (prevGpu != config->use_gpu) {
+                        saveConfig(config);
+                    }
+                    if (config->use_gpu) {
+                        setControlPanelWhisperError(false, "Status: Active (GPU Enabled)");
+                    } else if (prevGpu && !config->use_gpu) {
+                        setControlPanelWhisperError(true, "Status: Active (Vulkan Failed - CPU Fallback)");
+                    } else {
+                        setControlPanelWhisperError(false, "Status: Active (CPU Only)");
+                    }
                 }
                 else
                 {
