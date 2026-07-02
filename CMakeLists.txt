@@ -47,6 +47,9 @@ if(patch_check EQUAL 0)
 endif()
 
 add_subdirectory(deps/SDL)
+# Disable freetype's version resource compilation to prevent duplicate resource conflicts with our resources.rc
+set_source_files_properties(${CMAKE_SOURCE_DIR}/deps/SDL_ttf/external/freetype/src/base/ftver.rc PROPERTIES HEADER_FILE_ONLY ON)
+
 set(SDLTTF_VENDORED ON CACHE BOOL "Use vendored third-party libraries" FORCE)
 add_subdirectory(deps/SDL_ttf)
 set(GGML_OPENMP OFF)
