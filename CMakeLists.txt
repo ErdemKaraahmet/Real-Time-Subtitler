@@ -9,6 +9,10 @@ endif()
 
 project(Real-Time-Subtitler C CXX)
 
+if(WIN32)
+    enable_language(RC)
+endif()
+
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
 
@@ -64,7 +68,7 @@ target_include_directories(cimgui PRIVATE
     ${CMAKE_SOURCE_DIR}/deps/SDL/include
 )
 
-add_executable(Real-Time-Subtitler
+set(RTS_SOURCES
     src/main.c
     src/loadConfig.c
     src/windowManager.c
@@ -78,6 +82,16 @@ add_executable(Real-Time-Subtitler
     deps/cimgui/imgui/backends/imgui_impl_sdl3.cpp
     deps/cimgui/imgui/backends/imgui_impl_sdlrenderer3.cpp
 )
+
+if(WIN32)
+    add_library(RTS_Icon OBJECT src/resources.rc)
+endif()
+
+add_executable(Real-Time-Subtitler ${RTS_SOURCES})
+
+if(WIN32)
+    target_link_libraries(Real-Time-Subtitler RTS_Icon)
+endif()
 
 target_include_directories(Real-Time-Subtitler PRIVATE
     src
@@ -130,7 +144,7 @@ add_custom_command(TARGET Real-Time-Subtitler POST_BUILD
 # copy icon asset next to the exe
 add_custom_command(TARGET Real-Time-Subtitler POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-    ${CMAKE_SOURCE_DIR}/spaceholder_rts_icon.png
+    ${CMAKE_SOURCE_DIR}/placeholder_rts_icon.png
     $<TARGET_FILE_DIR:Real-Time-Subtitler>
 )
 

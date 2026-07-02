@@ -24,7 +24,7 @@ bool initTray(SDL_Window *window)
     // Search parent directory
     char iconPath[512];
     const char* basePath = SDL_GetBasePath();
-    snprintf(iconPath, sizeof(iconPath), "%sspaceholder_rts_icon.png", basePath);
+    snprintf(iconPath, sizeof(iconPath), "%splaceholder_rts_icon.png", basePath);
 
     SDL_Surface* icon = SDL_LoadPNG(iconPath);
     SDL_Log("Icon load: %s", icon ? "OK" : SDL_GetError());
