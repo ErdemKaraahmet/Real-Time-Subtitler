@@ -69,7 +69,7 @@ jobs:
       - name: Configure CMake (Windows)
         if: runner.os == 'Windows'
         shell: msys2 {0}
-        run: cmake -B build -S . -G Ninja
+        run: cmake -B build -S . -G Ninja -DGGML_NATIVE=OFF
         
       # - name: Configure CMake (Unix)
       #   if: runner.os != 'Windows'
@@ -109,12 +109,36 @@ jobs:
     permissions:
       contents: write
     steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Download Artifacts
         uses: actions/download-artifact@v4
         
+      - name: Generate Changelog
+        id: generate_changelog
+        run: |
+          git fetch --tags --force
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          
+          echo "CHANGELOG<<EOF" >> $GITHUB_ENV
+          echo "## What's Changed" >> $GITHUB_ENV
+          if [ -n "$PREV_TAG" ]; then
+            git log "$PREV_TAG"..HEAD --pretty=format:"• %s in %h" >> $GITHUB_ENV
+            echo -e "\n\nFull Changelog: [$PREV_TAG...${{ github.ref_name }}](https://github.com/${{ github.repository }}/compare/$PREV_TAG...${{ github.ref_name }})" >> $GITHUB_ENV
+          else
+            git log --pretty=format:"• %s in %h" >> $GITHUB_ENV
+            echo -e "\n\nFirst Release!" >> $GITHUB_ENV
+          fi
+          echo "EOF" >> $GITHUB_ENV
+
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
+          body: ${{ env.CHANGELOG }}
           files: |
             */*.zip
-          generate_release_notes: true
