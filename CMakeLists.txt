@@ -47,11 +47,16 @@ if(patch_check EQUAL 0)
 endif()
 
 add_subdirectory(deps/SDL)
-# Disable freetype's version resource compilation to prevent duplicate resource conflicts with our resources.rc
-set_source_files_properties(${CMAKE_SOURCE_DIR}/deps/SDL_ttf/external/freetype/src/base/ftver.rc PROPERTIES HEADER_FILE_ONLY ON)
 
 set(SDLTTF_VENDORED ON CACHE BOOL "Use vendored third-party libraries" FORCE)
 add_subdirectory(deps/SDL_ttf)
+
+# Disable freetype's version resource compilation to prevent duplicate resource conflicts with our resources.rc
+set_source_files_properties(
+    ${CMAKE_SOURCE_DIR}/deps/SDL_ttf/external/freetype/src/base/ftver.rc
+    DIRECTORY ${CMAKE_SOURCE_DIR}/deps/SDL_ttf/external/freetype
+    PROPERTIES HEADER_FILE_ONLY ON
+)
 set(GGML_OPENMP OFF)
 find_package(Vulkan QUIET)
 if(Vulkan_FOUND)
@@ -61,6 +66,10 @@ else()
     message(STATUS "Vulkan SDK not found. Building with CPU only.")
     set(GGML_VULKAN OFF)
 endif()
+
+# Force building whisper and ggml as static libraries to avoid unsigned DLL loading blocks (error 0xc0e90002) on Windows 11
+set(BUILD_SHARED_LIBS OFF)
+
 add_subdirectory(deps/whisper.cpp)
 
 # Build cimgui (Dear ImGui C bindings) as a static library
@@ -123,20 +132,13 @@ target_link_libraries(Real-Time-Subtitler
     cimgui
     -static-libgcc
     -static-libstdc++
-    -Wl,-Bstatic,--whole-archive -lwinpthread -Wl,--no-whole-archive
+    -Wl,-Bstatic -lwinpthread -Wl,-Bdynamic
 )
-# copy SDL dll and whisper/ggml runtimes next to the exe
+# copy SDL dll next to the exe (whisper/ggml are statically linked)
 set(RTS_COPY_LIBS
     $<TARGET_FILE:SDL3::SDL3>
     $<TARGET_FILE:SDL3_ttf::SDL3_ttf>
-    $<TARGET_FILE:whisper>
-    $<TARGET_FILE:ggml>
-    $<TARGET_FILE:ggml-base>
-    $<TARGET_FILE:ggml-cpu>
 )
-if(GGML_VULKAN)
-    list(APPEND RTS_COPY_LIBS $<TARGET_FILE:ggml-vulkan>)
-endif()
 
 add_custom_command(TARGET Real-Time-Subtitler POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
