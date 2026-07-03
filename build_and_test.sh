@@ -3,6 +3,9 @@
 # Requires: ffplay (part of FFmpeg)
 cmake --build build -j $(nproc)
 
+# copy default sample if no test MP3 exists
+ls bin/*.mp3 &>/dev/null || cp deps/whisper.cpp/samples/jfk.mp3 bin/jfk.mp3 2>/dev/null
+
 # Find and play the first MP3 file found in the bin directory
 mp3_files=(bin/*.mp3)
 if [ -f "${mp3_files[0]}" ]; then

@@ -3,6 +3,11 @@
 # Build the project using CMake
 cmake --build build -j $(nproc)
 
+# copy default sample if no test MP3 exists
+if (-not (Test-Path "bin/*.mp3")) {
+    Copy-Item "deps/whisper.cpp/samples/jfk.mp3" "bin/jfk.mp3" -ErrorAction SilentlyContinue
+}
+
 # Find the first MP3 file in the bin directory
 $mp3File = Get-ChildItem -Path "bin" -Filter "*.mp3" | Select-Object -First 1 -ExpandProperty FullName
 
