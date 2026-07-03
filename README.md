@@ -24,19 +24,41 @@ The build automatically detects the [Vulkan SDK](https://vulkan.lunarg.com/sdk/h
 
 ## Models
 
-List available Whisper models:
-```bash
-bash deps/whisper.cpp/models/download-ggml-model.sh
+To download Whisper models, use the helper script provided by `whisper.cpp`.
+
+### On Windows (PowerShell/CMD)
+Use the native `.cmd` script:
+```powershell
+# List available models
+.\deps\whisper.cpp\models\download-ggml-model.cmd
+
+# Fastest but lower accuracy
+.\deps\whisper.cpp\models\download-ggml-model.cmd tiny.en-q5_1 models
+
+# Best balance
+.\deps\whisper.cpp\models\download-ggml-model.cmd base.en-q5_1 models
+
+# Highest accuracy but slowest
+.\deps\whisper.cpp\models\download-ggml-model.cmd large-v3 models
 ```
 
-Download a Whisper model into the `models/` folder:
+### On Linux, macOS, or Git Bash
+Use the `.sh` script:
 ```bash
-# Recommended: fast with good accuracy
-bash deps/whisper.cpp/models/download-ggml-model.sh tiny-q8_0 models/
+# List available models
+./deps/whisper.cpp/models/download-ggml-model.sh
 
-# Higher accuracy, slower
-bash deps/whisper.cpp/models/download-ggml-model.sh base.en models/
+# Fastest but lower accuracy
+./deps/whisper.cpp/models/download-ggml-model.sh tiny-q8_0 models/
+
+# Best Balance
+./deps/whisper.cpp/models/download-ggml-model.sh base.en models/
+
+# Highest accuracy but slowest
+.\deps\whisper.cpp\models\download-ggml-model.cmd large-v3 models
 ```
+
+
 
 ## Run
 ```bash
