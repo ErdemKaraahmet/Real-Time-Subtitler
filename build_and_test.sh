@@ -14,4 +14,4 @@ else
     echo "No MP3 files found in bin/ to play."
 fi
 
-./bin/Real-Time-Subtitler.exe
+./bin/Real-Time-Subtitler
