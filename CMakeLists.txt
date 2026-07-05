@@ -154,9 +154,15 @@ add_custom_command(TARGET Real-Time-Subtitler POST_BUILD
 )
 
 # copy config.ini.example as config.ini next to the exe
+if(EXISTS "${CMAKE_SOURCE_DIR}/config.ini")
+    set(RTS_CONFIG_SRC "${CMAKE_SOURCE_DIR}/config.ini")
+else()
+    set(RTS_CONFIG_SRC "${CMAKE_SOURCE_DIR}/config.ini.example")
+endif()
+
 add_custom_command(TARGET Real-Time-Subtitler POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-    ${CMAKE_SOURCE_DIR}/config.ini.example
+    ${RTS_CONFIG_SRC}
     $<TARGET_FILE_DIR:Real-Time-Subtitler>/config.ini
 )
 
