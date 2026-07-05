@@ -30,6 +30,7 @@ static bool paused = false;
 static SDL_Mutex *textMutex;
 static SDL_Texture *texture = NULL; // promoted so pause handler can clear it
 static Uint64 lastTextUpdateTime = 0; // timestamp of the last whisper text update (ms)
+static bool done = false;
 
 int whisperThread(void *data);
 
@@ -120,9 +121,12 @@ int main(int argc, char *argv[])
     DragState dragState = DragState_default;
 
     textMutex = SDL_CreateMutex();
-    SDL_CreateThread(whisperThread, "whisper", NULL);
+    SDL_Thread *wThread = SDL_CreateThread(whisperThread, "whisper", NULL);
+    if (!wThread) {
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to create whisper thread: %s", SDL_GetError());
+    }
 
-    bool done = false;
+    done = false;
     bool needsRedraw = true;
     while (!done)
     {
@@ -267,10 +271,16 @@ int main(int argc, char *argv[])
 
     // Clean up
     closeControlPanel();
+    if (wThread) {
+        SDL_WaitThread(wThread, NULL);
+    }
     whisperFree();
     cleanupAudio();
     if (texture) SDL_DestroyTexture(texture);
     destroyTray();
+    if (textMutex) {
+        SDL_DestroyMutex(textMutex);
+    }
     TTF_CloseFont(font);
     TTF_Quit();
     SDL_Quit();
@@ -335,7 +345,7 @@ void handleEvents(SDL_Window *window, bool *done, DragState *drag, bool *needsRe
 
 int whisperThread(void *data)
 {
-    while (true)
+    while (!done)
     {
         if (chunkReady && !paused)
         {
