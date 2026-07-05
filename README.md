@@ -6,9 +6,29 @@ Which hopefully will be a useful alternative to native Windows and Chrome live c
 
 ## Prerequisites
 
-- A C/C++ compiler with MinGW (e.g. [MSYS2](https://www.msys2.org/) UCRT64 toolchain on Windows)
-- CMake 3.20+
+### On Windows
+
+- A C/C++ compiler with MinGW (e.g., [MSYS2](https://www.msys2.org/) UCRT64 toolchain), MSVC not supported yet
+- CMake 3.24+
 - Git
+
+For GPU Acceleration the build automatically detects the [Vulkan SDK](https://vulkan.lunarg.com/sdk/home). If found, whisper.cpp will be compiled with Vulkan GPU acceleration for faster inference. If not found, it falls back to CPU only.
+
+### On Linux (Debian / Ubuntu)
+
+Install the compiler toolchain and SDL3 dependencies:
+```bash
+sudo apt install build-essential git make pkg-config cmake ninja-build \
+    libasound2-dev libpulse-dev libx11-dev libxext-dev libxrandr-dev \
+    libxcursor-dev libxfixes-dev libxi-dev libxss-dev libxtst-dev \
+    libxkbcommon-dev libdrm-dev libgbm-dev libgl1-mesa-dev libgles2-mesa-dev \
+    libegl1-mesa-dev libdbus-1-dev libibus-1.0-dev libudev-dev libusb-1.0-0-dev
+```
+
+For GPU Acceleration build automatically detects the Vulkan development headers, shader compiler, and spec headers. If not found, it falls back to CPU only. Install with:
+```bash
+sudo apt install libvulkan-dev glslc spirv-headers
+```
 
 ## Build
 ```bash
@@ -17,10 +37,6 @@ cd Real-Time-Subtitler
 cmake -B build
 cmake --build build
 ```
-
-## GPU Acceleration
-
-The build automatically detects the [Vulkan SDK](https://vulkan.lunarg.com/sdk/home). If found, whisper.cpp will be compiled with Vulkan GPU acceleration for faster inference. If not found, it falls back to CPU only.
 
 ## Models
 
@@ -55,7 +71,7 @@ Use the `.sh` script:
 ./deps/whisper.cpp/models/download-ggml-model.sh base.en models/
 
 # Highest accuracy but slowest
-.\deps\whisper.cpp\models\download-ggml-model.cmd large-v3 models
+./deps/whisper.cpp/models/download-ggml-model.sh large-v3 models/
 ```
 
 
@@ -105,9 +121,9 @@ From the Control Panel you can:
 - [x] Graphical Control Panel for UI customization
 - [x] Configurable font, color, and outline
 - [x] System audio capture (Windows)
-- [ ] System audio capture (Linux)
-- [ ] System audio capture (macOS)
-- [X] Live Whisper transcription (working, latency improvements needed)
+- [x] System audio capture (Linux)
+- [x] System audio capture (macOS, only captures microphone for now)
+- [x] Live Whisper transcription (working, latency improvements needed)
 - [ ] Confidence-based text coloring
 - [ ] Speaker diarization
-- [X] Multiple model support
+- [x] Multiple model support
