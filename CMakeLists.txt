@@ -83,6 +83,11 @@ else()
     set(GGML_VULKAN OFF CACHE BOOL "Use Vulkan" FORCE)
 endif()
 
+# whisper.cpp already sets GGML_METAL=ON on macOS. Set, incase they change it
+if(APPLE)
+    set(GGML_METAL ON CACHE BOOL "Use Metal" FORCE)
+endif()
+
 # Force building whisper and ggml as static libraries to avoid unsigned DLL loading blocks (error 0xc0e90002) on Windows 11
 set(BUILD_SHARED_LIBS OFF)
 
