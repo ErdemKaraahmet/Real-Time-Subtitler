@@ -131,7 +131,7 @@ AppConfig loadDefaultConfig(){
         .text_color = {255, 255, 255, 255},
         .text_outline_color = {0, 0, 0, 255},
         .modelPath = "models/ggml-base.en.bin",
-        .use_gpu = false,
+        .use_gpu = true,
     };
 
     return conf;
