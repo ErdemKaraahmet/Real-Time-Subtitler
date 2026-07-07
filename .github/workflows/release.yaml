@@ -76,6 +76,16 @@ jobs:
       - name: Configure CMake (Unix)
         if: runner.os != 'Windows'
         run: cmake -B build -S . -G Ninja -DGGML_NATIVE=OFF -DCMAKE_BUILD_TYPE=Release
+
+      - name: Verify GPU acceleration status
+        run: |
+          # whisper.cpp already sets GGML_METAL=ON on macOS, checked incase they change it
+          python -c "
+          import sys
+          content = open('build/CMakeCache.txt').read()
+          target = 'GGML_METAL:BOOL=ON' if sys.platform == 'darwin' else 'GGML_VULKAN:BOOL=ON'
+          assert target in content, f'{target} not enabled!'
+          "
         
       - name: Build (Windows)
         if: runner.os == 'Windows'
@@ -93,7 +103,70 @@ jobs:
           cp /ucrt64/bin/libstdc++-6.dll bin/
           cp /ucrt64/bin/libgcc_s_seh-1.dll bin/
           cp /ucrt64/bin/libwinpthread-1.dll bin/
+          cp /ucrt64/bin/vulkan-1.dll bin/
           
+      - name: Verify no unresolved shared library dependencies (Windows)
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
+        run: |
+          for f in bin/Real-Time-Subtitler.exe bin/*.dll; do
+            [ -f "$f" ] || continue
+            echo "Checking $f"
+            # Filter out false-positive Windows API Sets
+            missing=$(ldd "$f" | grep -i "not found" | grep -ivE "api-ms-win-|ext-ms-" || true)
+            if [ -n "$missing" ]; then
+              echo "Missing dependency in $f:"
+              echo "$missing"
+              exit 1
+            fi
+            # Ensure no DLL resolves to the MSYS2 system path instead of local bin/
+            leaks=$(ldd "$f" | grep -E "=> /ucrt|=> /mingw" || true)
+            if [ -n "$leaks" ]; then
+              echo "Dependency leak in $f (points to MSYS2 system instead of local bin/):"
+              echo "$leaks"
+              exit 1
+            fi
+          done
+
+      - name: Verify no unresolved shared library dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          for f in bin/Real-Time-Subtitler bin/*.so*; do
+            [ -f "$f" ] || continue
+            missing=$(ldd "$f" | grep "not found" || true)
+            if [ -n "$missing" ]; then
+              echo "Unresolved dependencies in $f:"
+              echo "$missing"
+              exit 1
+            fi
+          done
+
+      - name: Verify no unresolved shared library dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          for f in bin/Real-Time-Subtitler bin/*.dylib; do
+            [ -f "$f" ] || continue
+            echo "Checking $f"
+            # Skip the first line (the binary/lib's own install name), extract dep paths
+            libs=$(otool -L "$f" | tail -n +2 | awk '{print $1}')
+            for lib in $libs; do
+              case "$lib" in
+                @rpath/*|@loader_path/*)
+                  libname=$(basename "$lib")
+                  resolved="bin/$libname"
+                  if [ ! -f "$resolved" ]; then
+                    echo "Unresolved dependency in $f: $lib (expected at $resolved, not found)"
+                    exit 1
+                  fi
+                  echo "  OK: $lib -> $resolved"
+                  ;;
+                *)
+                  # Absolute system path (e.g. /usr/lib/libSystem.B.dylib) — provided by the OS, skip
+                  ;;
+              esac
+            done
+          done
+
       - name: Prepare Artifacts
         run: |
           cmake -E rename bin Real-Time-Subtitler
