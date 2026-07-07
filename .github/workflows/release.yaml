@@ -9,15 +9,15 @@ on:
 jobs:
   build:
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: windows-latest
             artifact_name: RTS-Windows.zip
-          # Linux and macOS are commented out until system audio capture is implemented on those platforms
-          # - os: ubuntu-latest
-          #   artifact_name: RTS-Linux.zip
-          # - os: macos-latest
-          #   artifact_name: RTS-macOS.zip
+          - os: ubuntu-latest
+            artifact_name: RTS-Linux.zip
+          - os: macos-latest
+            artifact_name: RTS-macOS.zip
     
     runs-on: ${{ matrix.os }}
     
@@ -56,34 +56,34 @@ jobs:
         shell: msys2 {0}
         run: bash deps/whisper.cpp/models/download-ggml-model.sh base.en models/
 
-      # - name: Install Dependencies (Linux)
-      #   if: runner.os == 'Linux'
-      #   run: |
-      #     sudo apt-get update
-      #     sudo apt-get install -y cmake gcc g++ libvulkan-dev glslang-tools libasound2-dev libpulse-dev libx11-dev libwayland-dev libxkbcommon-dev
-      
-      # - name: Install Dependencies (macOS)
-      #   if: runner.os == 'macOS'
-      #   run: |
-      #     brew install cmake vulkan-headers vulkan-loader glslang
+      - name: Install Dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build pkg-config \
+            libasound2-dev libpulse-dev libx11-dev libxext-dev libxrandr-dev \
+            libxcursor-dev libxfixes-dev libxi-dev libxss-dev libxtst-dev \
+            libxkbcommon-dev libdrm-dev libgbm-dev libgl1-mesa-dev libgles2-mesa-dev \
+            libegl1-mesa-dev libdbus-1-dev libibus-1.0-dev libudev-dev libusb-1.0-0-dev \
+            libvulkan-dev glslc spirv-headers
       
       - name: Configure CMake (Windows)
         if: runner.os == 'Windows'
         shell: msys2 {0}
         run: cmake -B build -S . -G Ninja -DGGML_NATIVE=OFF
         
-      # - name: Configure CMake (Unix)
-      #   if: runner.os != 'Windows'
-      #   run: cmake -B build -S .
+      - name: Configure CMake (Unix)
+        if: runner.os != 'Windows'
+        run: cmake -B build -S . -G Ninja -DGGML_NATIVE=OFF -DCMAKE_BUILD_TYPE=Release
         
       - name: Build (Windows)
         if: runner.os == 'Windows'
         shell: msys2 {0}
         run: cmake --build build --config Release
         
-      # - name: Build (Unix)
-      #   if: runner.os != 'Windows'
-      #   run: cmake --build build --config Release
+      - name: Build (Unix)
+        if: runner.os != 'Windows'
+        run: cmake --build build --config Release
         
       - name: Copy MSYS2 DLLs (Windows)
         if: runner.os == 'Windows'
