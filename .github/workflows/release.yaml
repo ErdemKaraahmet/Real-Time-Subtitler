@@ -53,8 +53,9 @@ jobs:
           
       - name: Download Base Whisper Model
         if: steps.cache-whisper.outputs.cache-hit != 'true'
-        shell: msys2 {0}
-        run: bash deps/whisper.cpp/models/download-ggml-model.sh base.en models/
+        run: |
+          cmake -E make_directory models
+          curl -L -o models/ggml-base.en.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin?download=true
 
       - name: Install Dependencies (Linux)
         if: runner.os == 'Linux'
