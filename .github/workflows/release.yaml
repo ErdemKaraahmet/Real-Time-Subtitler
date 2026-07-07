@@ -40,9 +40,9 @@ jobs:
             mingw-w64-ucrt-x86_64-cmake
             mingw-w64-ucrt-x86_64-ninja
             mingw-w64-ucrt-x86_64-vulkan-devel
+            mingw-w64-ucrt-x86_64-spirv-headers
             mingw-w64-ucrt-x86_64-shaderc
             mingw-w64-ucrt-x86_64-pkgconf
-            mingw-w64-ucrt-x86_64-ccache
       
       - name: Cache Whisper Model
         id: cache-whisper
@@ -71,7 +71,7 @@ jobs:
       - name: Configure CMake (Windows)
         if: runner.os == 'Windows'
         shell: msys2 {0}
-        run: cmake -B build -S . -G Ninja -DGGML_NATIVE=OFF
+        run: cmake -B build -S . -G Ninja -DGGML_NATIVE=OFF -DCMAKE_BUILD_TYPE=Release
         
       - name: Configure CMake (Unix)
         if: runner.os != 'Windows'
