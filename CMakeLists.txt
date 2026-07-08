@@ -65,6 +65,46 @@ if(patch_check EQUAL 0)
     endif()
 endif()
 
+# Apply macOS click-through fix patch if not already applied
+execute_process(
+    COMMAND git apply --check "${CMAKE_SOURCE_DIR}/deps/patches/macos_passthrough_fix.patch"
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/deps/SDL"
+    RESULT_VARIABLE macos_patch_check
+    ERROR_QUIET
+    OUTPUT_QUIET
+)
+if(macos_patch_check EQUAL 0)
+    message(STATUS "Applying macOS click-through fix patch...")
+    execute_process(
+        COMMAND git apply "${CMAKE_SOURCE_DIR}/deps/patches/macos_passthrough_fix.patch"
+        WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/deps/SDL"
+        RESULT_VARIABLE macos_patch_apply_result
+    )
+    if(NOT macos_patch_apply_result EQUAL 0)
+        message(FATAL_ERROR "Failed to apply macOS click-through fix patch even though git apply --check succeeded. Aborting configuration.")
+    endif()
+endif()
+
+# Apply Wayland click-through commit patch if not already applied
+execute_process(
+    COMMAND git apply --check "${CMAKE_SOURCE_DIR}/deps/patches/wayland_passthrough_commit_fix.patch"
+    WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/deps/SDL"
+    RESULT_VARIABLE wayland_patch_check
+    ERROR_QUIET
+    OUTPUT_QUIET
+)
+if(wayland_patch_check EQUAL 0)
+    message(STATUS "Applying Wayland click-through commit patch...")
+    execute_process(
+        COMMAND git apply "${CMAKE_SOURCE_DIR}/deps/patches/wayland_passthrough_commit_fix.patch"
+        WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}/deps/SDL"
+        RESULT_VARIABLE wayland_patch_apply_result
+    )
+    if(NOT wayland_patch_apply_result EQUAL 0)
+        message(FATAL_ERROR "Failed to apply Wayland click-through commit patch even though git apply --check succeeded. Aborting configuration.")
+    endif()
+endif()
+
 add_subdirectory(deps/SDL)
 
 set(SDLTTF_VENDORED ON CACHE BOOL "Use vendored third-party libraries" FORCE)

@@ -74,8 +74,12 @@ jobs:
         shell: msys2 {0}
         run: cmake -B build -S . -G Ninja -DGGML_NATIVE=OFF -DCMAKE_BUILD_TYPE=Release
         
-      - name: Configure CMake (Unix)
-        if: runner.os != 'Windows'
+      - name: Configure CMake (macOS)
+        if: runner.os == 'macOS'
+        run: cmake -B build -S . -G Ninja -DGGML_NATIVE=OFF -DCMAKE_BUILD_TYPE=Release -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64"
+
+      - name: Configure CMake (Linux)
+        if: runner.os == 'Linux'
         run: cmake -B build -S . -G Ninja -DGGML_NATIVE=OFF -DCMAKE_BUILD_TYPE=Release
 
       - name: Verify GPU acceleration status

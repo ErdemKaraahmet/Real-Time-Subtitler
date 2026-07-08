@@ -1,0 +1,12 @@
+diff --git a/src/video/wayland/SDL_waylandwindow.c b/src/video/wayland/SDL_waylandwindow.c
+index 2d6addb1..21fd4fd4 100644
+--- a/src/video/wayland/SDL_waylandwindow.c
++++ b/src/video/wayland/SDL_waylandwindow.c
+@@ -2973,6 +2973,7 @@ void Wayland_SetWindowMousePassthrough(SDL_VideoDevice *_this, SDL_Window *windo
+     } else {
+         wl_surface_set_input_region(data->surface, NULL);
+     }
++    wl_surface_commit(data->surface);
+ }
+ 
+ void Wayland_SetWindowTitle(SDL_VideoDevice *_this, SDL_Window *window)
