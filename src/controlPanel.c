@@ -286,8 +286,8 @@ ControlPanelStatus updateAndRenderControlPanel(SDL_Renderer* overlayRenderer) {
 
     igSameLine(0.0f, UI_SPACING);
 
-    // Focus Window button
-    if (igButton("Focus Window", (ImVec2_c){110.0f, 0.0f})) {
+    // Move Window button
+    if (igButton("Move Window", (ImVec2_c){110.0f, 0.0f})) {
         SDL_Window* overlayWinReal = SDL_GetRenderWindow(overlayRenderer);
         if (overlayWinReal) {
             SDL_SetWindowMousePassthrough(overlayWinReal, false);
