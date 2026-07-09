@@ -99,7 +99,7 @@ From the Control Panel you can:
 - Adjust **Font Size** and **Outline Thickness**
 - Pick custom **Text** and **Outline Colors** with a live preview
 - Hot-swap the active **Whisper Model** (loads models from the `models/` directory)
-- **Pause/Resume** transcription or **Focus Window** to drag the subtitle overlay around your screen.
+- **Pause/Resume** transcription or **Move Window** to drag the subtitle overlay around your screen.
 
 *Settings are automatically saved to `bin/config.ini` when you hit Save.*
 

@@ -79,7 +79,7 @@ static void buildMenu(void)
     SDL_SetTrayEntryCallback(controlPanel, cb_control_panel, NULL);
 
     SDL_TrayEntry *focus = SDL_InsertTrayEntryAt(menu, -1,
-                               "Focus Window", SDL_TRAYENTRY_BUTTON);
+                               "Move Window", SDL_TRAYENTRY_BUTTON);
     SDL_SetTrayEntryCallback(focus, cb_focus, NULL);
 
     s_pauseEntry = SDL_InsertTrayEntryAt(menu, -1,
