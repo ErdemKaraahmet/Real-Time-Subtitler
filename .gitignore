@@ -59,6 +59,7 @@ bin/
 build/
 models/*
 !models/.gitkeep
+bench/*.csv
 .vscode/
 imgui.ini
 config.ini

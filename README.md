@@ -89,6 +89,15 @@ For convenience during development, helper scripts are provided that build the p
 - **Linux / MSYS2 (Bash)**: `./build_and_test.sh` 
 *both (Requires `ffplay` from FFmpeg)*
 
+## Benchmark Logging
+
+Build with `-DRTS_BENCH=ON` to log per-inference latency and model confidence to `bench/rts_bench.csv`:
+
+```bash
+cmake -B build -S . -DRTS_BENCH=ON
+cmake --build build --config Release
+```
+
 ## Configuration
 
 Real-Time-Subtitler includes a **graphical Control Panel** that allows you to adjust settings on the fly. 

@@ -143,11 +143,14 @@ target_include_directories(Real-Time-Subtitler PRIVATE
     deps/cimgui/imgui/backends
 )
 
+option(RTS_BENCH "Enable inference benchmark logging to rts_bench.csv" OFF)
+
 target_compile_definitions(Real-Time-Subtitler PRIVATE
     CIMGUI_DEFINE_ENUMS_AND_STRUCTS
     CIMGUI_USE_SDL3
     CIMGUI_USE_SDLRENDERER3
     IMGUI_USER_CONFIG="../cimconfig.h"
+    $<$<BOOL:${RTS_BENCH}>:RTS_BENCH>
 )
 
 target_link_libraries(Real-Time-Subtitler 

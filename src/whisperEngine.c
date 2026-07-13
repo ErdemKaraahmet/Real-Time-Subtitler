@@ -6,6 +6,10 @@
 
 static struct whisper_context* ctx = NULL;
 
+#ifdef RTS_BENCH
+static FILE* benchFile = NULL;
+#endif
+
 void quiet_log_callback(enum ggml_log_level level, const char * text, void * user_data) {
     // Leave this completely empty to discard all logs
 }
@@ -38,6 +42,14 @@ bool whisperInit(const char* modelPath, bool* use_gpu) {
 
     if (ctx != NULL) {
         SDL_Log("Whisper context created successfully (GPU: %s)", cparams.use_gpu ? "yes" : "no");
+#ifdef RTS_BENCH
+        benchFile = fopen("bench/rts_bench.csv", "w");
+        if (benchFile) {
+            fprintf(benchFile, "model,%s\n", modelPath);
+            fprintf(benchFile, "inference_ms,avg_token_prob,n_tokens\n");
+            fflush(benchFile);
+        }
+#endif
     }
     return (ctx != NULL);
 }
@@ -50,6 +62,10 @@ bool whisperProcess(float* pcmf32, int n_samples, char* outputText, int outputLe
     wparams.print_progress = false;
     wparams.language = "en";
     wparams.n_threads = SDL_GetNumLogicalCPUCores(); 
+
+#ifdef RTS_BENCH
+    Uint64 t0 = SDL_GetPerformanceCounter();
+#endif
 
     if (whisper_full(ctx, wparams, pcmf32, n_samples) != 0) {
         return false;
@@ -64,10 +80,38 @@ bool whisperProcess(float* pcmf32, int n_samples, char* outputText, int outputLe
         }
     }
 
+#ifdef RTS_BENCH
+    if (benchFile && n_segments > 0) {
+        double inference_ms = (double)(SDL_GetPerformanceCounter() - t0) / SDL_GetPerformanceFrequency() * 1000.0;
+        float prob_sum = 0.0f;
+        int token_count = 0;
+        for (int i = 0; i < n_segments; ++i) {
+            int n_tok = whisper_full_n_tokens(ctx, i);
+            for (int t = 0; t < n_tok; ++t) {
+                // Skip special tokens (>= EOT)
+                if (whisper_full_get_token_id(ctx, i, t) < whisper_token_eot(ctx)) {
+                    prob_sum += whisper_full_get_token_p(ctx, i, t);
+                    token_count++;
+                }
+            }
+        }
+        float avg_prob = token_count > 0 ? prob_sum / token_count : 0.0f;
+        fprintf(benchFile, "%.2f,%.4f,%d\n",
+            inference_ms, avg_prob, token_count);
+        fflush(benchFile);
+    }
+#endif
+
     return true;
 }
 
 void whisperFree() {
+#ifdef RTS_BENCH
+    if (benchFile) {
+        fclose(benchFile);
+        benchFile = NULL;
+    }
+#endif
     if (ctx != NULL) {
         whisper_free(ctx);
         ctx = NULL;
