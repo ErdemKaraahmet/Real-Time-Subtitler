@@ -30,6 +30,14 @@ For GPU Acceleration build automatically detects the Vulkan development headers,
 sudo apt install libvulkan-dev glslc spirv-headers
 ```
 
+### On macOS
+
+Install CMake and Git:
+```bash
+brew install cmake git
+```
+*(Metal GPU acceleration is automatically enabled on Apple Silicon)*
+
 ## Build
 ```bash
 git clone --recurse-submodules https://github.com/ErdemKaraahmet/Real-Time-Subtitler.git
