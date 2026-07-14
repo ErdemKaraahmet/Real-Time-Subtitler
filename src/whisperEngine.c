@@ -17,6 +17,7 @@ void quiet_log_callback(enum ggml_log_level level, const char * text, void * use
 // Initialize
 bool whisperInit(const char* modelPath, bool* use_gpu) {
     struct whisper_context_params cparams = whisper_context_default_params();
+    cparams.flash_attn = true; // reduces memory/latency
 
     // Try GPU if requested
     if (use_gpu && *use_gpu) {
@@ -61,7 +62,13 @@ bool whisperProcess(float* pcmf32, int n_samples, char* outputText, int outputLe
     struct whisper_full_params wparams = whisper_full_default_params(WHISPER_SAMPLING_GREEDY);
     wparams.print_progress = false;
     wparams.language = "en";
-    wparams.n_threads = SDL_GetNumLogicalCPUCores(); 
+    wparams.n_threads = SDL_GetNumLogicalCPUCores() / 2; // Limit threads to avoid hyperthreading
+    wparams.no_timestamps = true;                        // Reduces decode overhead
+    wparams.single_segment = true;                       // Force single segment
+    wparams.no_context = true;                           // Prevent using past chunks as context to avoid repetition loops
+    wparams.temperature_inc = 0.5f;                      // Amount the temperature increases each time it retries, 1 is max so 0.5 is two retries
+    wparams.audio_ctx = 384;                             // Crop audio context window to size of 2s chunks plus safety padding, whisper is trained on 30s chunks which is 1500 frames
+    wparams.max_tokens = 32;                             // Cap maximum tokens generated per chunk to stop hallucinations
 
 #ifdef RTS_BENCH
     Uint64 t0 = SDL_GetPerformanceCounter();
