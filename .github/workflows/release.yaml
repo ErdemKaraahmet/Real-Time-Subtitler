@@ -13,11 +13,11 @@ jobs:
       matrix:
         include:
           - os: windows-latest
-            artifact_name: RTS-Windows.zip
+            artifact_name: real-time-subtitler-${{ github.ref_name }}-windows.zip
           - os: ubuntu-latest
-            artifact_name: RTS-Linux.zip
+            artifact_name: real-time-subtitler-${{ github.ref_name }}-ubuntu.zip
           - os: macos-latest
-            artifact_name: RTS-macOS.zip
+            artifact_name: real-time-subtitler-${{ github.ref_name }}-macos.zip
     
     runs-on: ${{ matrix.os }}
     
