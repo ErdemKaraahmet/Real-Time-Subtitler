@@ -46,38 +46,38 @@ cmake --build build
 
 ## Models
 
-To download Whisper models, use the helper script provided by `whisper.cpp`.
+To download Whisper models, use the helper scripts located in the `models/` directory.
 
 ### On Windows (PowerShell/CMD)
 Use the native `.cmd` script:
 ```powershell
 # List available models
-.\deps\whisper.cpp\models\download-ggml-model.cmd
+.\models\download-model.cmd
 
 # Fastest but lower accuracy
-.\deps\whisper.cpp\models\download-ggml-model.cmd tiny.en-q5_1 models
+.\models\download-model.cmd tiny.en-q5_1
 
 # Best balance
-.\deps\whisper.cpp\models\download-ggml-model.cmd base.en-q5_1 models
+.\models\download-model.cmd base.en-q5_1
 
 # Highest accuracy but slowest
-.\deps\whisper.cpp\models\download-ggml-model.cmd large-v3 models
+.\models\download-model.cmd large-v3
 ```
 
 ### On Linux, macOS, or Git Bash
 Use the `.sh` script:
 ```bash
 # List available models
-./deps/whisper.cpp/models/download-ggml-model.sh
+./models/download-model.sh
 
 # Fastest but lower accuracy
-./deps/whisper.cpp/models/download-ggml-model.sh tiny-q8_0 models/
+./models/download-model.sh tiny-q8_0
 
-# Best Balance
-./deps/whisper.cpp/models/download-ggml-model.sh base.en models/
+# Best balance
+./models/download-model.sh base.en
 
 # Highest accuracy but slowest
-./deps/whisper.cpp/models/download-ggml-model.sh large-v3 models/
+./models/download-model.sh large-v3
 ```
 
 
