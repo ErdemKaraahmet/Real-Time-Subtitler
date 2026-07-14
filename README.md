@@ -1,8 +1,6 @@
 # Real-Time-Subtitler
 
-A lightweight, cross-platform real-time subtitle clickthrough overlay that captures system audio and converts it to live subtitles.
-
-Which hopefully will be a useful alternative to native Windows and Chrome live captions for individuals with hearing impairment.
+A lightweight, cross-platform real-time subtitle clickthrough overlay that captures system audio and converts it to live subtitles. Which hopefully will be a useful alternative to native Windows and Chrome live captions, as well as existing Linux and macOS applications, for individuals with hearing impairment.
 
 ## Prerequisites
 
@@ -91,7 +89,7 @@ Use the `.sh` script:
 
 ## Testing
 
-For convenience during development, helper scripts are provided that build the project, attempt to play the first MP3 file found in the `bin/` directory as a test audio source, and launch the application:s
+For convenience during development, helper scripts are provided that build the project, attempt to play the first MP3 file found in the `bin/` directory as a test audio source, and launch the application:
 
 - **Windows (PowerShell)**: `./build_and_test.ps1`
 - **Linux / MSYS2 (Bash)**: `./build_and_test.sh` 
@@ -122,7 +120,7 @@ From the Control Panel you can:
 
 ## Dependencies
 
->All dependencies listed are bundled as submodules — no separate installation required.
+> All dependencies listed are bundled as submodules — no separate installation required.
 
 - SDL3
 - SDL3_ttf
@@ -134,13 +132,17 @@ From the Control Panel you can:
 
 ## To-Do
 
-- [x] Clickthrough transparent text overlay
+- [x] Clickthrough transparent text overlay (might not work properly for macOS)
 - [x] Graphical Control Panel for UI customization
 - [x] Configurable font, color, and outline
 - [x] System audio capture (Windows)
 - [x] System audio capture (Linux)
 - [x] System audio capture (macOS, only captures microphone for now)
-- [x] Live Whisper transcription (working, latency improvements needed)
+- [x] Live Whisper transcription
+- [ ] Translation
+- [ ] Language selection
+- [ ] Own model download script
+- [ ] Model download from control panel
 - [ ] Confidence-based text coloring
 - [ ] Speaker diarization
 - [x] Multiple model support
