@@ -9,6 +9,8 @@ endif()
 
 project(Real-Time-Subtitler C CXX)
 
+find_package(CURL REQUIRED)
+
 if(WIN32)
     enable_language(RC)
 endif()
@@ -115,6 +117,7 @@ set(RTS_SOURCES
     src/trayManager.c
     src/controlPanel.c
     src/imgui_impl_sdlrenderer3_c.cpp
+    deps/cJSON/cJSON.c
     # ImGui SDL3 + SDLRenderer3 backends (not compiled by cimgui target)
     deps/cimgui/imgui/backends/imgui_impl_sdl3.cpp
     deps/cimgui/imgui/backends/imgui_impl_sdlrenderer3.cpp
@@ -141,6 +144,7 @@ target_include_directories(Real-Time-Subtitler PRIVATE
     deps/cimgui/imgui
     deps/cimgui/generator/output
     deps/cimgui/imgui/backends
+    deps/cJSON
 )
 
 option(RTS_BENCH "Enable inference benchmark logging to rts_bench.csv" OFF)
@@ -158,6 +162,7 @@ target_link_libraries(Real-Time-Subtitler
     SDL3_ttf::SDL3_ttf
     whisper
     cimgui
+    CURL::libcurl
 )
 
 if(WIN32 AND MINGW)
