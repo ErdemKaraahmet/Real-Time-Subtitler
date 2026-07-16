@@ -51,9 +51,18 @@ static AppConfig savedConfig; // to track dirty state
 static bool modelChanged = false;
 static char whisperStatusMessage[256] = "Status: Active";
 static bool whisperStatusError = false;
-static char cpErrorMessage[256] = "";
-static bool cpHasError = false;
 static int cpActivePage = 0; // 0 = View, 1 = Transcription
+
+// Global error popup state
+static char globalUiErrorMessage[512] = "";
+static bool showGlobalUiErrorPopup = false;
+
+static void triggerGlobalError(const char* message) {
+    if (message) {
+        SDL_strlcpy(globalUiErrorMessage, message, sizeof(globalUiErrorMessage));
+        showGlobalUiErrorPopup = true;
+    }
+}
 
 // Preview state
 static SDL_Texture* previewTexture = NULL;
@@ -165,7 +174,7 @@ void openControlPanel(AppConfig* liveConfig) {
     style->WindowPadding = (ImVec2_c){UI_PADDING, UI_PADDING};
     style->ItemSpacing = (ImVec2_c){UI_SPACING, UI_SPACING};
     style->FramePadding = (ImVec2_c){6.0f, 6.0f};
-    style->ButtonTextAlign = (ImVec2_c){0.5f, 0.5f};
+    style->ButtonTextAlign = (ImVec2_c){0.5f, 0.40f};
 
     // Flat Geometry
     style->WindowRounding = 0.0f;
@@ -198,6 +207,9 @@ void openControlPanel(AppConfig* liveConfig) {
     colors[ImGuiCol_CheckMark]            = (ImVec4_c){1.00f, 1.00f, 1.00f, 1.00f};
     colors[ImGuiCol_SliderGrab]           = (ImVec4_c){1.00f, 1.00f, 1.00f, 1.00f};
     colors[ImGuiCol_SliderGrabActive]     = (ImVec4_c){0.80f, 0.80f, 0.80f, 1.00f};
+    colors[ImGuiCol_ModalWindowDimBg]     = (ImVec4_c){0.00f, 0.00f, 0.00f, 0.60f};
+    colors[ImGuiCol_TitleBg]              = (ImVec4_c){0.00f, 0.00f, 0.00f, 1.00f};
+    colors[ImGuiCol_TitleBgActive]        = (ImVec4_c){0.15f, 0.15f, 0.15f, 1.00f};
 
     ImGui_ImplSDL3_InitForSDLRenderer(cpWindow, cpRenderer);
     ImGui_ImplSDLRenderer3_Init_C(cpRenderer);
@@ -515,28 +527,12 @@ ControlPanelStatus updateAndRenderControlPanel(SDL_Renderer* overlayRenderer) {
     float btnStartX = igGetWindowWidth() - (UI_BUTTON_WIDTH * 2.0f) - UI_SPACING - igGetStyle()->WindowPadding.x;
     if (btnStartX < 0.0f) btnStartX = 0.0f;
 
-    // Render error message to the left of the buttons
-    if (cpHasError) {
-        igPushStyleColor_Vec4(ImGuiCol_Text, (ImVec4_c){1.0f, 0.3f, 0.3f, 1.0f});
-        igAlignTextToFramePadding();
-        igBeginGroup();
-        if (strchr(cpErrorMessage, '\n') != NULL) {
-            igSetCursorPosY(igGetCursorPosY() - igGetTextLineHeight() * 0.5f);
-        }
-        igText("%s", cpErrorMessage);
-        igEndGroup();
-        igPopStyleColor(1);
-        igSameLine(0.0f, -1.0f);
-    }
-
     igSetCursorPosX(btnStartX);
 
     // Load Defaults Button
     if (igButton("Load Defaults", (ImVec2_c){UI_BUTTON_WIDTH, 0.0f})) {
         uiConfig = loadDefaultConfig();
         previewNeedsUpdate = true;
-        cpHasError = false;
-        cpErrorMessage[0] = '\0';
     }
 
     igSameLine(0.0f, UI_SPACING);
@@ -554,21 +550,22 @@ ControlPanelStatus updateAndRenderControlPanel(SDL_Renderer* overlayRenderer) {
             bool modelOk = isFileReadable(uiConfig.modelPath);
 
             if (!fontOk) {
-                SDL_strlcpy(fontError, "Error: Font unreadable, using fallback", sizeof(fontError));
+                SDL_strlcpy(fontError, "Font unreadable, using fallback", sizeof(fontError));
             }
             if (!modelOk) {
-                SDL_strlcpy(modelError, "Error: Model unreadable, using fallback", sizeof(modelError));
+                SDL_strlcpy(modelError, "Model unreadable, using fallback", sizeof(modelError));
             }
 
             if (!fontOk || !modelOk) {
-                cpHasError = true;
+                char tempMsg[256] = "";
                 if (!fontOk && !modelOk) {
-                    snprintf(cpErrorMessage, sizeof(cpErrorMessage), "%s\n%s", fontError, modelError);
+                    snprintf(tempMsg, sizeof(tempMsg), "%s\n%s", fontError, modelError);
                 } else if (!fontOk) {
-                    SDL_strlcpy(cpErrorMessage, fontError, sizeof(cpErrorMessage));
+                    SDL_strlcpy(tempMsg, fontError, sizeof(tempMsg));
                 } else {
-                    SDL_strlcpy(cpErrorMessage, modelError, sizeof(cpErrorMessage));
+                    SDL_strlcpy(tempMsg, modelError, sizeof(tempMsg));
                 }
+                triggerGlobalError(tempMsg);
             } else if (saveConfig(&uiConfig)) {
                 if (pLiveConfig) {
                     *pLiveConfig = uiConfig;
@@ -581,13 +578,44 @@ ControlPanelStatus updateAndRenderControlPanel(SDL_Renderer* overlayRenderer) {
                 savedConfig = uiConfig;
                 SDL_strlcpy(whisperStatusMessage, "Status: Active (Config Saved)", sizeof(whisperStatusMessage));
                 whisperStatusError = false;
-                cpHasError = false;
-                cpErrorMessage[0] = '\0';
             } else {
-                cpHasError = true;
-                SDL_strlcpy(cpErrorMessage, "Error: Failed to write config", sizeof(cpErrorMessage));
+                triggerGlobalError("Failed to write config");
             }
         }
+    }
+
+    // Render Global Error Popup Modal
+    if (showGlobalUiErrorPopup) {
+        ImVec2_c parentPos = igGetWindowPos();
+        ImVec2_c parentSize = igGetWindowSize();
+        ImVec2_c centerPos = {
+            parentPos.x + parentSize.x * 0.5f,
+            parentPos.y + parentSize.y * 0.5f
+        };
+        igSetNextWindowPos(centerPos, ImGuiCond_Appearing, (ImVec2_c){0.5f, 0.5f});
+        
+        igOpenPopup_Str("Error##GlobalErrorPopup", 0);
+        showGlobalUiErrorPopup = false; // Reset trigger flag immediately to avoid resets
+    }
+
+    igSetNextWindowSize((ImVec2_c){360.0f, 0.0f}, ImGuiCond_Always);
+
+    if (igBeginPopupModal("Error##GlobalErrorPopup", NULL, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_AlwaysAutoResize)) {
+        igPushTextWrapPos(igGetCursorPosX() + 328.0f); // 360px - margins
+        igTextWrapped("%s", globalUiErrorMessage);
+        igPopTextWrapPos();
+        
+        igSpacing();
+        igSeparator();
+        igSpacing();
+        
+        float okButtonPosX = igGetWindowWidth() - 120.0f - igGetStyle()->WindowPadding.x;
+        if (okButtonPosX < 0.0f) okButtonPosX = 0.0f;
+        igSetCursorPosX(okButtonPosX);
+        if (igButton("OK", (ImVec2_c){120.0f, 30.0f})) {
+            igCloseCurrentPopup();
+        }
+        igEndPopup();
     }
 
     igEnd();
