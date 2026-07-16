@@ -22,13 +22,14 @@ extern void ImGui_ImplSDLRenderer3_NewFrame_C(void);
 extern void ImGui_ImplSDLRenderer3_RenderDrawData_C(ImDrawData* draw_data, SDL_Renderer* renderer);
 
 // UI Styling Constants
-static const float UI_WINDOW_WIDTH = 580.0f;
+static const float UI_WINDOW_WIDTH = 710.0f;
 static const float UI_PADDING = 12.0f;
 static const float UI_SPACING = 8.0f;
 static const float UI_BUTTON_WIDTH = 120.0f;
 static const float UI_BUTTON_HEIGHT = 30.0f;
 static const float UI_PREVIEW_BOX_WIDTH = 556.0f; // 580 - 24
 static const float UI_PREVIEW_BOX_HEIGHT = 100.0f;
+static const float UI_WINDOW_HEIGHT = 450.0f;
 
 // Window and Renderer state
 static SDL_Window* cpWindow = NULL;
@@ -52,6 +53,7 @@ static char whisperStatusMessage[256] = "Status: Active";
 static bool whisperStatusError = false;
 static char cpErrorMessage[256] = "";
 static bool cpHasError = false;
+static int cpActivePage = 0; // 0 = View, 1 = Transcription
 
 // Preview state
 static SDL_Texture* previewTexture = NULL;
@@ -124,7 +126,7 @@ void openControlPanel(AppConfig* liveConfig) {
     SDL_EnumerateDirectory(path, scanModelsCallback, NULL);
 
     // Create window & renderer
-    cpWindow = SDL_CreateWindow("RTS Control Panel", (int)UI_WINDOW_WIDTH, 400, SDL_WINDOW_HIGH_PIXEL_DENSITY);
+    cpWindow = SDL_CreateWindow("RTS Control Panel", (int)UI_WINDOW_WIDTH, (int)UI_WINDOW_HEIGHT, SDL_WINDOW_HIGH_PIXEL_DENSITY);
     if (!cpWindow) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to create Control Panel window: %s", SDL_GetError());
         return;
@@ -155,7 +157,7 @@ void openControlPanel(AppConfig* liveConfig) {
     // Load Cascadia Font for UI
     char uiFontPath[512];
     snprintf(uiFontPath, sizeof(uiFontPath), "%sfonts/cascadia.mono.ttf", basePath);
-    ImFontAtlas_AddFontFromFileTTF(io->Fonts, uiFontPath, 14.0f, NULL, NULL);
+    ImFontAtlas_AddFontFromFileTTF(io->Fonts, uiFontPath, 16.0f, NULL, NULL);
 
     // Setup style
     igStyleColorsDark(NULL);
@@ -164,6 +166,38 @@ void openControlPanel(AppConfig* liveConfig) {
     style->ItemSpacing = (ImVec2_c){UI_SPACING, UI_SPACING};
     style->FramePadding = (ImVec2_c){6.0f, 6.0f};
     style->ButtonTextAlign = (ImVec2_c){0.5f, 0.5f};
+
+    // Flat Geometry
+    style->WindowRounding = 0.0f;
+    style->FrameRounding = 0.0f;
+    style->GrabRounding = 0.0f;
+    style->ScrollbarRounding = 0.0f;
+    style->PopupRounding = 0.0f;
+    style->TabRounding = 0.0f;
+    style->WindowBorderSize = 1.0f;
+    style->FrameBorderSize = 1.0f;
+    style->PopupBorderSize = 1.0f;
+
+    // Monochrome Palette
+    ImVec4* colors = style->Colors;
+    colors[ImGuiCol_WindowBg]             = (ImVec4_c){0.00f, 0.00f, 0.00f, 1.00f};
+    colors[ImGuiCol_ChildBg]              = (ImVec4_c){0.00f, 0.00f, 0.00f, 1.00f};
+    colors[ImGuiCol_PopupBg]              = (ImVec4_c){0.00f, 0.00f, 0.00f, 1.00f};
+    colors[ImGuiCol_Text]                 = (ImVec4_c){1.00f, 1.00f, 1.00f, 1.00f};
+    colors[ImGuiCol_Border]               = (ImVec4_c){0.60f, 0.60f, 0.60f, 1.00f};
+    colors[ImGuiCol_Separator]            = (ImVec4_c){0.60f, 0.60f, 0.60f, 1.00f};
+    colors[ImGuiCol_FrameBg]              = (ImVec4_c){0.00f, 0.00f, 0.00f, 1.00f};
+    colors[ImGuiCol_FrameBgHovered]       = (ImVec4_c){0.15f, 0.15f, 0.15f, 1.00f};
+    colors[ImGuiCol_FrameBgActive]        = (ImVec4_c){0.25f, 0.25f, 0.25f, 1.00f};
+    colors[ImGuiCol_Header]               = (ImVec4_c){0.15f, 0.15f, 0.15f, 1.00f};
+    colors[ImGuiCol_HeaderHovered]        = (ImVec4_c){0.25f, 0.25f, 0.25f, 1.00f};
+    colors[ImGuiCol_HeaderActive]         = (ImVec4_c){0.35f, 0.35f, 0.35f, 1.00f};
+    colors[ImGuiCol_Button]               = (ImVec4_c){0.00f, 0.00f, 0.00f, 1.00f};
+    colors[ImGuiCol_ButtonHovered]        = (ImVec4_c){0.25f, 0.25f, 0.25f, 1.00f};
+    colors[ImGuiCol_ButtonActive]         = (ImVec4_c){0.35f, 0.35f, 0.35f, 1.00f};
+    colors[ImGuiCol_CheckMark]            = (ImVec4_c){1.00f, 1.00f, 1.00f, 1.00f};
+    colors[ImGuiCol_SliderGrab]           = (ImVec4_c){1.00f, 1.00f, 1.00f, 1.00f};
+    colors[ImGuiCol_SliderGrabActive]     = (ImVec4_c){0.80f, 0.80f, 0.80f, 1.00f};
 
     ImGui_ImplSDL3_InitForSDLRenderer(cpWindow, cpRenderer);
     ImGui_ImplSDLRenderer3_Init_C(cpRenderer);
@@ -268,15 +302,15 @@ ControlPanelStatus updateAndRenderControlPanel(SDL_Renderer* overlayRenderer) {
 
     igSameLine(0.0f, UI_SPACING);
     
-    // Align top buttons to the right edge of the window (Total width = 80 + 110 + 80 + 16 = 286)
-    float rightAlignX = igGetWindowWidth() - 286.0f - igGetStyle()->WindowPadding.x;
+    // Align top buttons to the right edge of the window (Total width = 70 + 110 + 100 + 16 = 296)
+    float rightAlignX = igGetWindowWidth() - 296.0f - igGetStyle()->WindowPadding.x;
     if (rightAlignX > igGetCursorPosX()) {
         igSetCursorPosX(rightAlignX);
     }
 
     // Pause/Resume button
     bool currentlyPaused = isAppPaused();
-    if (igButton(currentlyPaused ? "Resume" : "Pause", (ImVec2_c){80.0f, 0.0f})) {
+    if (igButton(currentlyPaused ? "Resume" : "Pause", (ImVec2_c){70.0f, 0.0f})) {
         SDL_Event e;
         SDL_zero(e);
         e.type = SDL_EVENT_USER;
@@ -298,7 +332,7 @@ ControlPanelStatus updateAndRenderControlPanel(SDL_Renderer* overlayRenderer) {
     igSameLine(0.0f, UI_SPACING);
 
     // Close App button
-    if (igButton("Close App", (ImVec2_c){80.0f, 0.0f})) {
+    if (igButton("Close App", (ImVec2_c){100.0f, 0.0f})) {
         SDL_Event e;
         SDL_zero(e);
         e.type = SDL_EVENT_QUIT;
@@ -308,149 +342,172 @@ ControlPanelStatus updateAndRenderControlPanel(SDL_Renderer* overlayRenderer) {
     igSeparator();
     igSpacing();
 
-    // Two-Column Layout for Settings
-    igColumns(2, NULL, false);
-    igSetColumnWidth(0, 300.0f); // Left column width (increased to 300)
-
-    // --- Left Column ---
-    // 1. Font Selection
-    const char* fontDisplayName = getFilenameFromPath(uiConfig.font);
-    if (igBeginCombo("Font", fontDisplayName, 0)) {
-        if (scannedFontCount == 0) {
-            igSelectable_Bool("No item found in folder##empty_font", false, ImGuiSelectableFlags_Disabled, (ImVec2_c){0,0});
-        } else {
-            for (int i = 0; i < scannedFontCount; i++) {
-                bool isSelected = (strcmp(fontDisplayName, scannedFonts[i]) == 0);
-                char itemDisplay[128];
-                snprintf(itemDisplay, sizeof(itemDisplay), "%s##font%d", scannedFonts[i], i);
-                if (igSelectable_Bool(itemDisplay, isSelected, 0, (ImVec2_c){0, 0})) {
-                    snprintf(uiConfig.font, sizeof(uiConfig.font), "fonts/%s", scannedFonts[i]);
-                    previewNeedsUpdate = true;
-                }
-                if (isSelected) {
-                    igSetItemDefaultFocus();
-                }
-            }
-        }
-        igEndCombo();
-    }
-
-    // 2. Font Size
-    int tempFontSize = uiConfig.font_size;
-    if (igDragInt("Font Size", &tempFontSize, 1.0f, 8, 72, "%d", 0)) {
-        uiConfig.font_size = tempFontSize;
-        previewNeedsUpdate = true;
-    }
-
-    // 3. Outline Thickness
-    int tempOutline = uiConfig.outline_thickness;
-    if (igDragInt("Outline Thickness", &tempOutline, 0.5f, 0, 20, "%d", 0)) {
-        uiConfig.outline_thickness = tempOutline;
-        previewNeedsUpdate = true;
-    }
-
-    // 4. Color Picking
-    float textColor[3] = {
-        uiConfig.text_color.r / 255.0f,
-        uiConfig.text_color.g / 255.0f,
-        uiConfig.text_color.b / 255.0f
-    };
-    if (igColorEdit3("Text Color", textColor, 0)) {
-        uiConfig.text_color.r = (uint8_t)(textColor[0] * 255.0f);
-        uiConfig.text_color.g = (uint8_t)(textColor[1] * 255.0f);
-        uiConfig.text_color.b = (uint8_t)(textColor[2] * 255.0f);
-        previewNeedsUpdate = true;
-    }
-
-    float outlineColor[3] = {
-        uiConfig.text_outline_color.r / 255.0f,
-        uiConfig.text_outline_color.g / 255.0f,
-        uiConfig.text_outline_color.b / 255.0f
-    };
-    if (igColorEdit3("Outline Color", outlineColor, 0)) {
-        uiConfig.text_outline_color.r = (uint8_t)(outlineColor[0] * 255.0f);
-        uiConfig.text_outline_color.g = (uint8_t)(outlineColor[1] * 255.0f);
-        uiConfig.text_outline_color.b = (uint8_t)(outlineColor[2] * 255.0f);
-        previewNeedsUpdate = true;
-    }
-
-    igNextColumn();
-
-    // --- Right Column ---
-    // 5. Model Selection
-    const char* modelDisplayName = getFilenameFromPath(uiConfig.modelPath);
-    if (igBeginCombo("Model", modelDisplayName, 0)) {
-        if (scannedModelCount == 0) {
-            igSelectable_Bool("No item found in folder##empty_model", false, ImGuiSelectableFlags_Disabled, (ImVec2_c){0,0});
-        } else {
-            for (int i = 0; i < scannedModelCount; i++) {
-                bool isSelected = (strcmp(modelDisplayName, scannedModels[i]) == 0);
-                char itemDisplay[128];
-                snprintf(itemDisplay, sizeof(itemDisplay), "%s##model%d", scannedModels[i], i);
-                if (igSelectable_Bool(itemDisplay, isSelected, 0, (ImVec2_c){0,0})) {
-                    snprintf(uiConfig.modelPath, sizeof(uiConfig.modelPath), "models/%s", scannedModels[i]);
-                }
-                if (isSelected) {
-                    igSetItemDefaultFocus();
-                }
-            }
-        }
-        igEndCombo();
-    }
-
-    igSpacing();
-    // GPU Toggle
-    igCheckbox("Use GPU (Vulkan)", &uiConfig.use_gpu);
-
-    igColumns(1, NULL, false); // Restore to single column
-
-    igSpacing();
-    igSeparator();
-    igSpacing();
-
-    // 6. Live Preview
-    igText("Live Preview:");
-    ImVec2_c previewPos = igGetCursorScreenPos();
+    // Split layout: Column 0 = Sidebar, Column 1 = Settings Pane
+    igColumns(2, "SettingsSidebarLayout", true);
+    igSetColumnWidth(0, 130.0f); // Sidebar width
     
-    // Draw a dark background rectangle for the preview
-    ImDrawList* drawList = igGetWindowDrawList();
-    ImDrawList_AddRectFilled(drawList, 
-        previewPos, 
-        (ImVec2_c){previewPos.x + UI_PREVIEW_BOX_WIDTH, previewPos.y + UI_PREVIEW_BOX_HEIGHT}, 
-        IM_COL32(15, 15, 15, 255), 4.0f, 0);
-
-    // Render the texture inside the box
-    if (previewFontLoadFailed) {
-        igSetCursorScreenPos((ImVec2_c){previewPos.x + 10.0f, previewPos.y + 10.0f});
-        igTextColored((ImVec4_c){1.0f, 0.3f, 0.3f, 1.0f}, "Preview unavailable (No valid fonts found)");
-    } else if (previewTexture) {
-        // Clamp and scale preview if it exceeds bounds to prevent overflow
-        float maxPreviewW = UI_PREVIEW_BOX_WIDTH - 20.0f;
-        float maxPreviewH = UI_PREVIEW_BOX_HEIGHT - 20.0f;
-        float displayW = previewWidth;
-        float displayH = previewHeight;
-
-        if (displayW > maxPreviewW || displayH > maxPreviewH) {
-            float scaleX = maxPreviewW / displayW;
-            float scaleY = maxPreviewH / displayH;
-            float scale = (scaleX < scaleY) ? scaleX : scaleY;
-            displayW *= scale;
-            displayH *= scale;
+    // --- Column 0: Sidebar Navigation ---
+    igPushStyleVar_Vec2(ImGuiStyleVar_SelectableTextAlign, (ImVec2_c){0.0f, 0.5f});
+    if (igSelectable_Bool("View", cpActivePage == 0, 0, (ImVec2_c){0, 24.0f})) {
+        cpActivePage = 0;
+    }
+    igSpacing();
+    if (igSelectable_Bool("Transcription", cpActivePage == 1, 0, (ImVec2_c){0, 24.0f})) {
+        cpActivePage = 1;
+    }
+    igPopStyleVar(1);
+    
+    igNextColumn();
+    
+    // --- Column 1: Settings Content ---
+    if (cpActivePage == 0) {
+        // --- View Page ---
+        // 1. Font Selection
+        const char* fontDisplayName = getFilenameFromPath(uiConfig.font);
+        if (igBeginCombo("Font", fontDisplayName, 0)) {
+            if (scannedFontCount == 0) {
+                igSelectable_Bool("No item found in folder##empty_font", false, ImGuiSelectableFlags_Disabled, (ImVec2_c){0,0});
+            } else {
+                for (int i = 0; i < scannedFontCount; i++) {
+                    bool isSelected = (strcmp(fontDisplayName, scannedFonts[i]) == 0);
+                    char itemDisplay[128];
+                    snprintf(itemDisplay, sizeof(itemDisplay), "%s##font%d", scannedFonts[i], i);
+                    if (igSelectable_Bool(itemDisplay, isSelected, 0, (ImVec2_c){0, 0})) {
+                        snprintf(uiConfig.font, sizeof(uiConfig.font), "fonts/%s", scannedFonts[i]);
+                        previewNeedsUpdate = true;
+                    }
+                    if (isSelected) {
+                        igSetItemDefaultFocus();
+                    }
+                }
+            }
+            igEndCombo();
         }
 
-        // Center the scaled preview texture inside the box
-        float startX = previewPos.x + (UI_PREVIEW_BOX_WIDTH - displayW) / 2.0f;
-        float startY = previewPos.y + (UI_PREVIEW_BOX_HEIGHT - displayH) / 2.0f;
+        // 2. Font Size
+        int tempFontSize = uiConfig.font_size;
+        if (igDragInt("Font Size", &tempFontSize, 1.0f, 8, 72, "%d", 0)) {
+            uiConfig.font_size = tempFontSize;
+            previewNeedsUpdate = true;
+        }
 
-        igSetCursorScreenPos((ImVec2_c){startX, startY});
-        ImTextureRef_c texRef = { NULL, (ImTextureID)(intptr_t)previewTexture };
-        igImage(texRef, (ImVec2_c){displayW, displayH}, (ImVec2_c){0,0}, (ImVec2_c){1,1});
+        // 3. Outline Thickness
+        int tempOutline = uiConfig.outline_thickness;
+        if (igDragInt("Outline Thickness", &tempOutline, 0.5f, 0, 20, "%d", 0)) {
+            uiConfig.outline_thickness = tempOutline;
+            previewNeedsUpdate = true;
+        }
+
+        // 4. Color Picking
+        float textColor[3] = {
+            uiConfig.text_color.r / 255.0f,
+            uiConfig.text_color.g / 255.0f,
+            uiConfig.text_color.b / 255.0f
+        };
+        if (igColorEdit3("Text Color", textColor, 0)) {
+            uiConfig.text_color.r = (uint8_t)(textColor[0] * 255.0f);
+            uiConfig.text_color.g = (uint8_t)(textColor[1] * 255.0f);
+            uiConfig.text_color.b = (uint8_t)(textColor[2] * 255.0f);
+            previewNeedsUpdate = true;
+        }
+
+        float outlineColor[3] = {
+            uiConfig.text_outline_color.r / 255.0f,
+            uiConfig.text_outline_color.g / 255.0f,
+            uiConfig.text_outline_color.b / 255.0f
+        };
+        if (igColorEdit3("Outline Color", outlineColor, 0)) {
+            uiConfig.text_outline_color.r = (uint8_t)(outlineColor[0] * 255.0f);
+            uiConfig.text_outline_color.g = (uint8_t)(outlineColor[1] * 255.0f);
+            uiConfig.text_outline_color.b = (uint8_t)(outlineColor[2] * 255.0f);
+            previewNeedsUpdate = true;
+        }
+
+        igSpacing();
+
+        // Live Preview
+        igText("Live Preview:");
+        ImVec2_c previewPos = igGetCursorScreenPos();
+        
+        // Draw a dark background rectangle for the preview (no rounding)
+        ImDrawList* drawList = igGetWindowDrawList();
+        ImDrawList_AddRectFilled(drawList, 
+            previewPos, 
+            (ImVec2_c){previewPos.x + UI_PREVIEW_BOX_WIDTH, previewPos.y + UI_PREVIEW_BOX_HEIGHT}, 
+            IM_COL32(15, 15, 15, 255), 0.0f, 0);
+
+        ImDrawList_AddRect(drawList,
+            previewPos,
+            (ImVec2_c){previewPos.x + UI_PREVIEW_BOX_WIDTH, previewPos.y + UI_PREVIEW_BOX_HEIGHT},
+            IM_COL32(80, 80, 80, 255), 0.0f, 1.0f, 0);
+
+        // Render the texture inside the box
+        if (previewFontLoadFailed) {
+            igSetCursorScreenPos((ImVec2_c){previewPos.x + 10.0f, previewPos.y + 10.0f});
+            igTextColored((ImVec4_c){1.0f, 0.3f, 0.3f, 1.0f}, "Preview unavailable (No valid fonts found)");
+        } else if (previewTexture) {
+            // Clamp and scale preview if it exceeds bounds to prevent overflow
+            float maxPreviewW = UI_PREVIEW_BOX_WIDTH - 20.0f;
+            float maxPreviewH = UI_PREVIEW_BOX_HEIGHT - 20.0f;
+            float displayW = previewWidth;
+            float displayH = previewHeight;
+
+            if (displayW > maxPreviewW || displayH > maxPreviewH) {
+                float scaleX = maxPreviewW / displayW;
+                float scaleY = maxPreviewH / displayH;
+                float scale = (scaleX < scaleY) ? scaleX : scaleY;
+                displayW *= scale;
+                displayH *= scale;
+            }
+
+            // Center the scaled preview texture inside the box
+            float startX = previewPos.x + (UI_PREVIEW_BOX_WIDTH - displayW) / 2.0f;
+            float startY = previewPos.y + (UI_PREVIEW_BOX_HEIGHT - displayH) / 2.0f;
+
+            igSetCursorScreenPos((ImVec2_c){startX, startY});
+            ImTextureRef_c texRef = { NULL, (ImTextureID)(intptr_t)previewTexture };
+            igImage(texRef, (ImVec2_c){displayW, displayH}, (ImVec2_c){0,0}, (ImVec2_c){1,1});
+        }
+
+        // Dummy element to advance the cursor past the preview box
+        igSetCursorScreenPos((ImVec2_c){previewPos.x, previewPos.y + UI_PREVIEW_BOX_HEIGHT + UI_SPACING});
+
+    } else if (cpActivePage == 1) {
+        // --- Transcription Page ---
+        // 5. Model Selection
+        const char* modelDisplayName = getFilenameFromPath(uiConfig.modelPath);
+        if (igBeginCombo("Model", modelDisplayName, 0)) {
+            if (scannedModelCount == 0) {
+                igSelectable_Bool("No item found in folder##empty_model", false, ImGuiSelectableFlags_Disabled, (ImVec2_c){0,0});
+            } else {
+                for (int i = 0; i < scannedModelCount; i++) {
+                    bool isSelected = (strcmp(modelDisplayName, scannedModels[i]) == 0);
+                    char itemDisplay[128];
+                    snprintf(itemDisplay, sizeof(itemDisplay), "%s##model%d", scannedModels[i], i);
+                    if (igSelectable_Bool(itemDisplay, isSelected, 0, (ImVec2_c){0,0})) {
+                        snprintf(uiConfig.modelPath, sizeof(uiConfig.modelPath), "models/%s", scannedModels[i]);
+                    }
+                    if (isSelected) {
+                        igSetItemDefaultFocus();
+                    }
+                }
+            }
+            igEndCombo();
+        }
+
+        igSpacing();
+        // GPU Toggle
+        igCheckbox("Use GPU (Vulkan)", &uiConfig.use_gpu);
     }
-
-    // Dummy element to advance the cursor past the preview box
-    igSetCursorScreenPos((ImVec2_c){previewPos.x, previewPos.y + UI_PREVIEW_BOX_HEIGHT + UI_SPACING});
-
-    igSpacing();
+    
+    igColumns(1, NULL, false); // Restore to single column
+    
+    // Force the action buttons to always sit at the bottom of the window
+    float windowHeight = igGetWindowHeight();
+    float paddingY = igGetStyle()->WindowPadding.y;
+    float footerStartY = windowHeight - paddingY - 30.0f - 20.0f; // 30px button height + 20px margin
+    
+    igSetCursorPosY(footerStartY);
     igSeparator();
     igSpacing();
 
@@ -533,18 +590,7 @@ ControlPanelStatus updateAndRenderControlPanel(SDL_Renderer* overlayRenderer) {
         }
     }
 
-    // Get the bottom-most cursor position to calculate desired window height
-    float contentHeight = igGetCursorPosY();
-    ImGuiStyle* style = igGetStyle();
-    float desiredHeight = contentHeight + style->WindowPadding.y;
-
     igEnd();
-
-    // Update SDL window height to match ImGui content height (keep width at UI_WINDOW_WIDTH)
-    int desiredH = (int)desiredHeight;
-    if (h != desiredH && desiredH > 100) {
-        SDL_SetWindowSize(cpWindow, (int)UI_WINDOW_WIDTH, desiredH);
-    }
 
     // Render ImGui
     igRender();
