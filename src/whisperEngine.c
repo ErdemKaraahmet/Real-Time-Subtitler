@@ -16,6 +16,14 @@ void quiet_log_callback(enum ggml_log_level level, const char * text, void * use
 
 // Initialize
 bool whisperInit(const char* modelPath, bool* use_gpu) {
+    char fullPath[512];
+    const char* basePath = SDL_GetBasePath();
+    if (basePath) {
+        snprintf(fullPath, sizeof(fullPath), "%s%s", basePath, modelPath);
+    } else {
+        SDL_strlcpy(fullPath, modelPath, sizeof(fullPath));
+    }
+
     struct whisper_context_params cparams = whisper_context_default_params();
     cparams.flash_attn = true; // reduces memory/latency
 
@@ -23,19 +31,19 @@ bool whisperInit(const char* modelPath, bool* use_gpu) {
     if (use_gpu && *use_gpu) {
         SDL_Log("Attempting GPU-accelerated whisper init...");
         cparams.use_gpu = true;
-        ctx = whisper_init_from_file_with_params(modelPath, cparams);
+        ctx = whisper_init_from_file_with_params(fullPath, cparams);
 
         if (ctx == NULL) {
             // GPU failed, fall back to CPU
             SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "GPU init failed, falling back to CPU...");
             cparams.use_gpu = false;
             *use_gpu = false; // report fallback back to config
-            ctx = whisper_init_from_file_with_params(modelPath, cparams);
+            ctx = whisper_init_from_file_with_params(fullPath, cparams);
         }
     } else {
         SDL_Log("Attempting CPU whisper init...");
         cparams.use_gpu = false;
-        ctx = whisper_init_from_file_with_params(modelPath, cparams);
+        ctx = whisper_init_from_file_with_params(fullPath, cparams);
     }
 
     // Now silence whisper's internal logging for runtime

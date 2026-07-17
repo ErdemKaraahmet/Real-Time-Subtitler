@@ -45,7 +45,7 @@ ModelManager* getModelManager(void);
 // Download and delete operations
 bool modelManagerStartDownload(int index);
 void modelManagerCancelDownload(void);
-bool modelManagerDeleteModel(int index);
+bool modelManagerDeleteModel(int index, const char* activeModelFilename);
 bool modelManagerIsDownloading(void);
 
 #endif // MODEL_MANAGER_H
