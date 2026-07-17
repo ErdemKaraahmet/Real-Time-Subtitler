@@ -301,12 +301,12 @@ static bool calculateFileSHA256(const char* filePath, char* destHex) {
     uint8_t buffer[65536];
     size_t bytesRead;
     while ((bytesRead = fread(buffer, 1, sizeof(buffer), file)) > 0) {
-        sha256_update(&ctx, (const BYTE*)buffer, bytesRead);
+        sha256_update(&ctx, (const SHA256_BYTE*)buffer, bytesRead);
     }
     
     fclose(file);
     
-    BYTE hash[SHA256_BLOCK_SIZE];
+    SHA256_BYTE hash[SHA256_BLOCK_SIZE];
     sha256_final(&ctx, hash);
     
     for (int i = 0; i < SHA256_BLOCK_SIZE; i++) {
