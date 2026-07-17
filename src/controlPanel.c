@@ -97,6 +97,14 @@ static SDL_EnumerationResult SDLCALL scanFontsCallback(void *userdata, const cha
     return SDL_ENUM_CONTINUE;
 }
 
+void openControlPanelToTranscriptionWithError(AppConfig* liveConfig, const char* errorMessage) {
+    cpActivePage = 1;
+    openControlPanel(liveConfig);
+    if (errorMessage) {
+        triggerGlobalError(errorMessage);
+    }
+}
+
 void openControlPanel(AppConfig* liveConfig) {
     if (cpOpen) {
         // Bring to front
@@ -278,7 +286,7 @@ ControlPanelStatus updateAndRenderControlPanel(SDL_Renderer* overlayRenderer) {
     }
 
     // Check dirty state
-    bool isDirty = false;
+    bool isDirty = whisperStatusError;
     if (strcmp(uiConfig.font, savedConfig.font) != 0 ||
         uiConfig.font_size != savedConfig.font_size ||
         uiConfig.outline_thickness != savedConfig.outline_thickness ||
@@ -685,7 +693,7 @@ ControlPanelStatus updateAndRenderControlPanel(SDL_Renderer* overlayRenderer) {
                 SDL_strlcpy(fontError, "Font unreadable, using fallback", sizeof(fontError));
             }
             if (!modelOk) {
-                SDL_strlcpy(modelError, "Model unreadable, using fallback", sizeof(modelError));
+                SDL_strlcpy(modelError, "Model unreadable, make sure you select one", sizeof(modelError));
             }
 
             if (!fontOk || !modelOk) {
@@ -704,7 +712,8 @@ ControlPanelStatus updateAndRenderControlPanel(SDL_Renderer* overlayRenderer) {
                 }
                 status.configSaved = true;
                 if (strcmp(uiConfig.modelPath, savedConfig.modelPath) != 0 ||
-                    uiConfig.use_gpu != savedConfig.use_gpu) {
+                    uiConfig.use_gpu != savedConfig.use_gpu ||
+                    whisperStatusError) {
                     status.modelChanged = true;
                 }
                 savedConfig = uiConfig;

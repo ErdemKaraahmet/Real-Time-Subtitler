@@ -86,7 +86,9 @@ int main(int argc, char *argv[])
         }
     }
     else {
-        SDL_Log("Couldn't load whisper model");
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Couldn't load whisper model: %s", config->modelPath);
+        openControlPanelToTranscriptionWithError(config, "No Whisper model is loaded.\n\nPlease select or download a model from the list above to start subtitling.");
+        setControlPanelWhisperError(true, "Status: Whisper Offline (Model Load Failed)");
     }
 
     // Create a transparent window
@@ -262,6 +264,7 @@ int main(int argc, char *argv[])
                 {
                     SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to reload Whisper model: %s", config->modelPath);
                     setControlPanelWhisperError(true, "Status: Whisper Offline (Model Load Failed)");
+                    openControlPanelToTranscriptionWithError(config, "Failed to reload the Whisper model.\n\nPlease select or download another model.");
                 }
             }
         }

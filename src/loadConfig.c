@@ -3,6 +3,37 @@
 #include <string.h>
 #include <stdlib.h>
 
+typedef struct {
+    char firstModel[256];
+} ScanFirstModelData;
+
+static SDL_EnumerationResult SDLCALL scanFirstModelCallback(void* userdata, const char* dirname, const char* fname) {
+    (void)dirname;
+    ScanFirstModelData* data = (ScanFirstModelData*)userdata;
+    
+    size_t len = strlen(fname);
+    if (len > 4 && strcmp(fname + len - 4, ".bin") == 0) {
+        snprintf(data->firstModel, sizeof(data->firstModel), "models/%s", fname);
+        return SDL_ENUM_FAILURE; // Stop scanning on first match
+    }
+    return SDL_ENUM_CONTINUE;
+}
+
+static void getFirstLocalModelPath(char* dest, size_t destSize) {
+    char modelsPath[512];
+    const char* basePath = SDL_GetBasePath();
+    snprintf(modelsPath, sizeof(modelsPath), "%smodels", basePath);
+    
+    ScanFirstModelData data = {0};
+    SDL_EnumerateDirectory(modelsPath, scanFirstModelCallback, &data);
+    
+    if (data.firstModel[0] != '\0') {
+        SDL_strlcpy(dest, data.firstModel, destSize);
+    } else {
+        dest[0] = '\0'; // Return empty string if no model is found
+    }
+}
+
 // returns CONFIG_LOAD_FILE_NOT_FOUND if file can't be opened,
 // CONFIG_LOAD_NONE if file exists but nothing loaded,
 // CONFIG_LOAD_PARTIAL if some fields loaded,
@@ -128,9 +159,10 @@ AppConfig loadDefaultConfig(){
         .outline_thickness = 4,
         .text_color = {255, 255, 255, 255},
         .text_outline_color = {0, 0, 0, 255},
-        .modelPath = "models/ggml-base.en.bin",
         .use_gpu = true,
     };
+
+    getFirstLocalModelPath(conf.modelPath, sizeof(conf.modelPath));
 
     return conf;
 }

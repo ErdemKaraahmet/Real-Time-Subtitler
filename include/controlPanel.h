@@ -8,6 +8,7 @@ typedef struct {
 } ControlPanelStatus;
 
 void openControlPanel(AppConfig* liveConfig);
+void openControlPanelToTranscriptionWithError(AppConfig* liveConfig, const char* errorMessage);
 void handleControlPanelEvent(const SDL_Event* event);
 ControlPanelStatus updateAndRenderControlPanel(SDL_Renderer* overlayRenderer);
 void closeControlPanel(void);
