@@ -19,12 +19,10 @@ void quiet_log_callback(enum ggml_log_level level, const char * text, void * use
 bool whisperInit(const char* modelPath, bool* use_gpu) {
     char fullPath[512];
     utilsResolvePath(fullPath, sizeof(fullPath), modelPath);
-    FILE* f = fopen(fullPath, "rb");
-    if (!f) {
+    if (!utilsIsFileReadable(modelPath)) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Model file is unreadable or missing: %s", fullPath);
         return false;
     }
-    fclose(f);
 
     struct whisper_context_params cparams = whisper_context_default_params();
     cparams.flash_attn = true; // reduces memory/latency

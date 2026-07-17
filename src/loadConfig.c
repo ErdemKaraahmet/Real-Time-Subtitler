@@ -40,10 +40,8 @@ static void getFirstLocalModelPath(char* dest, size_t destSize) {
 // CONFIG_LOAD_FULL if all fields loaded
 static void resolveConfigPath(char* dest, size_t destSize) {
     // Check if the config exists in the parent dir first (dev mode)
-    utilsResolvePath(dest, destSize, "../config.ini");
-    FILE* file = fopen(dest, "r");
-    if (file) {
-        fclose(file);
+    if (utilsIsFileReadable("../config.ini")) {
+        utilsResolvePath(dest, destSize, "../config.ini");
         return;
     }
     

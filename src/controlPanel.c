@@ -223,15 +223,6 @@ void handleControlPanelEvent(const SDL_Event* event) {
     }
 }
 
-static bool isFileReadable(const char* path) {
-    char fullPath[512];
-    utilsResolvePath(fullPath, sizeof(fullPath), path);
-    
-    SDL_IOStream* io = SDL_IOFromFile(fullPath, "rb");
-    if (io) { SDL_CloseIO(io); return true; }
-    return false;
-}
-
 static void updatePreviewTexture(void) {
     if (previewTexture) {
         SDL_DestroyTexture(previewTexture);
@@ -664,8 +655,8 @@ static void renderFooter(ControlPanelStatus* status, bool isDirty) {
         if (igButton("Save", (ImVec2_c){UI_BUTTON_WIDTH, 0.0f})) {
             char fontError[128] = "";
             char modelError[128] = "";
-            bool fontOk = isFileReadable(uiConfig.font);
-            bool modelOk = isFileReadable(uiConfig.modelPath);
+            bool fontOk = utilsIsFileReadable(uiConfig.font);
+            bool modelOk = utilsIsFileReadable(uiConfig.modelPath);
 
             if (!fontOk) {
                 SDL_strlcpy(fontError, "Font unreadable, using fallback", sizeof(fontError));
