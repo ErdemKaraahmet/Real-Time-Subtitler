@@ -6,21 +6,29 @@ A lightweight, cross-platform real-time subtitle clickthrough overlay that captu
 
 ### On Windows
 
-- A C/C++ compiler with MinGW (e.g., [MSYS2](https://www.msys2.org/) UCRT64 toolchain), MSVC not supported yet
-- CMake 3.24+
-- Git
-
-For GPU Acceleration the build automatically detects the [Vulkan SDK](https://vulkan.lunarg.com/sdk/home). If found, whisper.cpp will be compiled with Vulkan GPU acceleration for faster inference. If not found, it falls back to CPU only.
+1. Download and install [MSYS2](https://www.msys2.org/).
+2. Open the **MSYS2 UCRT64** terminal and install the compiler toolchain, Vulkan SDK headers, and curl dependencies:
+   ```bash
+   pacman -S mingw-w64-ucrt-x86_64-gcc \
+             mingw-w64-ucrt-x86_64-cmake \
+             mingw-w64-ucrt-x86_64-ninja \
+             mingw-w64-ucrt-x86_64-vulkan-devel \
+             mingw-w64-ucrt-x86_64-spirv-headers \
+             mingw-w64-ucrt-x86_64-shaderc \
+             mingw-w64-ucrt-x86_64-pkgconf \
+             mingw-w64-ucrt-x86_64-curl
+   ```
 
 ### On Linux (Debian / Ubuntu)
 
 Install the compiler toolchain and SDL3 dependencies:
 ```bash
-sudo apt install build-essential git make pkg-config cmake ninja-build \
+sudo apt install build-essential make pkg-config cmake ninja-build \
     libasound2-dev libpulse-dev libx11-dev libxext-dev libxrandr-dev \
     libxcursor-dev libxfixes-dev libxi-dev libxss-dev libxtst-dev \
     libxkbcommon-dev libdrm-dev libgbm-dev libgl1-mesa-dev libgles2-mesa-dev \
-    libegl1-mesa-dev libdbus-1-dev libibus-1.0-dev libudev-dev libusb-1.0-0-dev
+    libegl1-mesa-dev libdbus-1-dev libibus-1.0-dev libudev-dev libusb-1.0-0-dev \
+    libcurl4-openssl-dev
 ```
 
 For GPU Acceleration build automatically detects the Vulkan development headers, shader compiler, and spec headers. If not found, it falls back to CPU only. Install with:
@@ -30,11 +38,11 @@ sudo apt install libvulkan-dev glslc spirv-headers
 
 ### On macOS
 
-Install CMake and Git:
+Install CMake:
 ```bash
-brew install cmake git
+brew install cmake
 ```
-*(Metal GPU acceleration is automatically enabled on Apple Silicon)*
+*(Metal GPU acceleration is automatically enabled on Apple Silicon. libcurl is pre-installed on macOS and dynamically resolved at runtime with no manual installation required.)*
 
 ## Build
 ```bash
@@ -141,8 +149,8 @@ From the Control Panel you can:
 - [x] Live Whisper transcription
 - [ ] Translation
 - [ ] Language selection
-- [ ] Own model download script
-- [ ] Model download from control panel
+- [X] Own model download script
+- [X] Model download from control panel
 - [ ] Confidence-based text coloring
 - [ ] Speaker diarization
 - [x] Multiple model support
