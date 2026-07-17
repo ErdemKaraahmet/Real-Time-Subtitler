@@ -39,6 +39,7 @@ void modelManagerShutdown(void);
 
 void modelManagerStartFetchCatalog(void);
 void modelManagerPoll(void);
+void modelManagerRescanLocal(void);
 
 ModelManager* getModelManager(void);
 

@@ -49,7 +49,11 @@ static SDL_EnumerationResult SDLCALL scanLocalModelsCallback(void *userdata, con
         bool exists = false;
         for (int i = 0; i < g_ModelManager.count; ++i) {
             if (strcmp(g_ModelManager.models[i].filename, fname) == 0) {
-                g_ModelManager.models[i].state = MODEL_STATE_DOWNLOADED;
+                // Protect active downloading and verifying states from being overwritten
+                if (g_ModelManager.models[i].state != MODEL_STATE_DOWNLOADING &&
+                    g_ModelManager.models[i].state != MODEL_STATE_VERIFYING) {
+                    g_ModelManager.models[i].state = MODEL_STATE_DOWNLOADED;
+                }
                 exists = true;
                 break;
             }
@@ -525,4 +529,26 @@ bool modelManagerDeleteModel(int index, const char* activeModelFilename) {
 
 bool modelManagerIsDownloading(void) {
     return g_ActiveDownloadIndex != -1;
+}
+
+void modelManagerRescanLocal(void) {
+    SDL_LockMutex(g_ModelManager.lock);
+    
+    // Only rebuild/clear the array if there is NO active download running
+    if (g_ActiveDownloadIndex == -1) {
+        g_ModelManager.count = 0;
+        g_ModelManager.catalogFetched = false;
+        memset(g_ModelManager.models, 0, sizeof(g_ModelManager.models));
+    } else {
+        // If a download is active, just reset downloaded states in-place to protect indices
+        for (int i = 0; i < g_ModelManager.count; ++i) {
+            if (i != g_ActiveDownloadIndex && g_ModelManager.models[i].state == MODEL_STATE_DOWNLOADED) {
+                g_ModelManager.models[i].state = MODEL_STATE_NOT_DOWNLOADED;
+            }
+        }
+    }
+    
+    SDL_UnlockMutex(g_ModelManager.lock);
+    
+    scanLocalModels();
 }

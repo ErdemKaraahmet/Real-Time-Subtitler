@@ -523,10 +523,12 @@ ControlPanelStatus updateAndRenderControlPanel(SDL_Renderer* overlayRenderer) {
             }
         }
 
-        igSetNextItemWidth(-60.0f);
-        float comboWidth = igCalcItemWidth();
+        igAlignTextToFramePadding();
+        igText("Model");
+        igSameLine(0.0f, 8.0f);
 
-        if (igBeginCombo("Model", comboLabel, 0)) {
+        igSetNextItemWidth(-34.0f);
+        if (igBeginCombo("##Model", comboLabel, 0)) {
             if (mm->count == 0) {
                 if (mm->fetchInProgress) {
                     igSelectable_Bool("Loading catalog...##empty", false, ImGuiSelectableFlags_Disabled, (ImVec2_c){0,0});
@@ -640,6 +642,17 @@ ControlPanelStatus updateAndRenderControlPanel(SDL_Renderer* overlayRenderer) {
                 }
             }
             igEndCombo();
+        }
+        igSameLine(0.0f, 4.0f);
+        bool isBusy = mm->fetchInProgress || modelManagerIsDownloading();
+        igBeginDisabled(isBusy);
+        if (igButton("R", (ImVec2_c){30.0f, 0.0f})) {
+            modelManagerRescanLocal();
+            modelManagerStartFetchCatalog();
+        }
+        igEndDisabled();
+        if (igIsItemHovered(0)) {
+            igSetTooltip("Reload model list");
         }
         if (triggerDeletePopup) {
             igOpenPopup_Str("Confirm Deletion##Modal", 0);
