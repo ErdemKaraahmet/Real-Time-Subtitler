@@ -23,6 +23,12 @@ bool whisperInit(const char* modelPath, bool* use_gpu) {
     } else {
         SDL_strlcpy(fullPath, modelPath, sizeof(fullPath));
     }
+    FILE* f = fopen(fullPath, "rb");
+    if (!f) {
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Model file is unreadable or missing: %s", fullPath);
+        return false;
+    }
+    fclose(f);
 
     struct whisper_context_params cparams = whisper_context_default_params();
     cparams.flash_attn = true; // reduces memory/latency
