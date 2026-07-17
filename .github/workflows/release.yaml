@@ -45,18 +45,6 @@ jobs:
             mingw-w64-ucrt-x86_64-pkgconf
             mingw-w64-ucrt-x86_64-curl
       
-      - name: Cache Whisper Model
-        id: cache-whisper
-        uses: actions/cache@v4
-        with:
-          path: models/ggml-base.en.bin
-          key: whisper-model-base.en
-          
-      - name: Download Base Whisper Model
-        if: steps.cache-whisper.outputs.cache-hit != 'true'
-        run: |
-          cmake -E make_directory models
-          curl -L -o models/ggml-base.en.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin?download=true
 
       - name: Install Dependencies (Linux)
         if: runner.os == 'Linux'

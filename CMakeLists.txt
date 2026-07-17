@@ -221,11 +221,10 @@ add_custom_command(TARGET Real-Time-Subtitler POST_BUILD
     "${CMAKE_SOURCE_DIR}/fonts"
     $<TARGET_FILE_DIR:Real-Time-Subtitler>/fonts
 )
-# copy models/ only if it hasn't already been copied
+# copy models/ only if it hasn't already been copied and filter out download-model scripts
 if(NOT EXISTS "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/models")
-    add_custom_command(TARGET Real-Time-Subtitler POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_directory
-        "${CMAKE_SOURCE_DIR}/models"
-        $<TARGET_FILE_DIR:Real-Time-Subtitler>/models
+    file(COPY "${CMAKE_SOURCE_DIR}/models/"
+         DESTINATION "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/models"
+         FILES_MATCHING PATTERN "*.bin"
     )
 endif()
