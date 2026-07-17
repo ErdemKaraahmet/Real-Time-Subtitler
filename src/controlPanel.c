@@ -214,9 +214,16 @@ void handleControlPanelEvent(const SDL_Event* event) {
     }
 }
 
-// Simple file readability check using SDL3 IO
 static bool isFileReadable(const char* path) {
-    SDL_IOStream* io = SDL_IOFromFile(path, "rb");
+    char fullPath[512];
+    const char* basePath = SDL_GetBasePath();
+    if (basePath) {
+        snprintf(fullPath, sizeof(fullPath), "%s%s", basePath, path);
+    } else {
+        SDL_strlcpy(fullPath, path, sizeof(fullPath));
+    }
+    
+    SDL_IOStream* io = SDL_IOFromFile(fullPath, "rb");
     if (io) { SDL_CloseIO(io); return true; }
     return false;
 }
@@ -487,6 +494,7 @@ ControlPanelStatus updateAndRenderControlPanel(SDL_Renderer* overlayRenderer) {
         }
 
         const char* modelDisplayName = getFilenameFromPath(uiConfig.modelPath);
+        const char* activeModelFilename = getFilenameFromPath(savedConfig.modelPath);
         char comboLabel[256];
         SDL_strlcpy(comboLabel, modelDisplayName, sizeof(comboLabel));
 
@@ -504,6 +512,7 @@ ControlPanelStatus updateAndRenderControlPanel(SDL_Renderer* overlayRenderer) {
             }
         }
 
+        igSetNextItemWidth(-60.0f);
         float comboWidth = igCalcItemWidth();
 
         if (igBeginCombo("Model", comboLabel, 0)) {
@@ -517,17 +526,14 @@ ControlPanelStatus updateAndRenderControlPanel(SDL_Renderer* overlayRenderer) {
                 for (int i = 0; i < mm->count; i++) {
                     ModelEntry* entry = &mm->models[i];
                     bool isSelected = (strcmp(modelDisplayName, entry->filename) == 0);
+                    bool isActive = (strcmp(activeModelFilename, entry->filename) == 0);
 
                     char itemDisplay[256];
-                    if (entry->state == MODEL_STATE_DOWNLOADED) {
-                        snprintf(itemDisplay, sizeof(itemDisplay), "%s", entry->name);
-                    } else {
-                        snprintf(itemDisplay, sizeof(itemDisplay), "%s (%.1f MB)", entry->name, (double)entry->remoteSize / (1024.0 * 1024.0));
-                    }
+                    snprintf(itemDisplay, sizeof(itemDisplay), "%s (%.1f MB)", entry->name, (double)entry->remoteSize / (1024.0 * 1024.0));
 
                     igPushID_Int(i);
 
-                    bool rowClicked = igSelectable_Bool(itemDisplay, isSelected, 0, (ImVec2_c){0.0f, 24.0f});
+                    bool rowClicked = igSelectable_Bool(itemDisplay, isSelected, ImGuiSelectableFlags_NoAutoClosePopups, (ImVec2_c){0.0f, 24.0f});
 
                     ImVec2_c minVal = igGetItemRectMin();
                     ImVec2_c maxVal = igGetItemRectMax();
@@ -559,7 +565,7 @@ ControlPanelStatus updateAndRenderControlPanel(SDL_Renderer* overlayRenderer) {
                         float rightTextX = maxVal.x - 36.0f - igCalcTextSize(overlayText, NULL, false, -1.0f).x - igGetStyle()->ItemSpacing.x;
                         if (rightTextX < minVal.x) rightTextX = minVal.x;
 
-                        ImVec2_c textPos = { rightTextX, minVal.y + 4.0f };
+                        ImVec2_c textPos = { rightTextX, minVal.y + 7.0f };
                         ImU32 textCol = igGetColorU32_Vec4((ImVec4_c){1.0f, 1.0f, 1.0f, 0.8f});
                         ImDrawList_AddText_Vec2(drawList, textPos, textCol, overlayText, NULL);
                     }
@@ -569,8 +575,13 @@ ControlPanelStatus updateAndRenderControlPanel(SDL_Renderer* overlayRenderer) {
                     ImU32 iconCol = 0xFFFFFFFF;
 
                     if (entry->state == MODEL_STATE_DOWNLOADED) {
-                        iconCol = igGetColorU32_Vec4((ImVec4_c){1.0f, 0.3f, 0.3f, 1.0f});
-                        iconStr = "[D]";
+                        if (isActive) {
+                            iconCol = igGetColorU32_Vec4((ImVec4_c){0.3f, 1.0f, 0.3f, 1.0f});
+                            iconStr = "[A]";
+                        } else {
+                            iconCol = igGetColorU32_Vec4((ImVec4_c){1.0f, 0.3f, 0.3f, 1.0f});
+                            iconStr = "[D]";
+                        }
                     } else if (entry->state == MODEL_STATE_DOWNLOADING) {
                         iconCol = igGetColorU32_Vec4((ImVec4_c){1.0f, 1.00f, 1.00f, 1.00f});
                         iconStr = "[X]";
@@ -582,7 +593,7 @@ ControlPanelStatus updateAndRenderControlPanel(SDL_Renderer* overlayRenderer) {
                     if (iconStr[0] != '\0') {
                         float iconWidth = igCalcTextSize(iconStr, NULL, false, -1.0f).x;
                         float iconX = maxVal.x - iconWidth - 8.0f;
-                        ImVec2_c iconPos = { iconX, minVal.y + 4.0f };
+                        ImVec2_c iconPos = { iconX, minVal.y + 7.0f };
                         ImDrawList_AddText_Vec2(drawList, iconPos, iconCol, iconStr, NULL);
                     }
 
@@ -592,7 +603,9 @@ ControlPanelStatus updateAndRenderControlPanel(SDL_Renderer* overlayRenderer) {
                         if (clickedIcon) {
                             // Action Triggered
                             if (entry->state == MODEL_STATE_DOWNLOADED) {
-                                modelManagerDeleteModel(i);
+                                if (!isActive) {
+                                    modelManagerDeleteModel(i, activeModelFilename);
+                                }
                             } else if (entry->state == MODEL_STATE_DOWNLOADING) {
                                 modelManagerCancelDownload();
                             } else if (entry->state == MODEL_STATE_NOT_DOWNLOADED) {
@@ -602,6 +615,7 @@ ControlPanelStatus updateAndRenderControlPanel(SDL_Renderer* overlayRenderer) {
                             // Selection Triggered - ONLY if already downloaded
                             if (entry->state == MODEL_STATE_DOWNLOADED) {
                                 snprintf(uiConfig.modelPath, sizeof(uiConfig.modelPath), "models/%s", entry->filename);
+                                igCloseCurrentPopup();
                             }
                         }
                     }
