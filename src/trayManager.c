@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include "trayManager.h"
 #include "appEvents.h"
+#include "utils.h"
 #include <SDL3/SDL.h>
 
 static SDL_Tray *s_tray = NULL;
@@ -23,8 +24,7 @@ bool initTray(SDL_Window *window)
 
     // Search parent directory
     char iconPath[512];
-    const char* basePath = SDL_GetBasePath();
-    snprintf(iconPath, sizeof(iconPath), "%splaceholder_rts_icon.png", basePath);
+    utilsResolvePath(iconPath, sizeof(iconPath), "placeholder_rts_icon.png");
 
     SDL_Surface* icon = SDL_LoadPNG(iconPath);
     SDL_Log("Icon load: %s", icon ? "OK" : SDL_GetError());

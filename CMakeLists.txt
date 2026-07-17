@@ -117,6 +117,7 @@ set(RTS_SOURCES
     src/trayManager.c
     src/controlPanel.c
     src/modelManager.c
+    src/utils.c
     src/imgui_impl_sdlrenderer3_c.cpp
     deps/cJSON/cJSON.c
     deps/sha256/sha256.c

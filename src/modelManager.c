@@ -1,6 +1,7 @@
 #include "modelManager.h"
 #include "cJSON.h"
 #include "sha256.h"
+#include "utils.h"
 #include <curl/curl.h>
 #include <string.h>
 #include <stdlib.h>
@@ -85,8 +86,7 @@ static SDL_EnumerationResult SDLCALL scanLocalModelsCallback(void *userdata, con
 
 static void scanLocalModels(void) {
     char path[512];
-    const char* basePath = SDL_GetBasePath();
-    snprintf(path, sizeof(path), "%smodels", basePath);
+    utilsResolvePath(path, sizeof(path), "models");
     SDL_EnumerateDirectory(path, scanLocalModelsCallback, NULL);
 }
 
@@ -337,11 +337,10 @@ static int SDLCALL downloadThreadFunc(void* data) {
     SDL_strlcpy(filename, entry->filename, sizeof(filename));
     SDL_UnlockMutex(g_ModelManager.lock);
     
-    char basePath[512];
-    SDL_strlcpy(basePath, SDL_GetBasePath(), sizeof(basePath));
-    
     char partPath[512];
-    snprintf(partPath, sizeof(partPath), "%smodels/%s.part", basePath, filename);
+    char relPartPath[256];
+    snprintf(relPartPath, sizeof(relPartPath), "models/%s.part", filename);
+    utilsResolvePath(partPath, sizeof(partPath), relPartPath);
     
     // Check if partial file exists for resume support
     int64_t resumeOffset = 0;
@@ -428,7 +427,9 @@ static int SDLCALL downloadThreadFunc(void* data) {
             SDL_RemovePath(partPath);
         } else {
             char binPath[512];
-            snprintf(binPath, sizeof(binPath), "%smodels/%s", basePath, filename);
+            char relBinPath[256];
+            snprintf(relBinPath, sizeof(relBinPath), "models/%s", filename);
+            utilsResolvePath(binPath, sizeof(binPath), relBinPath);
             SDL_RemovePath(binPath);
             
             if (SDL_RenamePath(partPath, binPath)) {
@@ -526,7 +527,9 @@ bool modelManagerDeleteModel(int index, const char* activeModelFilename) {
     }
     
     char fullPath[512];
-    snprintf(fullPath, sizeof(fullPath), "%smodels/%s", SDL_GetBasePath(), entry->filename);
+    char relFullPath[256];
+    snprintf(relFullPath, sizeof(relFullPath), "models/%s", entry->filename);
+    utilsResolvePath(fullPath, sizeof(fullPath), relFullPath);
     SDL_RemovePath(fullPath);
     
     entry->state = MODEL_STATE_NOT_DOWNLOADED;

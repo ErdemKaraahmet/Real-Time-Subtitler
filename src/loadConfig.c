@@ -1,4 +1,5 @@
 #include "loadConfig.h"
+#include "utils.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -21,8 +22,7 @@ static SDL_EnumerationResult SDLCALL scanFirstModelCallback(void* userdata, cons
 
 static void getFirstLocalModelPath(char* dest, size_t destSize) {
     char modelsPath[512];
-    const char* basePath = SDL_GetBasePath();
-    snprintf(modelsPath, sizeof(modelsPath), "%smodels", basePath);
+    utilsResolvePath(modelsPath, sizeof(modelsPath), "models");
     
     ScanFirstModelData data = {0};
     SDL_EnumerateDirectory(modelsPath, scanFirstModelCallback, &data);
@@ -39,10 +39,8 @@ static void getFirstLocalModelPath(char* dest, size_t destSize) {
 // CONFIG_LOAD_PARTIAL if some fields loaded,
 // CONFIG_LOAD_FULL if all fields loaded
 static void resolveConfigPath(char* dest, size_t destSize) {
-    const char* basePath = SDL_GetBasePath();
-    
     // Check if the config exists in the parent dir first (dev mode)
-    snprintf(dest, destSize, "%s../config.ini", basePath);
+    utilsResolvePath(dest, destSize, "../config.ini");
     FILE* file = fopen(dest, "r");
     if (file) {
         fclose(file);
@@ -50,7 +48,7 @@ static void resolveConfigPath(char* dest, size_t destSize) {
     }
     
     // Otherwise, default to writing in the base path next to the binary (release mode)
-    snprintf(dest, destSize, "%sconfig.ini", basePath);
+    utilsResolvePath(dest, destSize, "config.ini");
 }
 
 ConfigLoadStatus loadConfig(AppConfig* conf) {

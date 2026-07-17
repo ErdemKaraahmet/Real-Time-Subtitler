@@ -1,5 +1,6 @@
 #include "whisperEngine.h"
 #include "whisper.h"
+#include "utils.h"
 #include <stdio.h>
 #include <string.h>
 #include <SDL3/SDL.h>
@@ -17,12 +18,7 @@ void quiet_log_callback(enum ggml_log_level level, const char * text, void * use
 // Initialize
 bool whisperInit(const char* modelPath, bool* use_gpu) {
     char fullPath[512];
-    const char* basePath = SDL_GetBasePath();
-    if (basePath) {
-        snprintf(fullPath, sizeof(fullPath), "%s%s", basePath, modelPath);
-    } else {
-        SDL_strlcpy(fullPath, modelPath, sizeof(fullPath));
-    }
+    utilsResolvePath(fullPath, sizeof(fullPath), modelPath);
     FILE* f = fopen(fullPath, "rb");
     if (!f) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Model file is unreadable or missing: %s", fullPath);
