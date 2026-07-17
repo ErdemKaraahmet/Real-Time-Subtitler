@@ -31,6 +31,7 @@ typedef struct {
     int count;
     bool catalogFetched;             // True after a successful API fetch
     bool fetchInProgress;            // True while the catalog fetch thread is running
+    char catalogErrorMessage[128];   // Error message populated on catalog fetch failure
     SDL_Mutex* lock;                 // Synchronize access to models catalog
 } ModelManager;
 

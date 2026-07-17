@@ -505,6 +505,25 @@ ControlPanelStatus updateAndRenderControlPanel(SDL_Renderer* overlayRenderer) {
             }
         }
 
+        // Check for catalog fetch errors to show automatic popups
+        if (mm->catalogErrorMessage[0] != '\0') {
+            char errorBuf[384];
+            const char* tip = "";
+            
+            // Detect common offline/network errors to append inline tips
+            if (SDL_strstr(mm->catalogErrorMessage, "resolve") != NULL ||
+                SDL_strstr(mm->catalogErrorMessage, "connect") != NULL ||
+                SDL_strstr(mm->catalogErrorMessage, "timeout") != NULL) {
+                tip = "\n\nTip: Please check your Wi-Fi or internet connection.";
+            } else if (SDL_strstr(mm->catalogErrorMessage, "parse") != NULL) {
+                tip = "\n\nTip: This can happen if your network requires a login portal (e.g. public Wi-Fi). Please check your browser.";
+            }
+            
+            snprintf(errorBuf, sizeof(errorBuf), "Failed to fetch model catalog:\n%s%s", mm->catalogErrorMessage, tip);
+            triggerGlobalError(errorBuf);
+            mm->catalogErrorMessage[0] = '\0';
+        }
+
         const char* modelDisplayName = getFilenameFromPath(uiConfig.modelPath);
         char comboLabel[256];
         SDL_strlcpy(comboLabel, modelDisplayName, sizeof(comboLabel));

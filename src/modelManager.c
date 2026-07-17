@@ -233,9 +233,17 @@ static int SDLCALL fetchCatalogThreadFunc(void* data) {
             }
             SDL_UnlockMutex(g_ModelManager.lock);
             cJSON_Delete(root);
+        } else {
+            SDL_LockMutex(g_ModelManager.lock);
+            SDL_strlcpy(g_ModelManager.catalogErrorMessage, "Failed to parse catalog response JSON", sizeof(g_ModelManager.catalogErrorMessage));
+            SDL_UnlockMutex(g_ModelManager.lock);
+            if (root) cJSON_Delete(root);
         }
     } else {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to fetch HF catalog tree: %s", curl_easy_strerror(res));
+        SDL_LockMutex(g_ModelManager.lock);
+        SDL_strlcpy(g_ModelManager.catalogErrorMessage, curl_easy_strerror(res), sizeof(g_ModelManager.catalogErrorMessage));
+        SDL_UnlockMutex(g_ModelManager.lock);
     }
     
     free(chunk.memory);
