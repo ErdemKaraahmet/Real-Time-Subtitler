@@ -1,5 +1,6 @@
 #include "modelManager.h"
 #include "cJSON.h"
+#include "sha256.h"
 #include <curl/curl.h>
 #include <string.h>
 #include <stdlib.h>
@@ -290,6 +291,31 @@ static int downloadProgressCallback(void* clientp, curl_off_t dltotal, curl_off_
     return 0;
 }
 
+static bool calculateFileSHA256(const char* filePath, char* destHex) {
+    FILE* file = fopen(filePath, "rb");
+    if (!file) return false;
+    
+    SHA256_CTX ctx;
+    sha256_init(&ctx);
+    
+    uint8_t buffer[65536];
+    size_t bytesRead;
+    while ((bytesRead = fread(buffer, 1, sizeof(buffer), file)) > 0) {
+        sha256_update(&ctx, (const BYTE*)buffer, bytesRead);
+    }
+    
+    fclose(file);
+    
+    BYTE hash[SHA256_BLOCK_SIZE];
+    sha256_final(&ctx, hash);
+    
+    for (int i = 0; i < SHA256_BLOCK_SIZE; i++) {
+        sprintf(destHex + (i * 2), "%02x", hash[i]);
+    }
+    destHex[64] = '\0';
+    return true;
+}
+
 static int SDLCALL downloadThreadFunc(void* data) {
     int index = (int)(uintptr_t)data;
     
@@ -366,25 +392,44 @@ static int SDLCALL downloadThreadFunc(void* data) {
     bool cancelled = (SDL_GetAtomicInt(&g_DownloadCancelFlag) == 1);
     
     if (res == CURLE_OK && !cancelled) {
-        // Staging promotion (Since SHA256 is Phase 5, directly promote to DOWNLOADED)
         entry->state = MODEL_STATE_VERIFYING;
+        
+        char expectedSha[65];
+        SDL_strlcpy(expectedSha, entry->oid, sizeof(expectedSha));
         SDL_UnlockMutex(g_ModelManager.lock);
         
-        char binPath[512];
-        snprintf(binPath, sizeof(binPath), "%smodels/%s", basePath, filename);
+        // Run SHA-256 integrity check
+        char computedSha[65] = {0};
+        bool shaSuccess = calculateFileSHA256(partPath, computedSha);
         
-        SDL_RemovePath(binPath);
-        
-        if (SDL_RenamePath(partPath, binPath)) {
-            SDL_LockMutex(g_ModelManager.lock);
-            entry->state = MODEL_STATE_DOWNLOADED;
-            SDL_SetAtomicInt(&entry->progressPercent, 100);
-            SDL_UnlockMutex(g_ModelManager.lock);
-        } else {
+        if (!shaSuccess) {
             SDL_LockMutex(g_ModelManager.lock);
             entry->state = MODEL_STATE_DOWNLOAD_ERROR;
-            SDL_strlcpy(entry->errorMessage, "Failed to rename temp file to destination", sizeof(entry->errorMessage));
+            SDL_strlcpy(entry->errorMessage, "Failed to compute file integrity checksum", sizeof(entry->errorMessage));
             SDL_UnlockMutex(g_ModelManager.lock);
+            SDL_RemovePath(partPath);
+        } else if (expectedSha[0] != '\0' && strcmp(computedSha, expectedSha) != 0) {
+            SDL_LockMutex(g_ModelManager.lock);
+            entry->state = MODEL_STATE_DOWNLOAD_ERROR;
+            snprintf(entry->errorMessage, sizeof(entry->errorMessage), "Integrity mismatch! Expected: %s, got: %s", expectedSha, computedSha);
+            SDL_UnlockMutex(g_ModelManager.lock);
+            SDL_RemovePath(partPath);
+        } else {
+            char binPath[512];
+            snprintf(binPath, sizeof(binPath), "%smodels/%s", basePath, filename);
+            SDL_RemovePath(binPath);
+            
+            if (SDL_RenamePath(partPath, binPath)) {
+                SDL_LockMutex(g_ModelManager.lock);
+                entry->state = MODEL_STATE_DOWNLOADED;
+                SDL_SetAtomicInt(&entry->progressPercent, 100);
+                SDL_UnlockMutex(g_ModelManager.lock);
+            } else {
+                SDL_LockMutex(g_ModelManager.lock);
+                entry->state = MODEL_STATE_DOWNLOAD_ERROR;
+                SDL_strlcpy(entry->errorMessage, "Failed to promote temp file to destination", sizeof(entry->errorMessage));
+                SDL_UnlockMutex(g_ModelManager.lock);
+            }
         }
     } else {
         if (cancelled) {

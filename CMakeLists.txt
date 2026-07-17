@@ -119,6 +119,7 @@ set(RTS_SOURCES
     src/modelManager.c
     src/imgui_impl_sdlrenderer3_c.cpp
     deps/cJSON/cJSON.c
+    deps/sha256/sha256.c
     # ImGui SDL3 + SDLRenderer3 backends (not compiled by cimgui target)
     deps/cimgui/imgui/backends/imgui_impl_sdl3.cpp
     deps/cimgui/imgui/backends/imgui_impl_sdlrenderer3.cpp
@@ -146,6 +147,7 @@ target_include_directories(Real-Time-Subtitler PRIVATE
     deps/cimgui/generator/output
     deps/cimgui/imgui/backends
     deps/cJSON
+    deps/sha256
 )
 
 option(RTS_BENCH "Enable inference benchmark logging to rts_bench.csv" OFF)
