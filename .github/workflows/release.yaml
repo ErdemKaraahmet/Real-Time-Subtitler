@@ -43,6 +43,7 @@ jobs:
             mingw-w64-ucrt-x86_64-spirv-headers
             mingw-w64-ucrt-x86_64-shaderc
             mingw-w64-ucrt-x86_64-pkgconf
+            mingw-w64-ucrt-x86_64-curl
       
       - name: Cache Whisper Model
         id: cache-whisper
@@ -67,7 +68,7 @@ jobs:
             libxcursor-dev libxfixes-dev libxi-dev libxss-dev libxtst-dev
             libxkbcommon-dev libdrm-dev libgbm-dev libgl1-mesa-dev libgles2-mesa-dev
             libegl1-mesa-dev libdbus-1-dev libibus-1.0-dev libudev-dev libusb-1.0-0-dev
-            libvulkan-dev glslc spirv-headers
+            libvulkan-dev glslc spirv-headers libcurl4-openssl-dev
       
       - name: Configure CMake (Windows)
         if: runner.os == 'Windows'
@@ -101,11 +102,14 @@ jobs:
         if: runner.os == 'Windows'
         shell: msys2 {0}
         run: |
-          cp /ucrt64/bin/libstdc++-6.dll bin/
-          cp /ucrt64/bin/libgcc_s_seh-1.dll bin/
-          cp /ucrt64/bin/libwinpthread-1.dll bin/
-          cp /ucrt64/bin/vulkan-1.dll bin/
-          
+          echo "Resolving and copying MSYS2 runtime dependencies..."
+          list=$(ldd bin/Real-Time-Subtitler.exe bin/*.dll 2>/dev/null | grep $MINGW_PREFIX | sed 's/.* => //' | sed 's/ \(.*\)//' | sort -u)
+          for dll in $list; do
+            if [ -f "$dll" ]; then
+              echo "Copying $dll -> bin/"
+              cp -u "$dll" bin/
+            fi
+          done
       - name: Verify no unresolved shared library dependencies (Windows)
         if: runner.os == 'Windows'
         shell: msys2 {0}
