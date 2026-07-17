@@ -59,6 +59,7 @@ bin/
 build/
 !models/*
 models/*.bin
+models/*.part
 bench/*.csv
 .vscode/
 imgui.ini
