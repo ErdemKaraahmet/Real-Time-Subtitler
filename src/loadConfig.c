@@ -7,12 +7,24 @@
 // CONFIG_LOAD_NONE if file exists but nothing loaded,
 // CONFIG_LOAD_PARTIAL if some fields loaded,
 // CONFIG_LOAD_FULL if all fields loaded
-ConfigLoadStatus loadConfig(AppConfig* conf) {
-
-    // Search parent directory
-    char configPath[512];
+static void resolveConfigPath(char* dest, size_t destSize) {
     const char* basePath = SDL_GetBasePath();
-    snprintf(configPath, sizeof(configPath), "%sconfig.ini", basePath);
+    
+    // Check if the config exists in the parent dir first (dev mode)
+    snprintf(dest, destSize, "%s../config.ini", basePath);
+    FILE* file = fopen(dest, "r");
+    if (file) {
+        fclose(file);
+        return;
+    }
+    
+    // Otherwise, default to writing in the base path next to the binary (release mode)
+    snprintf(dest, destSize, "%sconfig.ini", basePath);
+}
+
+ConfigLoadStatus loadConfig(AppConfig* conf) {
+    char configPath[512];
+    resolveConfigPath(configPath, sizeof(configPath));
 
     FILE *file = fopen(configPath, "r");
     if (!file) {
@@ -87,24 +99,10 @@ ConfigLoadStatus loadConfig(AppConfig* conf) {
 }
 
 bool saveConfig(const AppConfig* conf) {
-
     char configPath[512];
-    const char* basePath = SDL_GetBasePath();
-
-    // Check if the config exists in the parent dir first, so we overwrite the correct one
-    snprintf(configPath, sizeof(configPath), "%s../config.ini", basePath);
-    FILE *file = fopen(configPath, "r");
-
-    if (file) {
-        fclose(file);
-    } else {
-        // Otherwise, default to writing in the base path
-        snprintf(configPath, sizeof(configPath), "%sconfig.ini", basePath);
-    }
+    resolveConfigPath(configPath, sizeof(configPath));
     
-    // Open the chosen path for writing
-    file = fopen(configPath, "w");
-
+    FILE *file = fopen(configPath, "w");
     if (!file) {
         return false; // OS denied write access
     }
