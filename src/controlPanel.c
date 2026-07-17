@@ -32,6 +32,8 @@ static const float UI_PREVIEW_BOX_WIDTH = 556.0f; // 580 - 24
 static const float UI_PREVIEW_BOX_HEIGHT = 100.0f;
 static const float UI_WINDOW_HEIGHT = 450.0f;
 
+static int g_DeleteTargetIndex = -1;
+
 // Window and Renderer state
 static SDL_Window* cpWindow = NULL;
 static SDL_Renderer* cpRenderer = NULL;
@@ -255,6 +257,8 @@ static void updatePreviewTexture(void) {
 ControlPanelStatus updateAndRenderControlPanel(SDL_Renderer* overlayRenderer) {
 
     ControlPanelStatus status = {0};
+    const char* activeModelFilename = getFilenameFromPath(savedConfig.modelPath);
+    bool triggerDeletePopup = false;
 
     // Regenerate preview if needed
     if (previewNeedsUpdate) {
@@ -494,7 +498,6 @@ ControlPanelStatus updateAndRenderControlPanel(SDL_Renderer* overlayRenderer) {
         }
 
         const char* modelDisplayName = getFilenameFromPath(uiConfig.modelPath);
-        const char* activeModelFilename = getFilenameFromPath(savedConfig.modelPath);
         char comboLabel[256];
         SDL_strlcpy(comboLabel, modelDisplayName, sizeof(comboLabel));
 
@@ -604,7 +607,8 @@ ControlPanelStatus updateAndRenderControlPanel(SDL_Renderer* overlayRenderer) {
                             // Action Triggered
                             if (entry->state == MODEL_STATE_DOWNLOADED) {
                                 if (!isActive) {
-                                    modelManagerDeleteModel(i, activeModelFilename);
+                                    g_DeleteTargetIndex = i;
+                                    triggerDeletePopup = true;
                                 }
                             } else if (entry->state == MODEL_STATE_DOWNLOADING) {
                                 modelManagerCancelDownload();
@@ -628,6 +632,9 @@ ControlPanelStatus updateAndRenderControlPanel(SDL_Renderer* overlayRenderer) {
                 }
             }
             igEndCombo();
+        }
+        if (triggerDeletePopup) {
+            igOpenPopup_Str("Confirm Deletion##Modal", 0);
         }
 
         SDL_UnlockMutex(mm->lock);
@@ -741,6 +748,51 @@ ControlPanelStatus updateAndRenderControlPanel(SDL_Renderer* overlayRenderer) {
             igCloseCurrentPopup();
         }
         igEndPopup();
+    }
+
+    // Deletion Confirmation Modal
+    if (g_DeleteTargetIndex != -1) {
+        ImVec2_c centerPos;
+        centerPos.x = igGetIO_Nil()->DisplaySize.x * 0.5f;
+        centerPos.y = igGetIO_Nil()->DisplaySize.y * 0.5f;
+        igSetNextWindowPos(centerPos, ImGuiCond_Appearing, (ImVec2_c){0.5f, 0.5f});
+        igSetNextWindowSize((ImVec2_c){380.0f, 0.0f}, ImGuiCond_Always);
+        
+        if (igBeginPopupModal("Confirm Deletion##Modal", NULL, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_AlwaysAutoResize)) {
+            char modelName[256] = "";
+            ModelManager* mm = getModelManager();
+            SDL_LockMutex(mm->lock);
+            if (g_DeleteTargetIndex < mm->count) {
+                SDL_strlcpy(modelName, mm->models[g_DeleteTargetIndex].name, sizeof(modelName));
+            }
+            SDL_UnlockMutex(mm->lock);
+
+            igTextWrapped("Are you sure you want to delete the model '%s'?", modelName);
+            
+            igSpacing();
+            igSeparator();
+            igSpacing();
+            
+            float buttonWidth = 120.0f;
+            float spacing = 8.0f;
+            float startX = igGetWindowWidth() - (buttonWidth * 2.0f) - spacing - igGetStyle()->WindowPadding.x;
+            if (startX < 0.0f) startX = 0.0f;
+            
+            igSetCursorPosX(startX);
+            if (igButton("Delete", (ImVec2_c){buttonWidth, 30.0f})) {
+                if (g_DeleteTargetIndex != -1) {
+                    modelManagerDeleteModel(g_DeleteTargetIndex, activeModelFilename);
+                    g_DeleteTargetIndex = -1;
+                }
+                igCloseCurrentPopup();
+            }
+            igSameLine(0.0f, spacing);
+            if (igButton("Cancel", (ImVec2_c){buttonWidth, 30.0f})) {
+                g_DeleteTargetIndex = -1;
+                igCloseCurrentPopup();
+            }
+            igEndPopup();
+        }
     }
 
     igEnd();
