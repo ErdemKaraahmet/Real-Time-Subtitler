@@ -7,6 +7,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include "textTexture.h"
+#include "modelManager.h"
 
 #ifndef IM_COL32
 #define IM_COL32(R,G,B,A) (((ImU32)(A)<<24) | ((ImU32)(B)<<16) | ((ImU32)(G)<<8) | ((ImU32)(R)<<0))
@@ -41,8 +42,7 @@ static bool cpOpen = false;
 static char scannedFonts[MAX_ITEMS][256];
 static int scannedFontCount = 0;
 
-static char scannedModels[MAX_ITEMS][256];
-static int scannedModelCount = 0;
+
 
 // UI configuration state
 static AppConfig* pLiveConfig = NULL;
@@ -95,19 +95,6 @@ static SDL_EnumerationResult SDLCALL scanFontsCallback(void *userdata, const cha
     return SDL_ENUM_CONTINUE;
 }
 
-static SDL_EnumerationResult SDLCALL scanModelsCallback(void *userdata, const char *dirname, const char *fname) {
-    (void)userdata; (void)dirname;
-    if (scannedModelCount < MAX_ITEMS) {
-        size_t len = strlen(fname);
-        if (len > 4 && SDL_strcasecmp(fname + len - 4, ".bin") == 0) {
-            SDL_strlcpy(scannedModels[scannedModelCount], fname, sizeof(scannedModels[scannedModelCount]));
-            scannedModelCount++;
-        }
-    }
-    return SDL_ENUM_CONTINUE;
-}
-
-
 void openControlPanel(AppConfig* liveConfig) {
     if (cpOpen) {
         // Bring to front
@@ -123,16 +110,12 @@ void openControlPanel(AppConfig* liveConfig) {
 
     // Scan directories
     scannedFontCount = 0;
-    scannedModelCount = 0;
 
     char path[512];
     const char* basePath = SDL_GetBasePath();
     
     snprintf(path, sizeof(path), "%sfonts", basePath);
     SDL_EnumerateDirectory(path, scanFontsCallback, NULL);
-    
-    snprintf(path, sizeof(path), "%smodels", basePath);
-    SDL_EnumerateDirectory(path, scanModelsCallback, NULL);
 
     // Create window & renderer
     cpWindow = SDL_CreateWindow("RTS Control Panel", (int)UI_WINDOW_WIDTH, (int)UI_WINDOW_HEIGHT, SDL_WINDOW_HIGH_PIXEL_DENSITY);
@@ -175,6 +158,7 @@ void openControlPanel(AppConfig* liveConfig) {
     style->ItemSpacing = (ImVec2_c){UI_SPACING, UI_SPACING};
     style->FramePadding = (ImVec2_c){6.0f, 6.0f};
     style->ButtonTextAlign = (ImVec2_c){0.5f, 0.40f};
+    style->SelectableTextAlign = (ImVec2_c){0.0f, 0.40f};
 
     // Flat Geometry
     style->WindowRounding = 0.0f;
@@ -217,6 +201,7 @@ void openControlPanel(AppConfig* liveConfig) {
     cpOpen = true;
     previewNeedsUpdate = true;
     previewTexture = NULL;
+    modelManagerStartFetchCatalog();
 }
 
 void handleControlPanelEvent(const SDL_Event* event) {
@@ -487,25 +472,151 @@ ControlPanelStatus updateAndRenderControlPanel(SDL_Renderer* overlayRenderer) {
     } else if (cpActivePage == 1) {
         // --- Transcription Page ---
         // 5. Model Selection
+        ModelManager* mm = getModelManager();
+        SDL_LockMutex(mm->lock);
+
+        // Check for download errors to show automatic popups
+        for (int i = 0; i < mm->count; i++) {
+            if (mm->models[i].state == MODEL_STATE_DOWNLOAD_ERROR) {
+                char errorBuf[256];
+                snprintf(errorBuf, sizeof(errorBuf), "Download failed for %s:\n%s", mm->models[i].name, mm->models[i].errorMessage);
+                triggerGlobalError(errorBuf);
+                mm->models[i].state = MODEL_STATE_NOT_DOWNLOADED;
+                mm->models[i].errorMessage[0] = '\0';
+            }
+        }
+
         const char* modelDisplayName = getFilenameFromPath(uiConfig.modelPath);
-        if (igBeginCombo("Model", modelDisplayName, 0)) {
-            if (scannedModelCount == 0) {
-                igSelectable_Bool("No item found in folder##empty_model", false, ImGuiSelectableFlags_Disabled, (ImVec2_c){0,0});
+        char comboLabel[256];
+        SDL_strlcpy(comboLabel, modelDisplayName, sizeof(comboLabel));
+
+        for (int i = 0; i < mm->count; i++) {
+            if (strcmp(mm->models[i].filename, modelDisplayName) == 0) {
+                if (mm->models[i].state == MODEL_STATE_DOWNLOADING) {
+                    int pct = SDL_GetAtomicInt(&mm->models[i].progressPercent);
+                    snprintf(comboLabel, sizeof(comboLabel), "Downloading %s (%d%%)", mm->models[i].name, pct);
+                } else if (mm->models[i].state == MODEL_STATE_VERIFYING) {
+                    snprintf(comboLabel, sizeof(comboLabel), "Verifying %s...", mm->models[i].name);
+                } else {
+                    SDL_strlcpy(comboLabel, mm->models[i].name, sizeof(comboLabel));
+                }
+                break;
+            }
+        }
+
+        float comboWidth = igCalcItemWidth();
+
+        if (igBeginCombo("Model", comboLabel, 0)) {
+            if (mm->count == 0) {
+                if (mm->fetchInProgress) {
+                    igSelectable_Bool("Loading catalog...##empty", false, ImGuiSelectableFlags_Disabled, (ImVec2_c){0,0});
+                } else {
+                    igSelectable_Bool("Catalog empty / Offline##empty", false, ImGuiSelectableFlags_Disabled, (ImVec2_c){0,0});
+                }
             } else {
-                for (int i = 0; i < scannedModelCount; i++) {
-                    bool isSelected = (strcmp(modelDisplayName, scannedModels[i]) == 0);
-                    char itemDisplay[128];
-                    snprintf(itemDisplay, sizeof(itemDisplay), "%s##model%d", scannedModels[i], i);
-                    if (igSelectable_Bool(itemDisplay, isSelected, 0, (ImVec2_c){0,0})) {
-                        snprintf(uiConfig.modelPath, sizeof(uiConfig.modelPath), "models/%s", scannedModels[i]);
+                for (int i = 0; i < mm->count; i++) {
+                    ModelEntry* entry = &mm->models[i];
+                    bool isSelected = (strcmp(modelDisplayName, entry->filename) == 0);
+
+                    char itemDisplay[256];
+                    if (entry->state == MODEL_STATE_DOWNLOADED) {
+                        snprintf(itemDisplay, sizeof(itemDisplay), "%s", entry->name);
+                    } else {
+                        snprintf(itemDisplay, sizeof(itemDisplay), "%s (%.1f MB)", entry->name, (double)entry->remoteSize / (1024.0 * 1024.0));
                     }
+
+                    igPushID_Int(i);
+
+                    bool rowClicked = igSelectable_Bool(itemDisplay, isSelected, 0, (ImVec2_c){0.0f, 24.0f});
+
+                    ImVec2_c minVal = igGetItemRectMin();
+                    ImVec2_c maxVal = igGetItemRectMax();
+                    ImDrawList* drawList = igGetWindowDrawList();
+                    float rowWidth = maxVal.x - minVal.x;
+
+                    // Draw border around the entire row for all on-disk models
+                    if (entry->state == MODEL_STATE_DOWNLOADED) {
+                        ImU32 borderCol = igGetColorU32_Col(ImGuiCol_Border, 1.0f);
+                        ImDrawList_AddRect(drawList, minVal, maxVal, borderCol, 0.0f, 1.0f, 0);
+                    }
+
+                    // Progress bar background for active download/verify state
+                    if (entry->state == MODEL_STATE_DOWNLOADING || entry->state == MODEL_STATE_VERIFYING) {
+                        float pct = (entry->state == MODEL_STATE_DOWNLOADING) ? 
+                            (float)SDL_GetAtomicInt(&entry->progressPercent) / 100.0f : 1.0f;
+
+                        ImVec2_c progressMax = { minVal.x + rowWidth * pct, maxVal.y };
+                        ImU32 barCol = igGetColorU32_Col(ImGuiCol_Header, 0.4f);
+                        ImDrawList_AddRectFilled(drawList, minVal, progressMax, barCol, 0.0f, 0);
+
+                        char overlayText[128];
+                        if (entry->state == MODEL_STATE_DOWNLOADING) {
+                            snprintf(overlayText, sizeof(overlayText), "[Downloading %d%%]", (int)(pct * 100));
+                        } else {
+                            SDL_strlcpy(overlayText, "[Verifying]", sizeof(overlayText));
+                        }
+
+                        float rightTextX = maxVal.x - 36.0f - igCalcTextSize(overlayText, NULL, false, -1.0f).x - igGetStyle()->ItemSpacing.x;
+                        if (rightTextX < minVal.x) rightTextX = minVal.x;
+
+                        ImVec2_c textPos = { rightTextX, minVal.y + 4.0f };
+                        ImU32 textCol = igGetColorU32_Vec4((ImVec4_c){1.0f, 1.0f, 1.0f, 0.8f});
+                        ImDrawList_AddText_Vec2(drawList, textPos, textCol, overlayText, NULL);
+                    }
+
+                    // Align action text icon on the far right of the selectable row container
+                    const char* iconStr = "";
+                    ImU32 iconCol = 0xFFFFFFFF;
+
+                    if (entry->state == MODEL_STATE_DOWNLOADED) {
+                        iconCol = igGetColorU32_Vec4((ImVec4_c){1.0f, 0.3f, 0.3f, 1.0f});
+                        iconStr = "[D]";
+                    } else if (entry->state == MODEL_STATE_DOWNLOADING) {
+                        iconCol = igGetColorU32_Vec4((ImVec4_c){1.0f, 1.00f, 1.00f, 1.00f});
+                        iconStr = "[X]";
+                    } else if (entry->state == MODEL_STATE_NOT_DOWNLOADED) {
+                        iconCol = igGetColorU32_Vec4((ImVec4_c){0.6f, 0.6f, 0.6f, 1.00f});
+                        iconStr = "[+]";
+                    }
+
+                    if (iconStr[0] != '\0') {
+                        float iconWidth = igCalcTextSize(iconStr, NULL, false, -1.0f).x;
+                        float iconX = maxVal.x - iconWidth - 8.0f;
+                        ImVec2_c iconPos = { iconX, minVal.y + 4.0f };
+                        ImDrawList_AddText_Vec2(drawList, iconPos, iconCol, iconStr, NULL);
+                    }
+
+                    if (rowClicked) {
+                        ImVec2_c mousePos = igGetMousePos();
+                        bool clickedIcon = (mousePos.x >= maxVal.x - 36.0f);
+                        if (clickedIcon) {
+                            // Action Triggered
+                            if (entry->state == MODEL_STATE_DOWNLOADED) {
+                                modelManagerDeleteModel(i);
+                            } else if (entry->state == MODEL_STATE_DOWNLOADING) {
+                                modelManagerCancelDownload();
+                            } else if (entry->state == MODEL_STATE_NOT_DOWNLOADED) {
+                                modelManagerStartDownload(i);
+                            }
+                        } else {
+                            // Selection Triggered - ONLY if already downloaded
+                            if (entry->state == MODEL_STATE_DOWNLOADED) {
+                                snprintf(uiConfig.modelPath, sizeof(uiConfig.modelPath), "models/%s", entry->filename);
+                            }
+                        }
+                    }
+
                     if (isSelected) {
                         igSetItemDefaultFocus();
                     }
+
+                    igPopID();
                 }
             }
             igEndCombo();
         }
+
+        SDL_UnlockMutex(mm->lock);
 
         igSpacing();
         // GPU Toggle

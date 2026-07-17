@@ -116,6 +116,7 @@ set(RTS_SOURCES
     src/audioCapture.c
     src/trayManager.c
     src/controlPanel.c
+    src/modelManager.c
     src/imgui_impl_sdlrenderer3_c.cpp
     deps/cJSON/cJSON.c
     # ImGui SDL3 + SDLRenderer3 backends (not compiled by cimgui target)

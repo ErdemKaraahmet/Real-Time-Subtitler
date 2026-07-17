@@ -15,6 +15,7 @@
 #include "whisperEngine.h"
 #include "trayManager.h"
 #include "controlPanel.h"
+#include "modelManager.h"
 #include "appEvents.h"
 
 #define CHUNK_LENGTH_SECONDS 2
@@ -50,6 +51,7 @@ int main(int argc, char *argv[])
     // Initialize SDL and TTF
     SDL_Init(SDL_INIT_VIDEO);
     TTF_Init();
+    modelManagerInit();
 
     // Load user config
     AppConfig config_obj = loadDefaultConfig();
@@ -163,6 +165,7 @@ int main(int argc, char *argv[])
             SDL_UnlockMutex(textMutex);
         }
 
+        modelManagerPoll();
         bool cpOpen = isControlPanelOpen();
 
         // Wait for events. Timeout is 16ms when custom dragging or Control Panel is open, 100ms when idle/stationary.
@@ -271,6 +274,7 @@ int main(int argc, char *argv[])
 
     // Clean up
     closeControlPanel();
+    modelManagerShutdown();
     if (wThread) {
         SDL_WaitThread(wThread, NULL);
     }
