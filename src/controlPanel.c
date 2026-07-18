@@ -247,6 +247,41 @@ static void updatePreviewTexture(void) {
     TTF_CloseFont(font);
 }
 
+static const char* getActiveDownloadETA(ModelEntry* entry) {
+    static char etaStr[32] = "";
+
+    if (!entry || entry->state != MODEL_STATE_DOWNLOADING) {
+        etaStr[0] = '\0';
+        return "";
+    }
+
+    int eta = SDL_GetAtomicInt(&entry->etaSeconds);
+    if (eta >= 0) {
+        if (eta < 60) {
+            snprintf(etaStr, sizeof(etaStr), "[%ds]", eta);
+        } else if (eta < 3600) {
+            float mins = eta / 60.0f;
+            if (mins < 10.0f) {
+                snprintf(etaStr, sizeof(etaStr), "[%.1fm]", mins);
+            } else {
+                snprintf(etaStr, sizeof(etaStr), "[%dm]", (int)mins);
+            }
+        } else if (eta < 360000) {
+            float hrs = eta / 3600.0f;
+            if (hrs < 10.0f) {
+                snprintf(etaStr, sizeof(etaStr), "[%.1fh]", hrs);
+            } else {
+                snprintf(etaStr, sizeof(etaStr), "[%dh]", (int)hrs);
+            }
+        } else {
+            SDL_strlcpy(etaStr, "[?h]", sizeof(etaStr));
+        }
+    } else {
+        SDL_strlcpy(etaStr, "[?h]", sizeof(etaStr));
+    }
+    return etaStr;
+}
+
 static void renderHeaderAndSidebar(SDL_Renderer* overlayRenderer) {
     // Status Message & Control Buttons (Centered vertically)
     igAlignTextToFramePadding();
@@ -471,7 +506,12 @@ static void renderTranscriptionPage(const char* activeModelFilename, bool* trigg
         if (strcmp(mm->models[i].filename, modelDisplayName) == 0) {
             if (mm->models[i].state == MODEL_STATE_DOWNLOADING) {
                 int pct = SDL_GetAtomicInt(&mm->models[i].progressPercent);
-                snprintf(comboLabel, sizeof(comboLabel), "Downloading %s (%d%%)", mm->models[i].name, pct);
+                const char* eta = getActiveDownloadETA(&mm->models[i]);
+                if (eta[0] != '\0') {
+                    snprintf(comboLabel, sizeof(comboLabel), "Downloading %s (%d%%) %s", mm->models[i].name, pct, eta);
+                } else {
+                    snprintf(comboLabel, sizeof(comboLabel), "Downloading %s (%d%%)", mm->models[i].name, pct);
+                }
             } else if (mm->models[i].state == MODEL_STATE_VERIFYING) {
                 snprintf(comboLabel, sizeof(comboLabel), "Verifying %s...", mm->models[i].name);
             } else {
@@ -528,7 +568,9 @@ static void renderTranscriptionPage(const char* activeModelFilename, bool* trigg
 
                     char overlayText[128];
                     if (entry->state == MODEL_STATE_DOWNLOADING) {
-                        snprintf(overlayText, sizeof(overlayText), "[Downloading %d%%]", (int)(pct * 100));
+                        const char* eta = getActiveDownloadETA(entry);
+                        const char* prefix = (strlen(entry->name) > 17) ? "Down..." : "Downloading";
+                        snprintf(overlayText, sizeof(overlayText), "[%s %d%%]%s", prefix, (int)(pct * 100), eta);
                     } else {
                         SDL_strlcpy(overlayText, "[Verifying]", sizeof(overlayText));
                     }

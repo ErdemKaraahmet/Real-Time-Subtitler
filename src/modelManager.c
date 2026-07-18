@@ -15,6 +15,7 @@ static SDL_Thread* g_DownloadThread = NULL;
 static SDL_AtomicInt g_DownloadFinished;
 static SDL_AtomicInt g_DownloadCancelFlag;
 static int g_ActiveDownloadIndex = -1;
+static uint64_t g_DownloadStartTime = 0;
 
 // Helper to get name by stripping "ggml-" and ".bin"
 static void getDisplayName(const char* filename, char* dest, size_t destSize) {
@@ -224,6 +225,7 @@ static int SDLCALL fetchCatalogThreadFunc(void* data) {
                             SDL_strlcpy(entry->oid, oid, sizeof(entry->oid));
                             entry->state = MODEL_STATE_NOT_DOWNLOADED;
                             SDL_SetAtomicInt(&entry->progressPercent, 0);
+                            SDL_SetAtomicInt(&entry->etaSeconds, -1);
                             entry->errorMessage[0] = '\0';
                             
                             g_ModelManager.count++;
@@ -283,6 +285,13 @@ static int downloadProgressCallback(void* clientp, curl_off_t dltotal, curl_off_
         return 1; // Abort transfer
     }
     
+    static uint64_t lastProgressTime = 0;
+    uint64_t nowTicks = SDL_GetTicks();
+    if (nowTicks - lastProgressTime < 1000) {
+        return 0;
+    }
+    lastProgressTime = nowTicks;
+    
     SDL_LockMutex(g_ModelManager.lock);
     ModelEntry* entry = &g_ModelManager.models[data->index];
     int64_t remoteSize = entry->remoteSize;
@@ -300,6 +309,21 @@ static int downloadProgressCallback(void* clientp, curl_off_t dltotal, curl_off_
     if (pct < 0) pct = 0;
     
     SDL_SetAtomicInt(&entry->progressPercent, pct);
+    
+    if (dlnow > 0 && dltotal > 0) {
+        if (g_DownloadStartTime == 0) {
+            g_DownloadStartTime = nowTicks;
+        }
+        double elapsed = (double)(nowTicks - g_DownloadStartTime) / 1000.0;
+        if (elapsed > 0.5) {
+            double speed = (double)dlnow / elapsed;
+            if (speed > 0) {
+                curl_off_t remainingBytes = dltotal - dlnow;
+                int remainingSeconds = (int)(remainingBytes / speed);
+                SDL_SetAtomicInt(&entry->etaSeconds, remainingSeconds);
+            }
+        }
+    }
     return 0;
 }
 
@@ -487,11 +511,13 @@ bool modelManagerStartDownload(int index) {
     g_ActiveDownloadIndex = index;
     SDL_SetAtomicInt(&g_DownloadCancelFlag, 0);
     SDL_SetAtomicInt(&g_DownloadFinished, 0);
+    g_DownloadStartTime = 0;
     
     SDL_LockMutex(g_ModelManager.lock);
     ModelEntry* entry = &g_ModelManager.models[index];
     entry->state = MODEL_STATE_DOWNLOADING;
     SDL_SetAtomicInt(&entry->progressPercent, 0);
+    SDL_SetAtomicInt(&entry->etaSeconds, -1);
     entry->errorMessage[0] = '\0';
     SDL_UnlockMutex(g_ModelManager.lock);
     

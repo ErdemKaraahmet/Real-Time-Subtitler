@@ -23,6 +23,7 @@ typedef struct {
     char oid[65];                     // SHA256 LFS OID from HF API
     ModelState state;
     SDL_AtomicInt progressPercent;    // Progress percentage tracker (0 to 100, atomic)
+    SDL_AtomicInt etaSeconds;         // Remaining download seconds tracker (atomic, -1 if unknown)
     char errorMessage[128];           // Populated on MODEL_STATE_DOWNLOAD_ERROR
 } ModelEntry;
 
