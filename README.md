@@ -21,20 +21,17 @@ A lightweight, cross-platform real-time subtitle clickthrough overlay that captu
 
 ### On Linux (Debian / Ubuntu)
 
-Install the compiler toolchain and SDL3 dependencies:
+Install the compiler toolchain, SDL3 dependencies, Vulkan packages and libcurl:
 ```bash
 sudo apt install build-essential make pkg-config cmake ninja-build \
     libasound2-dev libpulse-dev libx11-dev libxext-dev libxrandr-dev \
     libxcursor-dev libxfixes-dev libxi-dev libxss-dev libxtst-dev \
     libxkbcommon-dev libdrm-dev libgbm-dev libgl1-mesa-dev libgles2-mesa-dev \
     libegl1-mesa-dev libdbus-1-dev libibus-1.0-dev libudev-dev libusb-1.0-0-dev \
+    libvulkan-dev glslc spirv-headers \
     libcurl4-openssl-dev
 ```
 
-For GPU Acceleration build automatically detects the Vulkan development headers, shader compiler, and spec headers. If not found, it falls back to CPU only. Install with:
-```bash
-sudo apt install libvulkan-dev glslc spirv-headers
-```
 
 ### On macOS
 
@@ -42,7 +39,6 @@ Install CMake:
 ```bash
 brew install cmake
 ```
-*(Metal GPU acceleration is automatically enabled on Apple Silicon. libcurl is pre-installed on macOS and dynamically resolved at runtime with no manual installation required.)*
 
 ## Build
 ```bash
@@ -51,6 +47,15 @@ cd Real-Time-Subtitler
 cmake -B build
 cmake --build build
 ```
+
+To build without GPU acceleration:
+
+```bash
+cmake -B build -DRTS_GPU=OFF
+```
+Note: If you are building without it and can skip some dependencies 
+- `vulkan-devel`, `spirv-headers` and `shaderc` on Windows
+- `libvulkan-dev`,`glslc` and `spirv-headers` on Linux
 
 ## Models
 

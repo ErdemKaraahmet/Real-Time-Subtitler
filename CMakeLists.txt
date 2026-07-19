@@ -79,19 +79,23 @@ set_source_files_properties(
     PROPERTIES HEADER_FILE_ONLY ON
 )
 set(GGML_OPENMP OFF)
-find_package(Vulkan COMPONENTS glslc QUIET)
-find_package(SPIRV-Headers CONFIG QUIET)
-if(Vulkan_FOUND AND SPIRV-Headers_FOUND)
-    message(STATUS "Vulkan and SPIRV-Headers found. Building with GPU acceleration.")
-    set(GGML_VULKAN ON CACHE BOOL "Use Vulkan" FORCE)
-else()
-    message(STATUS "Vulkan or SPIRV-Headers not found. Building with CPU only.")
-    set(GGML_VULKAN OFF CACHE BOOL "Use Vulkan" FORCE)
-endif()
 
-# whisper.cpp already sets GGML_METAL=ON on macOS. Set, incase they change it
-if(APPLE)
-    set(GGML_METAL ON CACHE BOOL "Use Metal" FORCE)
+option(RTS_GPU "Build with GPU acceleration" ON)
+
+if(RTS_GPU)
+    if(APPLE)
+        message(STATUS "Building with Metal GPU acceleration.")
+        set(GGML_METAL ON CACHE BOOL "Use Metal" FORCE)
+    else()
+        find_package(Vulkan COMPONENTS glslc REQUIRED)
+        find_package(SPIRV-Headers REQUIRED)
+        message(STATUS "Vulkan found and SPIRV-Headers found. Building with Vulkan GPU acceleration.")
+        set(GGML_VULKAN ON CACHE BOOL "Use Vulkan" FORCE)
+    endif()
+else()
+    message(STATUS "Building without GPU acceleration.")
+    set(GGML_VULKAN OFF CACHE BOOL "Use Vulkan" FORCE)
+    set(GGML_METAL OFF CACHE BOOL "Use Metal" FORCE)
 endif()
 
 # Force building whisper and ggml as static libraries to avoid unsigned DLL loading blocks (error 0xc0e90002) on Windows 11
