@@ -9,6 +9,7 @@
 #include "textTexture.h"
 #include "modelManager.h"
 #include "utils.h"
+#include "version.h"
 
 #ifndef IM_COL32
 #define IM_COL32(R,G,B,A) (((ImU32)(A)<<24) | ((ImU32)(B)<<16) | ((ImU32)(G)<<8) | ((ImU32)(R)<<0))
@@ -346,9 +347,17 @@ static void renderHeaderAndSidebar(SDL_Renderer* overlayRenderer) {
     if (igSelectable_Bool("Transcription", cpActivePage == 1, 0, (ImVec2_c){0, 24.0f})) {
         cpActivePage = 1;
     }
+    igSpacing();
+    if (igSelectable_Bool("System", cpActivePage == 2, 0, (ImVec2_c){0, 24.0f})) {
+        cpActivePage = 2;
+    }
     igPopStyleVar(1);
     
     igNextColumn();
+}
+
+static void renderSystemPage(void) {
+    igText("Version: %s", RTS_VERSION);
 }
 
 static void renderViewPage(void) {
@@ -869,6 +878,8 @@ ControlPanelStatus updateAndRenderControlPanel(SDL_Renderer* overlayRenderer) {
         renderViewPage();
     } else if (cpActivePage == 1) {
         renderTranscriptionPage(activeModelFilename, &triggerDeletePopup);
+    } else if (cpActivePage == 2) {
+        renderSystemPage();
     }
 
     igColumns(1, NULL, false); // Restore to single column

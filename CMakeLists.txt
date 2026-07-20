@@ -7,7 +7,12 @@ if(CCACHE_PROGRAM)
     set(CMAKE_CXX_COMPILER_LAUNCHER "${CCACHE_PROGRAM}")
 endif()
 
-project(Real-Time-Subtitler C CXX)
+project(Real-Time-Subtitler VERSION 0.2.2 LANGUAGES C CXX)
+
+configure_file(
+    "${CMAKE_SOURCE_DIR}/include/version.h.in"
+    "${CMAKE_BINARY_DIR}/generated/version.h"
+)
 
 find_package(CURL REQUIRED)
 
@@ -143,6 +148,7 @@ endif()
 target_include_directories(Real-Time-Subtitler PRIVATE
     src
     include
+    "${CMAKE_BINARY_DIR}/generated"
     deps/SDL
     deps/SDL_ttf
     deps/whisper.cpp/include

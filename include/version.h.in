@@ -1,0 +1,2 @@
+#pragma once
+#define RTS_VERSION "@PROJECT_VERSION@"
