@@ -1,6 +1,8 @@
 # Real-Time-Subtitler
 
-A lightweight, cross-platform real-time subtitle clickthrough overlay that captures system audio and converts it to live subtitles. Which hopefully will be a useful alternative to native Windows and Chrome live captions, as well as existing Linux and macOS applications, for individuals with hearing impairment.
+A lightweight, fully local, cross-platform real-time subtitle clickthrough overlay that captures system audio and converts it to live subtitles. Which hopefully will be a useful alternative to native Windows and Chrome live captions, as well as existing Linux and macOS applications, for individuals with hearing impairment.
+
+https://github.com/user-attachments/assets/a52c2366-7283-4e49-b9d8-4e375419bc09
 
 ## Prerequisites
 
