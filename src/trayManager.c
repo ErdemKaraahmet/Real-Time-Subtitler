@@ -7,7 +7,6 @@
 
 static SDL_Tray *s_tray = NULL;
 static SDL_Window *s_window = NULL;
-static SDL_TrayEntry *s_focusEntry = NULL;
 static SDL_TrayEntry *s_pauseEntry = NULL;
 static bool s_paused = false;
 
@@ -55,18 +54,9 @@ void destroyTray(void)
 static void buildMenu(void)
 {
     if (!s_tray) return;
+    if (SDL_GetTrayMenu(s_tray)) return;
 
-    SDL_TrayMenu *menu = SDL_GetTrayMenu(s_tray);
-    if (menu) {
-        // Clear existing entries so we don't duplicate on rebuild
-        int count = 0;
-        const SDL_TrayEntry **entries = SDL_GetTrayEntries(menu, &count);
-        for (int i = count - 1; i >= 0; i--)
-            SDL_RemoveTrayEntry((SDL_TrayEntry *)entries[i]);
-    } else {
-        // First call — no menu exists yet, create one
-        menu = SDL_CreateTrayMenu(s_tray);
-    }
+    SDL_TrayMenu *menu = SDL_CreateTrayMenu(s_tray);
 
     SDL_TrayEntry *title = SDL_InsertTrayEntryAt(menu, -1,
                                "Real-Time Subtitler", SDL_TRAYENTRY_BUTTON);
@@ -97,7 +87,9 @@ void setTrayPauseState(bool paused)
 {
     if (s_paused != paused) {
         s_paused = paused;
-        buildMenu();
+        if (s_pauseEntry) {
+            SDL_SetTrayEntryLabel(s_pauseEntry, s_paused ? "Resume" : "Pause");
+        }
     }
 }
 
@@ -126,10 +118,9 @@ static void cb_toggle(void *userdata, SDL_TrayEntry *entry)
 {
     (void)userdata; (void)entry;
     s_paused = !s_paused;
-
-    // SDL3 on Windows caches the native menu; rebuilding it forces the OS
-    // to re-read the entries so the new label is visible next open.
-    buildMenu();
+    if (s_pauseEntry) {
+        SDL_SetTrayEntryLabel(s_pauseEntry, s_paused ? "Resume" : "Pause");
+    }
 
     // Push a custom user event so main.c can react (pause/resume audio)
     SDL_Event e;
