@@ -22,13 +22,14 @@ jobs:
     runs-on: ${{ matrix.os }}
     env:
       CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_COMPRESS: "1"
     
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
           submodules: recursive
-          fetch-depth: 0
+          fetch-depth: 1
       
       - name: Cache ccache
         uses: actions/cache@v4
@@ -43,7 +44,7 @@ jobs:
         uses: msys2/setup-msys2@v2
         with:
           msystem: UCRT64
-          update: true
+          update: false
           cache: true
           install: >-
             mingw-w64-ucrt-x86_64-gcc
@@ -71,7 +72,7 @@ jobs:
       
       - name: Install Dependencies (macOS)
         if: runner.os == 'macOS'
-        run: brew install ccache
+        run: brew install --quiet ccache
       
       - name: Configure CMake (Windows)
         if: runner.os == 'Windows'
