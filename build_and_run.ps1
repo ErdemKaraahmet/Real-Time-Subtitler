@@ -1,4 +1,20 @@
-# Builds the project, plays the first MP3 found in bin/ as a test audio source, and launches the executable.
+# Builds and launches Real-Time Subtitler with sample audio (requires ffplay).
+# Options: -s / -Sanitizers (ASan+UBSan), -t / -TSan
+param(
+    [Alias("s", "-sanitizers")]
+    [switch]$Sanitizers,
+
+    [Alias("t", "-tsan")]
+    [switch]$TSan
+)
+
+if ($Sanitizers) {
+    Write-Host "Reconfiguring build with AddressSanitizer & UndefinedBehaviorSanitizer enabled..."
+    cmake -B build -S . -DRTS_ENABLE_SANITIZERS=ON -DRTS_ENABLE_TSAN=OFF
+} elseif ($TSan) {
+    Write-Host "Reconfiguring build with ThreadSanitizer enabled..."
+    cmake -B build -S . -DRTS_ENABLE_TSAN=ON -DRTS_ENABLE_SANITIZERS=OFF
+}
 
 # Build the project using CMake
 cmake --build build -j $(nproc)

@@ -102,13 +102,13 @@ Use the `.sh` script:
 ./bin/Real-Time-Subtitler
 ```
 
-## Testing
+## Helpers
 
 For convenience during development, helper scripts are provided that build the project, attempt to play the first MP3 file found in the `bin/` directory as a test audio source, and launch the application:
 
-- **Windows (PowerShell)**: `./build_and_test.ps1`
-- **Linux / MSYS2 (Bash)**: `./build_and_test.sh` 
-*both (Requires `ffplay` from FFmpeg)*
+- **Windows (PowerShell)**: `./build_and_run.ps1`
+- **Linux / MSYS2 (Bash)**: `./build_and_run.sh` 
+*(Supports optional `-s` / `--sanitizers` and `-t` / `--tsan` flags; requires `ffplay` from FFmpeg)*
 
 ## Benchmark Logging
 

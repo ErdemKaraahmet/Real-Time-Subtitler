@@ -162,6 +162,44 @@ target_include_directories(Real-Time-Subtitler PRIVATE
 )
 
 option(RTS_BENCH "Enable inference benchmark logging to rts_bench.csv" OFF)
+option(RTS_ENABLE_SANITIZERS "Enable AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
+option(RTS_ENABLE_TSAN "Enable ThreadSanitizer" OFF)
+
+if(RTS_ENABLE_SANITIZERS AND RTS_ENABLE_TSAN)
+    message(FATAL_ERROR "RTS_ENABLE_SANITIZERS (ASan/UBSan) and RTS_ENABLE_TSAN (TSan) cannot be enabled together. Please enable only one.")
+endif()
+
+if(RTS_ENABLE_TSAN AND MINGW)
+    message(FATAL_ERROR "RTS_ENABLE_TSAN is not supported on MinGW GCC. ThreadSanitizer requires Linux or Clang.")
+endif()
+
+# Compiler Warning & Hardening Flags (GCC / Clang)
+if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+    target_compile_options(Real-Time-Subtitler PRIVATE
+        $<$<COMPILE_LANGUAGE:C>:-Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wdouble-promotion -Wstrict-prototypes -Wformat=2>
+        $<$<COMPILE_LANGUAGE:CXX>:-Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wdouble-promotion -Wformat=2>
+    )
+
+    # Stack protection for non-release builds
+    if(NOT CMAKE_BUILD_TYPE STREQUAL "Release")
+        target_compile_options(Real-Time-Subtitler PRIVATE -fstack-protector-strong)
+    endif()
+
+    # Fortify source for RelWithDebInfo (requires optimization -O1+)
+    if(CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
+        target_compile_definitions(Real-Time-Subtitler PRIVATE _FORTIFY_SOURCE=2)
+    endif()
+endif()
+
+if(RTS_ENABLE_SANITIZERS)
+    message(STATUS "Enabling AddressSanitizer & UndefinedBehaviorSanitizer")
+    target_compile_options(Real-Time-Subtitler PRIVATE -fsanitize=address,undefined -fno-omit-frame-pointer -g)
+    target_link_options(Real-Time-Subtitler PRIVATE -fsanitize=address,undefined)
+elseif(RTS_ENABLE_TSAN)
+    message(STATUS "Enabling ThreadSanitizer")
+    target_compile_options(Real-Time-Subtitler PRIVATE -fsanitize=thread -fno-omit-frame-pointer -g)
+    target_link_options(Real-Time-Subtitler PRIVATE -fsanitize=thread)
+endif()
 
 target_compile_definitions(Real-Time-Subtitler PRIVATE
     CIMGUI_DEFINE_ENUMS_AND_STRUCTS
