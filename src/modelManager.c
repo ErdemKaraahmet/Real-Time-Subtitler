@@ -92,6 +92,7 @@ static void scanLocalModels(void) {
 }
 
 void modelManagerInit(void) {
+    curl_global_init(CURL_GLOBAL_DEFAULT);
     memset(&g_ModelManager, 0, sizeof(g_ModelManager));
     g_ModelManager.lock = SDL_CreateMutex();
     SDL_SetAtomicInt(&g_FetchFinished, 0);
@@ -123,6 +124,7 @@ void modelManagerShutdown(void) {
         SDL_DestroyMutex(g_ModelManager.lock);
         g_ModelManager.lock = NULL;
     }
+    curl_global_cleanup();
 }
 
 // Curl write callback to accumulate JSON payload
@@ -168,6 +170,9 @@ static int SDLCALL fetchCatalogThreadFunc(void* data) {
     curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
     curl_easy_setopt(curl, CURLOPT_TIMEOUT, 15L); // 15 seconds timeout
     curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);  // Thread-safe signaling
+#ifdef _WIN32
+    curl_easy_setopt(curl, CURLOPT_SSL_OPTIONS, CURLSSLOPT_NATIVE_CA);
+#endif
     
     CURLcode res = curl_easy_perform(curl);
     bool success = false;
@@ -414,6 +419,9 @@ static int SDLCALL downloadThreadFunc(void* data) {
     curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
     curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 10L); // 10 seconds connection timeout
     curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
+#ifdef _WIN32
+    curl_easy_setopt(curl, CURLOPT_SSL_OPTIONS, CURLSSLOPT_NATIVE_CA);
+#endif
     
     if (resumeOffset > 0) {
         curl_easy_setopt(curl, CURLOPT_RESUME_FROM_LARGE, (curl_off_t)resumeOffset);
