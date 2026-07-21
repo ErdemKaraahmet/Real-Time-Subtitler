@@ -77,11 +77,11 @@ jobs:
       - name: Configure CMake (Windows)
         if: runner.os == 'Windows'
         shell: msys2 {0}
-        run: cmake -B build -S . -G Ninja -DGGML_NATIVE=OFF -DCMAKE_BUILD_TYPE=Release
+        run: cmake -B build -S . -G Ninja -DGGML_NATIVE=OFF -DCMAKE_BUILD_TYPE=Release -DRTS_VERSION="${{ github.ref_name }}"
         
       - name: Configure CMake (Unix)
         if: runner.os != 'Windows'
-        run: cmake -B build -S . -G Ninja -DGGML_NATIVE=OFF -DCMAKE_BUILD_TYPE=Release
+        run: cmake -B build -S . -G Ninja -DGGML_NATIVE=OFF -DCMAKE_BUILD_TYPE=Release -DRTS_VERSION="${{ github.ref_name }}"
 
       - name: Verify GPU acceleration status
         run: |

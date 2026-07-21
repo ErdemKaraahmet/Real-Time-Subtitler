@@ -7,7 +7,12 @@ if(CCACHE_PROGRAM)
     set(CMAKE_CXX_COMPILER_LAUNCHER "${CCACHE_PROGRAM}")
 endif()
 
-project(Real-Time-Subtitler VERSION 0.2.2 LANGUAGES C CXX)
+if(NOT RTS_VERSION)
+    set(RTS_VERSION "0.0.0")
+endif()
+string(REGEX REPLACE "^v" "" RTS_VERSION_CLEAN "${RTS_VERSION}")
+
+project(Real-Time-Subtitler VERSION ${RTS_VERSION_CLEAN} LANGUAGES C CXX)
 
 configure_file(
     "${CMAKE_SOURCE_DIR}/include/version.h.in"
