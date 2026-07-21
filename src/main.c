@@ -8,7 +8,7 @@
 #include <windows.h>
 #endif
 
-#include "loadConfig.h"
+#include "configManager.h"
 #include "windowManager.h"
 #include "textTexture.h"
 #include "audioCapture.h"
@@ -58,18 +58,17 @@ int main(int argc, char *argv[])
     AppConfig *config = &config_obj;
     ConfigLoadStatus loadStatus = loadConfig(config);
     switch (loadStatus) {
-        case CONFIG_LOAD_FULL:
-            SDL_Log("Config is fully loaded.");
+        case CONFIG_LOAD_OK:
+            SDL_Log("Config loaded.");
             break;
-        case CONFIG_LOAD_PARTIAL:
-            SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Config is partially loaded, defaults are loaded for some.");
-            break;
-        case CONFIG_LOAD_NONE:
-            SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Configur file exists but could not parse any valid settings, using default config.");
+        case CONFIG_LOAD_PARSE_ERROR:
+            SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Config file was corrupted, backed up to config.json.bak and recreated with defaults.");
+            saveConfig(config);
             break;
         case CONFIG_LOAD_FILE_NOT_FOUND:
         default:
-            SDL_Log("Could not open config.ini, default config is loaded.");
+            SDL_Log("Config file not found, creating config.json with defaults.");
+            saveConfig(config);
             break;
     }
 

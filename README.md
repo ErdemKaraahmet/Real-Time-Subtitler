@@ -131,7 +131,7 @@ From the Control Panel you can:
 - Hot-swap the active **Whisper Model** (loads models from the `models/` directory)
 - **Pause/Resume** transcription or **Move Window** to drag the subtitle overlay around your screen.
 
-*Settings are automatically saved to `bin/config.ini` when you hit Save.*
+*Settings are automatically saved to `bin/config.json` when you hit Save.*
 
 ## Dependencies
 

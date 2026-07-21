@@ -4,9 +4,8 @@
 
 typedef enum {
     CONFIG_LOAD_FILE_NOT_FOUND = -2,
-    CONFIG_LOAD_NONE           = -1,
-    CONFIG_LOAD_FULL           =  0,
-    CONFIG_LOAD_PARTIAL        =  1
+    CONFIG_LOAD_PARSE_ERROR    = -1,
+    CONFIG_LOAD_OK             =  0
 } ConfigLoadStatus;
 
 typedef struct {
@@ -19,6 +18,6 @@ typedef struct {
     bool use_gpu;
 } AppConfig;
 
-AppConfig loadDefaultConfig();
+AppConfig loadDefaultConfig(void);
 ConfigLoadStatus loadConfig(AppConfig* conf);
 bool saveConfig(const AppConfig* conf);

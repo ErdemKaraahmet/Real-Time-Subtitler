@@ -123,7 +123,7 @@ target_include_directories(cimgui PRIVATE
 
 set(RTS_SOURCES
     src/main.c
-    src/loadConfig.c
+    src/configManager.c
     src/windowManager.c
     src/textTexture.c
     src/whisperEngine.c
@@ -256,18 +256,6 @@ add_custom_command(TARGET Real-Time-Subtitler POST_BUILD
     $<TARGET_FILE_DIR:Real-Time-Subtitler>
 )
 
-# copy config.ini.example as config.ini next to the exe
-if(EXISTS "${CMAKE_SOURCE_DIR}/config.ini")
-    set(RTS_CONFIG_SRC "${CMAKE_SOURCE_DIR}/config.ini")
-else()
-    set(RTS_CONFIG_SRC "${CMAKE_SOURCE_DIR}/config.ini.example")
-endif()
-
-add_custom_command(TARGET Real-Time-Subtitler POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-    "${RTS_CONFIG_SRC}"
-    $<TARGET_FILE_DIR:Real-Time-Subtitler>/config.ini
-)
 
 # copy fonts/ directory next to the exe
 add_custom_command(TARGET Real-Time-Subtitler POST_BUILD

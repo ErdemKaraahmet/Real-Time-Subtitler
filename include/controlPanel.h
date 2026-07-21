@@ -1,6 +1,6 @@
 #pragma once
 #include <SDL3/SDL.h>
-#include "loadConfig.h"
+#include "configManager.h"
 
 typedef struct {
     bool configSaved;

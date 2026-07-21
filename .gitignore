@@ -63,5 +63,4 @@ models/*.part
 bench/*.csv
 .vscode/
 imgui.ini
-config.ini
 
