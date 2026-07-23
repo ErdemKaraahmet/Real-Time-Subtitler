@@ -120,7 +120,7 @@ bool whisperProcess(float* pcmf32, int n_samples, char* outputText, int outputLe
     return true;
 }
 
-void whisperFree() {
+void whisperFree(void) {
 #ifdef RTS_BENCH
     if (benchFile) {
         fclose(benchFile);

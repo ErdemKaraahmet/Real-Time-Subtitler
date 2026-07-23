@@ -25,7 +25,7 @@ void data_callback(ma_device* pDevice, void* pOutput, const void* pInput, ma_uin
     (void)pOutput;
 }
 
-bool initAndStartAudio()
+bool initAndStartAudio(void)
 {
     ma_result result;
     ma_device_config deviceConfig; 
@@ -135,17 +135,17 @@ bool audioChunkReady(ma_uint32 sampleSize) {
 }
 
 // Uninitializes the device and frees allocated memory
-void cleanupAudio()
+void cleanupAudio(void)
 {
     ma_device_uninit(&device);
 }
 
-void pauseAudio()
+void pauseAudio(void)
 {
     ma_device_stop(&device);
 }
 
-void resumeAudio()
+void resumeAudio(void)
 {
     ma_device_start(&device);
 }

@@ -150,10 +150,22 @@ if(WIN32)
     target_link_libraries(Real-Time-Subtitler RTS_Icon)
 endif()
 
+# Disable warnings on third-party source files compiled into RTS executable
+set_source_files_properties(
+    deps/cJSON/cJSON.c
+    deps/sha256/sha256.c
+    deps/cimgui/imgui/backends/imgui_impl_sdl3.cpp
+    deps/cimgui/imgui/backends/imgui_impl_sdlrenderer3.cpp
+    PROPERTIES COMPILE_FLAGS "-w"
+)
+
 target_include_directories(Real-Time-Subtitler PRIVATE
     src
     include
     "${CMAKE_BINARY_DIR}/generated"
+)
+
+target_include_directories(Real-Time-Subtitler SYSTEM PRIVATE
     deps/SDL
     deps/SDL_ttf
     deps/whisper.cpp/include

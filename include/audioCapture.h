@@ -4,10 +4,10 @@
 #include <stdlib.h>
 #include "miniaudio.h"
 
-bool initAndStartAudio();
+bool initAndStartAudio(void);
 
 // Stops the capture device.
-void stopAudio();
+void stopAudio(void);
 
 /*
 Fetches available 16kHz float samples from the internal buffer.
@@ -20,10 +20,10 @@ bool getAudioChunk(float* outputBuffer, int sampleSize);
 bool audioChunkReady(unsigned int sampleSize);
 
 // Uninitializes the device and frees allocated memory
-void cleanupAudio();
+void cleanupAudio(void);
 
 // Pauses the audio capture device.
-void pauseAudio();
+void pauseAudio(void);
 
 // Resumes the audio capture device.
-void resumeAudio();
+void resumeAudio(void);
