@@ -61,7 +61,7 @@ Note: If you are building without it and can skip some dependencies
 
 ## Models
 
-To download Whisper models, use the helper scripts located in the `models/` directory.
+To download Whisper models, use the helper scripts located in the `models/` directory or use the control panel.
 
 ### On Windows (PowerShell/CMD)
 Use the native `.cmd` script:
@@ -95,8 +95,6 @@ Use the `.sh` script:
 ./models/download-model.sh large-v3
 ```
 
-
-
 ## Run
 ```bash
 ./bin/Real-Time-Subtitler
@@ -104,34 +102,33 @@ Use the `.sh` script:
 
 ## Helpers
 
-For convenience during development, helper scripts are provided that build the project, attempt to play the first MP3 file found in the `bin/` directory as a test audio source, and launch the application:
+For convenience during development, helper scripts are provided that auto-format modified files using `clang-format`, build the project, attempt to play the first MP3 file found in the `bin/` directory as a test audio source (requires `ffplay` from FFmpeg), and launch the application:
 
+- **Linux / MSYS2 (Bash)**: `./build_and_run.sh`
 - **Windows (PowerShell)**: `./build_and_run.ps1`
-- **Linux / MSYS2 (Bash)**: `./build_and_run.sh` 
-*(Supports optional `-s` / `--sanitizers` and `-t` / `--tsan` flags; requires `ffplay` from FFmpeg)*
 
-## Benchmark Logging
+Supported developer flags:
+- `-s` / `--sanitizers`: AddressSanitizer + UndefinedBehaviorSanitizer (ASan + UBSan)
+- `-t` / `--tsan`: ThreadSanitizer (TSan)
+- `-c` / `--cppcheck`: Cppcheck static analysis
+- `-l` / `--tidy`: Clang-Tidy static analysis
 
-Build with `-DRTS_BENCH=ON` to log per-inference latency and model confidence to `bench/rts_bench.csv`:
+## Contributing
 
-```bash
-cmake -B build -S . -DRTS_BENCH=ON
-cmake --build build --config Release
-```
+We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines on setting up your environment, tests, code formatting standards, and submitting Pull Requests.
 
-## Configuration
+## Control Panel
 
-Real-Time-Subtitler includes a **graphical Control Panel** that allows you to adjust settings on the fly. 
-To access it, right-click the RTS icon in your system tray and select **Control Panel**. 
+Real-Time-Subtitler includes an in-app graphical **Control Panel** built with Dear ImGui for live preference customization.
+To open it, right-click the RTS icon in your system tray and select **Control Panel**.
 
 From the Control Panel you can:
-- Change the subtitle **Font** (loads fonts from the `fonts/` directory)
-- Adjust **Font Size** and **Outline Thickness**
-- Pick custom **Text** and **Outline Colors** with a live preview
-- Hot-swap the active **Whisper Model** (loads models from the `models/` directory)
-- **Pause/Resume** transcription or **Move Window** to drag the subtitle overlay around your screen.
+- **Download & Swap Whisper Models:** Download GGML models directly within the app (featuring live progress bars, download speed, ETA, and automatic SHA-256 checksum verification) or hot-swap local models stored in `models/`.
+- **GPU Acceleration Toggle:** Enable/disable GPU (Vulkan) inference on the fly.
+- **Font & Style Customization:** Select fonts from `fonts/`, adjust Font Size and Outline Thickness, and pick custom Text & Outline colors with a live preview.
+- **Window Controls:** Toggle **Move Window** mode to position the subtitle overlay anywhere on screen, or **Pause/Resume** live audio processing.
 
-*Settings are automatically saved to `bin/config.json` when you hit Save.*
+*Settings are persisted to `bin/config.json` with automatic fallback defaults and corrupted-file backup (`.bak`).*
 
 ## Dependencies
 

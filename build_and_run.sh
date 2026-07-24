@@ -1,6 +1,13 @@
 #!/bin/bash
-# Builds and launches Real-Time Subtitler with sample audio (requires ffplay).
-# Options: -s / --sanitizers (ASan+UBSan), -t / --tsan, -c / --cppcheck, -l / --tidy
+
+# Formats the current changes using clang-format.
+# Builds with specified options and launches Real-Time Subtitler.
+# Plays the first mp3 in the bin/ folder with ffplay, sample copied from deps/whisper.cpp/samples/jfk.mp3 if no mp3 exists in bin/
+
+# Options: -s / --sanitizers (ASan+UBSan)
+#          -t / --tsan (TSan)
+#          -c / --cppcheck
+#          -l / --tidy (clang-tidy)
 
 USE_SANITIZERS=OFF
 USE_TSAN=OFF
