@@ -3,8 +3,14 @@ name: Lint
 on:
   push:
     branches: [ main ]
+    paths:
+      - 'src/**'
+      - 'include/**'
   pull_request:
     branches: [ main ]
+    paths:
+      - 'src/**'
+      - 'include/**'
 
 jobs:
   cppcheck:
@@ -73,14 +79,8 @@ jobs:
       - name: Run Clang-Tidy on Diff
         run: |
           BASE_SHA="${{ github.event.pull_request.base.sha || github.event.before }}"
-          if [ -z "$BASE_SHA" ] || [ "$BASE_SHA" = "0000000000000000000000000000000000000000" ]; then
+          BASE_SHA="${BASE_SHA:-HEAD~1}"
+          if [ "$BASE_SHA" = "0000000000000000000000000000000000000000" ]; then
             BASE_SHA="HEAD~1"
           fi
-
-          DIFF=$(git diff -U0 "$BASE_SHA" -- 'src/*.[ch]' 'include/*.[ch]')
-          if [ -z "$DIFF" ]; then
-            echo "No C/H file changes detected, skipping clang-tidy."
-            exit 0
-          fi
-
-          echo "$DIFF" | clang-tidy-diff -p1 -path build -use-color
+          git diff -U0 "$BASE_SHA" -- 'src/*.[ch]' 'include/*.[ch]' | clang-tidy-diff -p1 -path build -use-color
