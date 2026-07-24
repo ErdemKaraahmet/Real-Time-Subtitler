@@ -17,23 +17,22 @@ static void cb_control_panel(void *userdata, SDL_TrayEntry *entry);
 static void cb_toggle(void *userdata, SDL_TrayEntry *entry);
 static void cb_quit(void *userdata, SDL_TrayEntry *entry);
 
-bool initTray(SDL_Window *window)
-{
+bool initTray(SDL_Window *window) {
     s_window = window;
 
     // Search parent directory
     char iconPath[512];
     utilsResolvePath(iconPath, sizeof(iconPath), "placeholder_rts_icon.png");
 
-    SDL_Surface* icon = SDL_LoadPNG(iconPath);
+    SDL_Surface *icon = SDL_LoadPNG(iconPath);
     SDL_Log("Icon load: %s", icon ? "OK" : SDL_GetError());
 
     s_tray = SDL_CreateTray(icon, "Real-Time Subtitler");
-    if (icon) SDL_DestroySurface(icon);
+    if (icon)
+        SDL_DestroySurface(icon);
 
     if (!s_tray) {
-        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
-                     "Failed to create tray: %s", SDL_GetError());
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to create tray: %s", SDL_GetError());
         return false;
     }
 
@@ -42,8 +41,7 @@ bool initTray(SDL_Window *window)
     return true;
 }
 
-void destroyTray(void)
-{
+void destroyTray(void) {
     if (s_tray) {
         SDL_DestroyTray(s_tray);
         s_tray = NULL;
@@ -51,40 +49,35 @@ void destroyTray(void)
 }
 
 // Builds the tray menu from scratch so Windows picks up any label changes.
-static void buildMenu(void)
-{
-    if (!s_tray) return;
-    if (SDL_GetTrayMenu(s_tray)) return;
+static void buildMenu(void) {
+    if (!s_tray)
+        return;
+    if (SDL_GetTrayMenu(s_tray))
+        return;
 
     SDL_TrayMenu *menu = SDL_CreateTrayMenu(s_tray);
 
-    SDL_TrayEntry *title = SDL_InsertTrayEntryAt(menu, -1,
-                               "Real-Time Subtitler", SDL_TRAYENTRY_BUTTON);
+    SDL_TrayEntry *title = SDL_InsertTrayEntryAt(menu, -1, "Real-Time Subtitler", SDL_TRAYENTRY_BUTTON);
     SDL_SetTrayEntryEnabled(title, false);
 
     SDL_InsertTrayEntryAt(menu, -1, NULL, 0);
 
-    SDL_TrayEntry *controlPanel = SDL_InsertTrayEntryAt(menu, -1,
-                               "Control Panel", SDL_TRAYENTRY_BUTTON);
+    SDL_TrayEntry *controlPanel = SDL_InsertTrayEntryAt(menu, -1, "Control Panel", SDL_TRAYENTRY_BUTTON);
     SDL_SetTrayEntryCallback(controlPanel, cb_control_panel, NULL);
 
-    SDL_TrayEntry *focus = SDL_InsertTrayEntryAt(menu, -1,
-                               "Move Window", SDL_TRAYENTRY_BUTTON);
+    SDL_TrayEntry *focus = SDL_InsertTrayEntryAt(menu, -1, "Move Window", SDL_TRAYENTRY_BUTTON);
     SDL_SetTrayEntryCallback(focus, cb_focus, NULL);
 
-    s_pauseEntry = SDL_InsertTrayEntryAt(menu, -1,
-                       s_paused ? "Resume" : "Pause", SDL_TRAYENTRY_BUTTON);
+    s_pauseEntry = SDL_InsertTrayEntryAt(menu, -1, s_paused ? "Resume" : "Pause", SDL_TRAYENTRY_BUTTON);
     SDL_SetTrayEntryCallback(s_pauseEntry, cb_toggle, NULL);
 
     SDL_InsertTrayEntryAt(menu, -1, NULL, 0);
 
-    SDL_TrayEntry *quit = SDL_InsertTrayEntryAt(menu, -1,
-                              "Quit", SDL_TRAYENTRY_BUTTON);
+    SDL_TrayEntry *quit = SDL_InsertTrayEntryAt(menu, -1, "Quit", SDL_TRAYENTRY_BUTTON);
     SDL_SetTrayEntryCallback(quit, cb_quit, NULL);
 }
 
-void setTrayPauseState(bool paused)
-{
+void setTrayPauseState(bool paused) {
     if (s_paused != paused) {
         s_paused = paused;
         if (s_pauseEntry) {
@@ -95,18 +88,18 @@ void setTrayPauseState(bool paused)
 
 // --- Callbacks (called on the main thread via SDL's event pump) ---
 
-static void cb_focus(void *userdata, SDL_TrayEntry *entry)
-{
-    (void)userdata; (void)entry;
-    
+static void cb_focus(void *userdata, SDL_TrayEntry *entry) {
+    (void)userdata;
+    (void)entry;
+
     SDL_SetWindowMousePassthrough(s_window, false);
     SDL_SetWindowBordered(s_window, true);
 }
 
-static void cb_control_panel(void *userdata, SDL_TrayEntry *entry)
-{
-    (void)userdata; (void)entry;
-    
+static void cb_control_panel(void *userdata, SDL_TrayEntry *entry) {
+    (void)userdata;
+    (void)entry;
+
     SDL_Event e;
     SDL_zero(e);
     e.type = SDL_EVENT_USER;
@@ -114,9 +107,9 @@ static void cb_control_panel(void *userdata, SDL_TrayEntry *entry)
     SDL_PushEvent(&e);
 }
 
-static void cb_toggle(void *userdata, SDL_TrayEntry *entry)
-{
-    (void)userdata; (void)entry;
+static void cb_toggle(void *userdata, SDL_TrayEntry *entry) {
+    (void)userdata;
+    (void)entry;
     s_paused = !s_paused;
     if (s_pauseEntry) {
         SDL_SetTrayEntryLabel(s_pauseEntry, s_paused ? "Resume" : "Pause");
@@ -130,9 +123,9 @@ static void cb_toggle(void *userdata, SDL_TrayEntry *entry)
     SDL_PushEvent(&e);
 }
 
-static void cb_quit(void *userdata, SDL_TrayEntry *entry)
-{
-    (void)userdata; (void)entry;
+static void cb_quit(void *userdata, SDL_TrayEntry *entry) {
+    (void)userdata;
+    (void)entry;
     SDL_Event e;
     SDL_zero(e);
     e.type = SDL_EVENT_QUIT;

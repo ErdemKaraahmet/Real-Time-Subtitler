@@ -19,8 +19,8 @@
 #include "appEvents.h"
 
 #define CHUNK_LENGTH_SECONDS 2
-#define SAMPLE_RATE 16000             // 16Khz
-#define SAMPLE_SIZE (CHUNK_LENGTH_SECONDS * SAMPLE_RATE) // CHUNK_LENGTH_SECONDS second * sample rate = 32000 frames 
+#define SAMPLE_RATE 16000                                // 16Khz
+#define SAMPLE_SIZE (CHUNK_LENGTH_SECONDS * SAMPLE_RATE) // CHUNK_LENGTH_SECONDS second * sample rate = 32000 frames
 
 // shared state between threads
 static char subtitleText[124] = "";
@@ -29,7 +29,7 @@ static bool chunkReady = false;
 static bool textUpdated = false;
 static bool paused = false;
 static SDL_Mutex *textMutex;
-static SDL_Texture *texture = NULL; // promoted so pause handler can clear it
+static SDL_Texture *texture = NULL;   // promoted so pause handler can clear it
 static Uint64 lastTextUpdateTime = 0; // timestamp of the last whisper text update (ms)
 static bool done = false;
 
@@ -37,8 +37,7 @@ int whisperThread(void *data);
 
 void handleEvents(SDL_Window *window, bool *done, DragState *dragState, bool *needsRedraw, int timeout, AppConfig *config);
 
-int main(int argc, char *argv[])
-{
+int main(int argc, char *argv[]) {
 #ifdef _WIN32
     // Hide the console when double-clicked from Explorer.
     // When launched from a terminal, other processes share the console so count > 1.
@@ -58,18 +57,18 @@ int main(int argc, char *argv[])
     AppConfig *config = &config_obj;
     ConfigLoadStatus loadStatus = loadConfig(config);
     switch (loadStatus) {
-        case CONFIG_LOAD_OK:
-            SDL_Log("Config loaded.");
-            break;
-        case CONFIG_LOAD_PARSE_ERROR:
-            SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Config file was corrupted, backed up to config.json.bak and recreated with defaults.");
-            saveConfig(config);
-            break;
-        case CONFIG_LOAD_FILE_NOT_FOUND:
-        default:
-            SDL_Log("Config file not found, creating config.json with defaults.");
-            saveConfig(config);
-            break;
+    case CONFIG_LOAD_OK:
+        SDL_Log("Config loaded.");
+        break;
+    case CONFIG_LOAD_PARSE_ERROR:
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Config file was corrupted, backed up to config.json.bak and recreated with defaults.");
+        saveConfig(config);
+        break;
+    case CONFIG_LOAD_FILE_NOT_FOUND:
+    default:
+        SDL_Log("Config file not found, creating config.json with defaults.");
+        saveConfig(config);
+        break;
     }
 
     SDL_Log("Initializing audio capture...");
@@ -83,10 +82,10 @@ int main(int argc, char *argv[])
         if (prevGpu != config->use_gpu) {
             saveConfig(config); // Save the CPU fallback configuration
         }
-    }
-    else {
+    } else {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Couldn't load whisper model: %s", config->modelPath);
-        openControlPanelToTranscriptionWithError(config, "No Whisper model is loaded.\n\nPlease select or download a model from the list above to start subtitling.");
+        openControlPanelToTranscriptionWithError(
+            config, "No Whisper model is loaded.\n\nPlease select or download a model from the list above to start subtitling.");
         setControlPanelWhisperError(true, "Status: Whisper Offline (Model Load Failed)");
     }
 
@@ -95,8 +94,7 @@ int main(int argc, char *argv[])
     SDL_Window *window;
     SDL_Renderer *renderer;
     int width = 240, height = 80;
-    if (!createWindow(&window, &renderer, width, height))
-    {
+    if (!createWindow(&window, &renderer, width, height)) {
         SDL_Log("Couldn't create window: %s", SDL_GetError());
         return 1;
     }
@@ -107,8 +105,7 @@ int main(int argc, char *argv[])
 
     // Load a font
     TTF_Font *font = TTF_OpenFont(config->font, config->font_size);
-    if (!font)
-    {
+    if (!font) {
         SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Couldn't load configured font: %s. Trying fallback default font.", SDL_GetError());
         SDL_strlcpy(config->font, "fonts/cascadia.mono.ttf", sizeof(config->font));
         font = TTF_OpenFont(config->font, config->font_size);
@@ -131,35 +128,34 @@ int main(int argc, char *argv[])
 
     done = false;
     bool needsRedraw = true;
-    while (!done)
-    {
-        if (audioChunkReady(SAMPLE_SIZE) && !chunkReady)
-        {
+    while (!done) {
+        if (audioChunkReady(SAMPLE_SIZE) && !chunkReady) {
             if (getAudioChunk(audioChunk, SAMPLE_SIZE)) {
                 chunkReady = true; // signal the whisper thread
             }
         }
 
-        if (textUpdated)
-        {
+        if (textUpdated) {
             SDL_LockMutex(textMutex);
-            if (texture != NULL) SDL_DestroyTexture(texture);
-            if (!strcmp(subtitleText, " [BLANK_AUDIO]")) subtitleText[0] = '\0'; // whisper outputs " [BLANK_AUDIO]" on empty audio, to not print it exactly
+            if (texture != NULL)
+                SDL_DestroyTexture(texture);
+            if (!strcmp(subtitleText, " [BLANK_AUDIO]"))
+                subtitleText[0] = '\0'; // whisper outputs " [BLANK_AUDIO]" on empty audio, to not print it exactly
             texture = createTextTexture(renderer, font, subtitleText, config, &text_width, &text_height);
 
             // Resize the window to fit snugly to the text
             if (texture != NULL) {
-                
+
                 int currentX, currentY;
                 SDL_GetWindowPosition(window, &currentX, &currentY);
-                SDL_SetWindowPosition(window, (int)(currentX + (width - text_width)/2), (int)(currentY + (height - text_height)/2));
+                SDL_SetWindowPosition(window, (int)(currentX + (width - text_width) / 2), (int)(currentY + (height - text_height) / 2));
 
                 width = (int)text_width; // update
-                height = (int)text_height; 
+                height = (int)text_height;
 
                 SDL_SetWindowSize(window, width, height);
             }
-            
+
             textUpdated = false;
             needsRedraw = true;
             lastTextUpdateTime = SDL_GetTicks();
@@ -175,15 +171,12 @@ int main(int argc, char *argv[])
 
         // If we are dragging move the window
         dragWindow(window, &dragState);
-        if (dragState.isDragging)
-        {
+        if (dragState.isDragging) {
             needsRedraw = true;
         }
 
         // Clear the subtitle overlay if no new text has arrived within the timeout
-        if (texture != NULL && lastTextUpdateTime > 0 &&
-            SDL_GetTicks() - lastTextUpdateTime > (Uint64)(CHUNK_LENGTH_SECONDS + 1) * 1000)
-        {
+        if (texture != NULL && lastTextUpdateTime > 0 && SDL_GetTicks() - lastTextUpdateTime > (Uint64)(CHUNK_LENGTH_SECONDS + 1) * 1000) {
             SDL_LockMutex(textMutex);
             subtitleText[0] = '\0';
             SDL_UnlockMutex(textMutex);
@@ -193,13 +186,11 @@ int main(int argc, char *argv[])
             needsRedraw = true;
         }
 
-        if (needsRedraw)
-        {
+        if (needsRedraw) {
             SDL_RenderClear(renderer);
 
             // Draw the text in the center
-            if (texture != NULL)
-            {
+            if (texture != NULL) {
                 SDL_FRect dstRect = {(width - text_width) / 2, (height - text_height) / 2, text_width, text_height};
                 SDL_RenderTexture(renderer, texture, NULL, &dstRect);
             }
@@ -208,27 +199,22 @@ int main(int argc, char *argv[])
         }
 
         // Render Control Panel if open
-        if (isControlPanelOpen())
-        {
+        if (isControlPanelOpen()) {
             // Snapshot font config before the CP call may modify it via pLiveConfig
             char prevFont[512];
             int prevFontSize = config->font_size;
             SDL_strlcpy(prevFont, config->font, sizeof(prevFont));
 
             ControlPanelStatus cpStatus = updateAndRenderControlPanel(renderer);
-            if (cpStatus.configSaved)
-            {
+            if (cpStatus.configSaved) {
                 // Only reload font if the font path or size actually changed
-                if (strcmp(config->font, prevFont) != 0 || config->font_size != prevFontSize)
-                {
+                if (strcmp(config->font, prevFont) != 0 || config->font_size != prevFontSize) {
                     TTF_Font *new_font = TTF_OpenFont(config->font, config->font_size);
-                    if (new_font)
-                    {
-                        if (font) TTF_CloseFont(font);
+                    if (new_font) {
+                        if (font)
+                            TTF_CloseFont(font);
                         font = new_font;
-                    }
-                    else
-                    {
+                    } else {
                         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to reload font: %s", SDL_GetError());
                         // Revert config to previous working font settings
                         SDL_strlcpy(config->font, prevFont, sizeof(config->font));
@@ -240,13 +226,11 @@ int main(int argc, char *argv[])
                 textUpdated = true;
                 SDL_UnlockMutex(textMutex);
             }
-            if (cpStatus.modelChanged)
-            {
+            if (cpStatus.modelChanged) {
                 // Reload the Whisper model
                 whisperFree();
                 bool prevGpu = config->use_gpu;
-                if (whisperInit(config->modelPath, &config->use_gpu))
-                {
+                if (whisperInit(config->modelPath, &config->use_gpu)) {
                     SDL_Log("Whisper model reloaded: %s (GPU: %s)", config->modelPath, config->use_gpu ? "yes" : "no");
                     if (prevGpu != config->use_gpu) {
                         saveConfig(config);
@@ -258,12 +242,11 @@ int main(int argc, char *argv[])
                     } else {
                         setControlPanelWhisperError(false, "Status: Active (CPU Only)");
                     }
-                }
-                else
-                {
+                } else {
                     SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to reload Whisper model: %s", config->modelPath);
                     setControlPanelWhisperError(true, "Status: Whisper Offline (Model Load Failed)");
-                    openControlPanelToTranscriptionWithError(config, "Failed to reload the Whisper model.\n\nPlease select or download another model.");
+                    openControlPanelToTranscriptionWithError(config,
+                                                             "Failed to reload the Whisper model.\n\nPlease select or download another model.");
                 }
             }
         }
@@ -282,7 +265,8 @@ int main(int argc, char *argv[])
     }
     whisperFree();
     cleanupAudio();
-    if (texture) SDL_DestroyTexture(texture);
+    if (texture)
+        SDL_DestroyTexture(texture);
     destroyTray();
     if (textMutex) {
         SDL_DestroyMutex(textMutex);
@@ -294,27 +278,22 @@ int main(int argc, char *argv[])
     return 0;
 }
 
-bool isAppPaused(void)
-{
+bool isAppPaused(void) {
     return paused;
 }
 
-void handleEvents(SDL_Window *window, bool *done, DragState *drag, bool *needsRedraw, int timeout, AppConfig *config)
-{
+void handleEvents(SDL_Window *window, bool *done, DragState *drag, bool *needsRedraw, int timeout, AppConfig *config) {
     SDL_Event event;
-    if (SDL_WaitEventTimeout(&event, timeout))
-    {
+    if (SDL_WaitEventTimeout(&event, timeout)) {
         do {
             // Pass event to Control Panel
             handleControlPanelEvent(&event);
 
-            if (event.type == SDL_EVENT_QUIT)
-            {
+            if (event.type == SDL_EVENT_QUIT) {
                 *done = true;
             }
 
-            if (event.type == SDL_EVENT_USER)
-            {
+            if (event.type == SDL_EVENT_USER) {
                 if (event.user.code == APP_EVENT_PAUSE) {
                     paused = true;
                     pauseAudio();
@@ -323,38 +302,34 @@ void handleEvents(SDL_Window *window, bool *done, DragState *drag, bool *needsRe
                     SDL_LockMutex(textMutex);
                     subtitleText[0] = '\0';
                     SDL_UnlockMutex(textMutex);
-                    if (texture) { SDL_DestroyTexture(texture); texture = NULL; }
-                }
-                else if (event.user.code == APP_EVENT_RESUME) {
+                    if (texture) {
+                        SDL_DestroyTexture(texture);
+                        texture = NULL;
+                    }
+                } else if (event.user.code == APP_EVENT_RESUME) {
                     paused = false;
                     resumeAudio();
                     setTrayPauseState(false);
-                }
-                else if (event.user.code == APP_EVENT_OPEN_CONTROL) {
+                } else if (event.user.code == APP_EVENT_OPEN_CONTROL) {
                     openControlPanel(config);
                 }
                 *needsRedraw = true;
             }
-            if (event.type == SDL_EVENT_WINDOW_FOCUS_LOST)
-            {
+            if (event.type == SDL_EVENT_WINDOW_FOCUS_LOST) {
                 SDL_SetWindowMousePassthrough(window, true);
                 SDL_SetWindowBordered(window, false);
                 *needsRedraw = true;
             }
-            if (event.type >= SDL_EVENT_WINDOW_FIRST && event.type <= SDL_EVENT_WINDOW_LAST)
-            {
+            if (event.type >= SDL_EVENT_WINDOW_FIRST && event.type <= SDL_EVENT_WINDOW_LAST) {
                 *needsRedraw = true;
             }
         } while (SDL_PollEvent(&event));
     }
 }
 
-int whisperThread(void *data)
-{
-    while (!done)
-    {
-        if (chunkReady && !paused)
-        {
+int whisperThread(void *data) {
+    while (!done) {
+        if (chunkReady && !paused) {
             SDL_LockMutex(textMutex);
             subtitleText[0] = '\0';
             whisperProcess(audioChunk, SAMPLE_SIZE, subtitleText, sizeof(subtitleText));
@@ -368,9 +343,7 @@ int whisperThread(void *data)
             event.type = SDL_EVENT_USER;
             event.user.code = APP_EVENT_TEXT_UPDATED;
             SDL_PushEvent(&event);
-        }
-        else if (chunkReady && paused)
-        {
+        } else if (chunkReady && paused) {
             chunkReady = false; // discard stale audio collected while paused
         }
         SDL_Delay(10);

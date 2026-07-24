@@ -6,7 +6,7 @@
 
 #define FORMAT ma_format_f32
 #define CHANNELS 1
-#define SAMPLE_RATE 16000 // 16Khz 
+#define SAMPLE_RATE 16000 // 16Khz
 #define SECONDS_IN_BUFFER 5
 #define BUFFER_SIZE_IN_FRAMES (SAMPLE_RATE * SECONDS_IN_BUFFER)
 #define RMS_THRESHOLD 0.001f
@@ -15,8 +15,7 @@ static ma_device device;
 static ma_pcm_rb ringBuffer;
 // single producer, single consumer so no lock needed
 
-void data_callback(ma_device* pDevice, void* pOutput, const void* pInput, ma_uint32 frameCount)
-{
+void data_callback(ma_device *pDevice, void *pOutput, const void *pInput, ma_uint32 frameCount) {
     void *pRingBuffer;
     ma_pcm_rb_acquire_write(&ringBuffer, &frameCount, &pRingBuffer);
     memcpy(pRingBuffer, pInput, frameCount * sizeof(float));
@@ -25,10 +24,9 @@ void data_callback(ma_device* pDevice, void* pOutput, const void* pInput, ma_uin
     (void)pOutput;
 }
 
-bool initAndStartAudio(void)
-{
+bool initAndStartAudio(void) {
     ma_result result;
-    ma_device_config deviceConfig; 
+    ma_device_config deviceConfig;
 
     // init pcm ring buffer
     result = ma_pcm_rb_init(FORMAT, CHANNELS, BUFFER_SIZE_IN_FRAMES, NULL, NULL, &ringBuffer);
@@ -38,18 +36,16 @@ bool initAndStartAudio(void)
     }
 
 #if defined(_WIN32)
-    ma_backend backends[] = {
-        ma_backend_wasapi
-    };
+    ma_backend backends[] = {ma_backend_wasapi};
 
     deviceConfig = ma_device_config_init(ma_device_type_loopback);
-    deviceConfig.capture.pDeviceID = NULL; // Use default device.
-    deviceConfig.capture.format    = FORMAT; // 32 bit float
-    deviceConfig.capture.channels  = CHANNELS; // single channel
-    deviceConfig.sampleRate        = SAMPLE_RATE; // 16Khz
-    deviceConfig.dataCallback      = data_callback;
+    deviceConfig.capture.pDeviceID = NULL;    // Use default device.
+    deviceConfig.capture.format = FORMAT;     // 32 bit float
+    deviceConfig.capture.channels = CHANNELS; // single channel
+    deviceConfig.sampleRate = SAMPLE_RATE;    // 16Khz
+    deviceConfig.dataCallback = data_callback;
 
-    result = ma_device_init_ex(backends, sizeof(backends)/sizeof(backends[0]), NULL, &deviceConfig, &device);
+    result = ma_device_init_ex(backends, sizeof(backends) / sizeof(backends[0]), NULL, &deviceConfig, &device);
 #elif defined(__linux__) || defined(__APPLE__)
     ma_bool32 foundMonitor = MA_FALSE;
     ma_device_id monitorDeviceID;
@@ -57,9 +53,9 @@ bool initAndStartAudio(void)
 #if defined(__linux__)
     ma_context context;
     if (ma_context_init(NULL, 0, NULL, &context) == MA_SUCCESS) {
-        ma_device_info* pPlaybackInfos;
+        ma_device_info *pPlaybackInfos;
         ma_uint32 playbackCount;
-        ma_device_info* pCaptureInfos;
+        ma_device_info *pCaptureInfos;
         ma_uint32 captureCount;
 
         if (ma_context_get_devices(&context, &pPlaybackInfos, &playbackCount, &pCaptureInfos, &captureCount) == MA_SUCCESS) {
@@ -83,14 +79,14 @@ bool initAndStartAudio(void)
         deviceConfig.capture.pDeviceID = NULL; // Use default device.
         printf("No system loopback/monitor device found. Falling back to default capture device.\n");
     }
-    deviceConfig.capture.format    = FORMAT; // 32 bit float
-    deviceConfig.capture.channels  = CHANNELS; // single channel
-    deviceConfig.sampleRate        = SAMPLE_RATE; // 16Khz
-    deviceConfig.dataCallback      = data_callback;
+    deviceConfig.capture.format = FORMAT;     // 32 bit float
+    deviceConfig.capture.channels = CHANNELS; // single channel
+    deviceConfig.sampleRate = SAMPLE_RATE;    // 16Khz
+    deviceConfig.dataCallback = data_callback;
 
     result = ma_device_init(NULL, &deviceConfig, &device);
 #else
-    #error "Audio Capture for this os is not implemented"
+#error "Audio Capture for this os is not implemented"
 #endif
 
     if (result != MA_SUCCESS) {
@@ -113,10 +109,9 @@ Fetches available 16kHz float samples from the internal buffer.
 @param outBuffer Target array to store samples.
 @param sampleSize used in Whisper also
  */
-bool getAudioChunk(float* outputBuffer, int sampleSize)
-{
+bool getAudioChunk(float *outputBuffer, int sampleSize) {
     void *pRingBuffer;
-    
+
     ma_pcm_rb_acquire_read(&ringBuffer, &sampleSize, &pRingBuffer);
     memcpy(outputBuffer, pRingBuffer, sampleSize * sizeof(float));
     ma_pcm_rb_commit_read(&ringBuffer, sampleSize);
@@ -135,17 +130,14 @@ bool audioChunkReady(ma_uint32 sampleSize) {
 }
 
 // Uninitializes the device and frees allocated memory
-void cleanupAudio(void)
-{
+void cleanupAudio(void) {
     ma_device_uninit(&device);
 }
 
-void pauseAudio(void)
-{
+void pauseAudio(void) {
     ma_device_stop(&device);
 }
 
-void resumeAudio(void)
-{
+void resumeAudio(void) {
     ma_device_start(&device);
 }

@@ -9,7 +9,7 @@
  * @param destSize The capacity of the dest buffer.
  * @param relativePath The path relative to the application base folder.
  */
-void utilsResolvePath(char* dest, size_t destSize, const char* relativePath);
+void utilsResolvePath(char *dest, size_t destSize, const char *relativePath);
 
 /**
  * Checks if a file exists and is readable.
@@ -17,4 +17,4 @@ void utilsResolvePath(char* dest, size_t destSize, const char* relativePath);
  * @param relativePath The path relative to the application base folder.
  * @return true if the file exists and can be opened in binary read mode, false otherwise.
  */
-bool utilsIsFileReadable(const char* relativePath);
+bool utilsIsFileReadable(const char *relativePath);

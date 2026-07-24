@@ -14,7 +14,7 @@ Fetches available 16kHz float samples from the internal buffer.
 @param outBuffer Target array to store samples.
 @param sampleSize used in Whisper also
  */
-bool getAudioChunk(float* outputBuffer, int sampleSize);
+bool getAudioChunk(float *outputBuffer, int sampleSize);
 
 // Checks if audio ring buffer has enough sample for whisper
 bool audioChunkReady(unsigned int sampleSize);

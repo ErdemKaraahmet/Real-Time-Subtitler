@@ -11,6 +11,6 @@ typedef struct DragState {
 
 extern DragState DragState_default;
 
-bool createWindow(SDL_Window** window, SDL_Renderer** renderer, int width, int height);
+bool createWindow(SDL_Window **window, SDL_Renderer **renderer, int width, int height);
 
-void dragWindow(SDL_Window* window, DragState* dragState);
+void dragWindow(SDL_Window *window, DragState *dragState);

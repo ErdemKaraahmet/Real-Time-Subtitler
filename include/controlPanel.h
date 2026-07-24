@@ -7,10 +7,10 @@ typedef struct {
     bool modelChanged;
 } ControlPanelStatus;
 
-void openControlPanel(AppConfig* liveConfig);
-void openControlPanelToTranscriptionWithError(AppConfig* liveConfig, const char* errorMessage);
-void handleControlPanelEvent(const SDL_Event* event);
-ControlPanelStatus updateAndRenderControlPanel(SDL_Renderer* overlayRenderer);
+void openControlPanel(AppConfig *liveConfig);
+void openControlPanelToTranscriptionWithError(AppConfig *liveConfig, const char *errorMessage);
+void handleControlPanelEvent(const SDL_Event *event);
+ControlPanelStatus updateAndRenderControlPanel(SDL_Renderer *overlayRenderer);
 void closeControlPanel(void);
 bool isControlPanelOpen(void);
-void setControlPanelWhisperError(bool error, const char* message);
+void setControlPanelWhisperError(bool error, const char *message);

@@ -5,18 +5,18 @@
 #include <string.h>
 #include <SDL3/SDL.h>
 
-static struct whisper_context* ctx = NULL;
+static struct whisper_context *ctx = NULL;
 
 #ifdef RTS_BENCH
-static FILE* benchFile = NULL;
+static FILE *benchFile = NULL;
 #endif
 
-void quiet_log_callback(enum ggml_log_level level, const char * text, void * user_data) {
+void quiet_log_callback(enum ggml_log_level level, const char *text, void *user_data) {
     // Leave this completely empty to discard all logs
 }
 
 // Initialize
-bool whisperInit(const char* modelPath, bool* use_gpu) {
+bool whisperInit(const char *modelPath, bool *use_gpu) {
     char fullPath[512];
     utilsResolvePath(fullPath, sizeof(fullPath), modelPath);
     if (!utilsIsFileReadable(modelPath)) {
@@ -64,8 +64,9 @@ bool whisperInit(const char* modelPath, bool* use_gpu) {
 }
 
 // Returns true if there is new text
-bool whisperProcess(float* pcmf32, int n_samples, char* outputText, int outputLength) {
-    if (!ctx) return false;
+bool whisperProcess(float *pcmf32, int n_samples, char *outputText, int outputLength) {
+    if (!ctx)
+        return false;
 
     struct whisper_full_params wparams = whisper_full_default_params(WHISPER_SAMPLING_GREEDY);
     wparams.print_progress = false;
@@ -75,8 +76,9 @@ bool whisperProcess(float* pcmf32, int n_samples, char* outputText, int outputLe
     wparams.single_segment = true;                       // Force single segment
     wparams.no_context = true;                           // Prevent using past chunks as context to avoid repetition loops
     wparams.temperature_inc = 0.5f;                      // Amount the temperature increases each time it retries, 1 is max so 0.5 is two retries
-    wparams.audio_ctx = 384;                             // Crop audio context window to size of 2s chunks plus safety padding, whisper is trained on 30s chunks which is 1500 frames
-    wparams.max_tokens = 32;                             // Cap maximum tokens generated per chunk to stop hallucinations
+    wparams.audio_ctx =
+        384; // Crop audio context window to size of 2s chunks plus safety padding, whisper is trained on 30s chunks which is 1500 frames
+    wparams.max_tokens = 32; // Cap maximum tokens generated per chunk to stop hallucinations
 
 #ifdef RTS_BENCH
     Uint64 t0 = SDL_GetPerformanceCounter();
@@ -88,7 +90,7 @@ bool whisperProcess(float* pcmf32, int n_samples, char* outputText, int outputLe
 
     const int n_segments = whisper_full_n_segments(ctx);
     for (int i = 0; i < n_segments; ++i) {
-        const char * text = whisper_full_get_segment_text(ctx, i);
+        const char *text = whisper_full_get_segment_text(ctx, i);
         strncat(outputText, text, outputLength);
         if (text && strlen(text) > 0) {
             printf("%s", text);
@@ -111,8 +113,7 @@ bool whisperProcess(float* pcmf32, int n_samples, char* outputText, int outputLe
             }
         }
         float avg_prob = token_count > 0 ? prob_sum / token_count : 0.0f;
-        fprintf(benchFile, "%.2f,%.4f,%d\n",
-            inference_ms, avg_prob, token_count);
+        fprintf(benchFile, "%.2f,%.4f,%d\n", inference_ms, avg_prob, token_count);
         fflush(benchFile);
     }
 #endif
@@ -135,38 +136,38 @@ void whisperFree(void) {
 
 // Example from whisper github repo
 
-//C interface
+// C interface
 //
-// The following interface is thread-safe as long as the sample whisper_context is not used by multiple threads
-// concurrently.
+//  The following interface is thread-safe as long as the sample whisper_context is not used by multiple threads
+//  concurrently.
 //
-// Basic usage:
+//  Basic usage:
 //
-//     #include "whisper.h"
+//      #include "whisper.h"
 //
-//     ...
+//      ...
 //
-//     whisper_context_params cparams = whisper_context_default_params();
+//      whisper_context_params cparams = whisper_context_default_params();
 //
-//     struct whisper_context * ctx = whisper_init_from_file_with_params("/path/to/ggml-base.en.bin", cparams);
+//      struct whisper_context * ctx = whisper_init_from_file_with_params("/path/to/ggml-base.en.bin", cparams);
 //
-//     if (whisper_full(ctx, wparams, pcmf32.data(), pcmf32.size()) != 0) {
-//         fprintf(stderr, "failed to process audio\n");
-//         return 7;
-//     }
+//      if (whisper_full(ctx, wparams, pcmf32.data(), pcmf32.size()) != 0) {
+//          fprintf(stderr, "failed to process audio\n");
+//          return 7;
+//      }
 //
-//     const int n_segments = whisper_full_n_segments(ctx);
-//     for (int i = 0; i < n_segments; ++i) {
-//         const char * text = whisper_full_get_segment_text(ctx, i);
-//         printf("%s", text);
-//     }
+//      const int n_segments = whisper_full_n_segments(ctx);
+//      for (int i = 0; i < n_segments; ++i) {
+//          const char * text = whisper_full_get_segment_text(ctx, i);
+//          printf("%s", text);
+//      }
 //
-//     whisper_free(ctx);
+//      whisper_free(ctx);
 //
-//     ...
+//      ...
 //
-// This is a demonstration of the most straightforward usage of the library.
-// "pcmf32" contains the RAW audio data in 32-bit floating point format.
+//  This is a demonstration of the most straightforward usage of the library.
+//  "pcmf32" contains the RAW audio data in 32-bit floating point format.
 //
-// The interface also allows for more fine-grained control over the computation, but it requires a deeper
-// understanding of how the model works.
+//  The interface also allows for more fine-grained control over the computation, but it requires a deeper
+//  understanding of how the model works.

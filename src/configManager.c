@@ -9,10 +9,10 @@ typedef struct {
     char firstModel[256];
 } ScanFirstModelData;
 
-static SDL_EnumerationResult SDLCALL scanFirstModelCallback(void* userdata, const char* dirname, const char* fname) {
+static SDL_EnumerationResult SDLCALL scanFirstModelCallback(void *userdata, const char *dirname, const char *fname) {
     (void)dirname;
-    ScanFirstModelData* data = (ScanFirstModelData*)userdata;
-    
+    ScanFirstModelData *data = (ScanFirstModelData *)userdata;
+
     size_t len = strlen(fname);
     if (len > 4 && strcmp(fname + len - 4, ".bin") == 0) {
         snprintf(data->firstModel, sizeof(data->firstModel), "models/%s", fname);
@@ -21,13 +21,13 @@ static SDL_EnumerationResult SDLCALL scanFirstModelCallback(void* userdata, cons
     return SDL_ENUM_CONTINUE;
 }
 
-static void getFirstLocalModelPath(char* dest, size_t destSize) {
+static void getFirstLocalModelPath(char *dest, size_t destSize) {
     char modelsPath[512];
     utilsResolvePath(modelsPath, sizeof(modelsPath), "models");
-    
+
     ScanFirstModelData data = {0};
     SDL_EnumerateDirectory(modelsPath, scanFirstModelCallback, &data);
-    
+
     if (data.firstModel[0] != '\0') {
         SDL_strlcpy(dest, data.firstModel, destSize);
     } else {
@@ -35,13 +35,14 @@ static void getFirstLocalModelPath(char* dest, size_t destSize) {
     }
 }
 
-static void resolveConfigPath(char* dest, size_t destSize) {
+static void resolveConfigPath(char *dest, size_t destSize) {
     utilsResolvePath(dest, destSize, "config.json");
 }
 
-static char* readFileContents(const char* path) {
-    FILE* file = fopen(path, "rb");
-    if (!file) return NULL;
+static char *readFileContents(const char *path) {
+    FILE *file = fopen(path, "rb");
+    if (!file)
+        return NULL;
 
     fseek(file, 0, SEEK_END);
     long length = ftell(file);
@@ -51,7 +52,7 @@ static char* readFileContents(const char* path) {
     }
     fseek(file, 0, SEEK_SET);
 
-    char* buffer = (char*)malloc((size_t)length + 1);
+    char *buffer = (char *)malloc((size_t)length + 1);
     if (!buffer) {
         fclose(file);
         return NULL;
@@ -63,48 +64,53 @@ static char* readFileContents(const char* path) {
     return buffer;
 }
 
-static SDL_Color parseColorObject(const cJSON* obj, SDL_Color fallback) {
-    if (!cJSON_IsObject(obj)) return fallback;
+static SDL_Color parseColorObject(const cJSON *obj, SDL_Color fallback) {
+    if (!cJSON_IsObject(obj))
+        return fallback;
 
     SDL_Color c = fallback;
-    const cJSON* r = cJSON_GetObjectItemCaseSensitive(obj, "r");
-    const cJSON* g = cJSON_GetObjectItemCaseSensitive(obj, "g");
-    const cJSON* b = cJSON_GetObjectItemCaseSensitive(obj, "b");
+    const cJSON *r = cJSON_GetObjectItemCaseSensitive(obj, "r");
+    const cJSON *g = cJSON_GetObjectItemCaseSensitive(obj, "g");
+    const cJSON *b = cJSON_GetObjectItemCaseSensitive(obj, "b");
 
-    if (cJSON_IsNumber(r)) c.r = (Uint8)r->valueint;
-    if (cJSON_IsNumber(g)) c.g = (Uint8)g->valueint;
-    if (cJSON_IsNumber(b)) c.b = (Uint8)b->valueint;
+    if (cJSON_IsNumber(r))
+        c.r = (Uint8)r->valueint;
+    if (cJSON_IsNumber(g))
+        c.g = (Uint8)g->valueint;
+    if (cJSON_IsNumber(b))
+        c.b = (Uint8)b->valueint;
     return c;
 }
 
-static cJSON* colorToJson(SDL_Color c) {
-    cJSON* obj = cJSON_CreateObject();
-    if (!obj) return NULL;
+static cJSON *colorToJson(SDL_Color c) {
+    cJSON *obj = cJSON_CreateObject();
+    if (!obj)
+        return NULL;
     cJSON_AddNumberToObject(obj, "r", c.r);
     cJSON_AddNumberToObject(obj, "g", c.g);
     cJSON_AddNumberToObject(obj, "b", c.b);
     return obj;
 }
 
-ConfigLoadStatus loadConfig(AppConfig* conf) {
+ConfigLoadStatus loadConfig(AppConfig *conf) {
     char configPath[512];
     resolveConfigPath(configPath, sizeof(configPath));
 
-    char* contents = readFileContents(configPath);
-    if (!contents) return CONFIG_LOAD_FILE_NOT_FOUND;
+    char *contents = readFileContents(configPath);
+    if (!contents)
+        return CONFIG_LOAD_FILE_NOT_FOUND;
 
-    cJSON* root = cJSON_Parse(contents);
+    cJSON *root = cJSON_Parse(contents);
     free(contents);
     if (!root) {
         char backupPath[520];
         snprintf(backupPath, sizeof(backupPath), "%s.bak", configPath);
         rename(configPath, backupPath);
-        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
-            "Failed to parse config JSON, backed up broken file to %s", backupPath);
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to parse config JSON, backed up broken file to %s", backupPath);
         return CONFIG_LOAD_PARSE_ERROR;
     }
 
-    const cJSON* item;
+    const cJSON *item;
 
     item = cJSON_GetObjectItemCaseSensitive(root, "font");
     if (cJSON_IsString(item) && item->valuestring) {
@@ -145,12 +151,13 @@ ConfigLoadStatus loadConfig(AppConfig* conf) {
     return CONFIG_LOAD_OK;
 }
 
-bool saveConfig(const AppConfig* conf) {
+bool saveConfig(const AppConfig *conf) {
     char configPath[512];
     resolveConfigPath(configPath, sizeof(configPath));
 
-    cJSON* root = cJSON_CreateObject();
-    if (!root) return false;
+    cJSON *root = cJSON_CreateObject();
+    if (!root)
+        return false;
 
     cJSON_AddStringToObject(root, "font", conf->font);
     cJSON_AddNumberToObject(root, "font_size", conf->font_size);
@@ -160,11 +167,12 @@ bool saveConfig(const AppConfig* conf) {
     cJSON_AddStringToObject(root, "modelPath", conf->modelPath);
     cJSON_AddBoolToObject(root, "use_gpu", conf->use_gpu);
 
-    char* jsonStr = cJSON_Print(root);
+    char *jsonStr = cJSON_Print(root);
     cJSON_Delete(root);
-    if (!jsonStr) return false;
+    if (!jsonStr)
+        return false;
 
-    FILE* file = fopen(configPath, "w");
+    FILE *file = fopen(configPath, "w");
     if (!file) {
         free(jsonStr);
         return false;

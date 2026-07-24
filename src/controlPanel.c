@@ -12,17 +12,17 @@
 #include "version.h"
 
 #ifndef IM_COL32
-#define IM_COL32(R,G,B,A) (((ImU32)(A)<<24) | ((ImU32)(B)<<16) | ((ImU32)(G)<<8) | ((ImU32)(R)<<0))
+#define IM_COL32(R, G, B, A) (((ImU32)(A) << 24) | ((ImU32)(B) << 16) | ((ImU32)(G) << 8) | ((ImU32)(R) << 0))
 #endif
 
 // External getter for pause state from main.c
 extern bool isAppPaused(void);
 
 // External C++ declarations from our bridge
-extern bool ImGui_ImplSDLRenderer3_Init_C(SDL_Renderer* renderer);
+extern bool ImGui_ImplSDLRenderer3_Init_C(SDL_Renderer *renderer);
 extern void ImGui_ImplSDLRenderer3_Shutdown_C(void);
 extern void ImGui_ImplSDLRenderer3_NewFrame_C(void);
-extern void ImGui_ImplSDLRenderer3_RenderDrawData_C(ImDrawData* draw_data, SDL_Renderer* renderer);
+extern void ImGui_ImplSDLRenderer3_RenderDrawData_C(ImDrawData *draw_data, SDL_Renderer *renderer);
 
 // UI Styling Constants
 static const float UI_WINDOW_WIDTH = 710.0f;
@@ -37,8 +37,8 @@ static const float UI_WINDOW_HEIGHT = 450.0f;
 static int g_DeleteTargetIndex = -1;
 
 // Window and Renderer state
-static SDL_Window* cpWindow = NULL;
-static SDL_Renderer* cpRenderer = NULL;
+static SDL_Window *cpWindow = NULL;
+static SDL_Renderer *cpRenderer = NULL;
 static bool cpOpen = false;
 
 // Scanned items
@@ -46,10 +46,8 @@ static bool cpOpen = false;
 static char scannedFonts[MAX_ITEMS][256];
 static int scannedFontCount = 0;
 
-
-
 // UI configuration state
-static AppConfig* pLiveConfig = NULL;
+static AppConfig *pLiveConfig = NULL;
 static AppConfig uiConfig;
 static AppConfig savedConfig; // to track dirty state
 static bool modelChanged = false;
@@ -61,7 +59,7 @@ static int cpActivePage = 0; // 0 = View, 1 = Transcription
 static char globalUiErrorMessage[512] = "";
 static bool showGlobalUiErrorPopup = false;
 
-static void triggerGlobalError(const char* message) {
+static void triggerGlobalError(const char *message) {
     if (message) {
         SDL_strlcpy(globalUiErrorMessage, message, sizeof(globalUiErrorMessage));
         showGlobalUiErrorPopup = true;
@@ -69,26 +67,28 @@ static void triggerGlobalError(const char* message) {
 }
 
 // Preview state
-static SDL_Texture* previewTexture = NULL;
+static SDL_Texture *previewTexture = NULL;
 static float previewWidth = 0.0f;
 static float previewHeight = 0.0f;
 static bool previewNeedsUpdate = true;
 static bool previewFontLoadFailed = false;
 
-
 // Helper to get filename from path
-static const char* getFilenameFromPath(const char* path) {
-    const char* lastSlash = strrchr(path, '/');
-    const char* lastBackslash = strrchr(path, '\\');
-    const char* filename = path;
-    if (lastSlash && lastSlash > filename) filename = lastSlash + 1;
-    if (lastBackslash && lastBackslash > filename) filename = lastBackslash + 1;
+static const char *getFilenameFromPath(const char *path) {
+    const char *lastSlash = strrchr(path, '/');
+    const char *lastBackslash = strrchr(path, '\\');
+    const char *filename = path;
+    if (lastSlash && lastSlash > filename)
+        filename = lastSlash + 1;
+    if (lastBackslash && lastBackslash > filename)
+        filename = lastBackslash + 1;
     return filename;
 }
 
 // Directory enumeration callbacks
 static SDL_EnumerationResult SDLCALL scanFontsCallback(void *userdata, const char *dirname, const char *fname) {
-    (void)userdata; (void)dirname;
+    (void)userdata;
+    (void)dirname;
     if (scannedFontCount < MAX_ITEMS) {
         size_t len = strlen(fname);
         if (len > 4 && SDL_strcasecmp(fname + len - 4, ".ttf") == 0) {
@@ -99,7 +99,7 @@ static SDL_EnumerationResult SDLCALL scanFontsCallback(void *userdata, const cha
     return SDL_ENUM_CONTINUE;
 }
 
-void openControlPanelToTranscriptionWithError(AppConfig* liveConfig, const char* errorMessage) {
+void openControlPanelToTranscriptionWithError(AppConfig *liveConfig, const char *errorMessage) {
     cpActivePage = 1;
     openControlPanel(liveConfig);
     if (errorMessage) {
@@ -107,7 +107,7 @@ void openControlPanelToTranscriptionWithError(AppConfig* liveConfig, const char*
     }
 }
 
-void openControlPanel(AppConfig* liveConfig) {
+void openControlPanel(AppConfig *liveConfig) {
     if (cpOpen) {
         // Bring to front
         SDL_RaiseWindow(cpWindow);
@@ -137,7 +137,7 @@ void openControlPanel(AppConfig* liveConfig) {
     // Set window icon
     char iconPath[512];
     utilsResolvePath(iconPath, sizeof(iconPath), "spaceholder_rts_icon.png");
-    SDL_Surface* icon = SDL_LoadPNG(iconPath);
+    SDL_Surface *icon = SDL_LoadPNG(iconPath);
     if (icon) {
         SDL_SetWindowIcon(cpWindow, icon);
         SDL_DestroySurface(icon);
@@ -153,7 +153,7 @@ void openControlPanel(AppConfig* liveConfig) {
 
     // Initialize ImGui
     igCreateContext(NULL);
-    ImGuiIO* io = igGetIO_Nil();
+    ImGuiIO *io = igGetIO_Nil();
     io->ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 
     // Load Cascadia Font for UI
@@ -163,7 +163,7 @@ void openControlPanel(AppConfig* liveConfig) {
 
     // Setup style
     igStyleColorsDark(NULL);
-    ImGuiStyle* style = igGetStyle();
+    ImGuiStyle *style = igGetStyle();
     style->WindowPadding = (ImVec2_c){UI_PADDING, UI_PADDING};
     style->ItemSpacing = (ImVec2_c){UI_SPACING, UI_SPACING};
     style->FramePadding = (ImVec2_c){6.0f, 6.0f};
@@ -182,28 +182,28 @@ void openControlPanel(AppConfig* liveConfig) {
     style->PopupBorderSize = 1.0f;
 
     // Monochrome Palette
-    ImVec4* colors = style->Colors;
-    colors[ImGuiCol_WindowBg]             = (ImVec4_c){0.00f, 0.00f, 0.00f, 1.00f};
-    colors[ImGuiCol_ChildBg]              = (ImVec4_c){0.00f, 0.00f, 0.00f, 1.00f};
-    colors[ImGuiCol_PopupBg]              = (ImVec4_c){0.00f, 0.00f, 0.00f, 1.00f};
-    colors[ImGuiCol_Text]                 = (ImVec4_c){1.00f, 1.00f, 1.00f, 1.00f};
-    colors[ImGuiCol_Border]               = (ImVec4_c){0.60f, 0.60f, 0.60f, 1.00f};
-    colors[ImGuiCol_Separator]            = (ImVec4_c){0.60f, 0.60f, 0.60f, 1.00f};
-    colors[ImGuiCol_FrameBg]              = (ImVec4_c){0.00f, 0.00f, 0.00f, 1.00f};
-    colors[ImGuiCol_FrameBgHovered]       = (ImVec4_c){0.15f, 0.15f, 0.15f, 1.00f};
-    colors[ImGuiCol_FrameBgActive]        = (ImVec4_c){0.25f, 0.25f, 0.25f, 1.00f};
-    colors[ImGuiCol_Header]               = (ImVec4_c){0.15f, 0.15f, 0.15f, 1.00f};
-    colors[ImGuiCol_HeaderHovered]        = (ImVec4_c){0.25f, 0.25f, 0.25f, 1.00f};
-    colors[ImGuiCol_HeaderActive]         = (ImVec4_c){0.35f, 0.35f, 0.35f, 1.00f};
-    colors[ImGuiCol_Button]               = (ImVec4_c){0.00f, 0.00f, 0.00f, 1.00f};
-    colors[ImGuiCol_ButtonHovered]        = (ImVec4_c){0.25f, 0.25f, 0.25f, 1.00f};
-    colors[ImGuiCol_ButtonActive]         = (ImVec4_c){0.35f, 0.35f, 0.35f, 1.00f};
-    colors[ImGuiCol_CheckMark]            = (ImVec4_c){1.00f, 1.00f, 1.00f, 1.00f};
-    colors[ImGuiCol_SliderGrab]           = (ImVec4_c){1.00f, 1.00f, 1.00f, 1.00f};
-    colors[ImGuiCol_SliderGrabActive]     = (ImVec4_c){0.80f, 0.80f, 0.80f, 1.00f};
-    colors[ImGuiCol_ModalWindowDimBg]     = (ImVec4_c){0.00f, 0.00f, 0.00f, 0.60f};
-    colors[ImGuiCol_TitleBg]              = (ImVec4_c){0.00f, 0.00f, 0.00f, 1.00f};
-    colors[ImGuiCol_TitleBgActive]        = (ImVec4_c){0.15f, 0.15f, 0.15f, 1.00f};
+    ImVec4 *colors = style->Colors;
+    colors[ImGuiCol_WindowBg] = (ImVec4_c){0.00f, 0.00f, 0.00f, 1.00f};
+    colors[ImGuiCol_ChildBg] = (ImVec4_c){0.00f, 0.00f, 0.00f, 1.00f};
+    colors[ImGuiCol_PopupBg] = (ImVec4_c){0.00f, 0.00f, 0.00f, 1.00f};
+    colors[ImGuiCol_Text] = (ImVec4_c){1.00f, 1.00f, 1.00f, 1.00f};
+    colors[ImGuiCol_Border] = (ImVec4_c){0.60f, 0.60f, 0.60f, 1.00f};
+    colors[ImGuiCol_Separator] = (ImVec4_c){0.60f, 0.60f, 0.60f, 1.00f};
+    colors[ImGuiCol_FrameBg] = (ImVec4_c){0.00f, 0.00f, 0.00f, 1.00f};
+    colors[ImGuiCol_FrameBgHovered] = (ImVec4_c){0.15f, 0.15f, 0.15f, 1.00f};
+    colors[ImGuiCol_FrameBgActive] = (ImVec4_c){0.25f, 0.25f, 0.25f, 1.00f};
+    colors[ImGuiCol_Header] = (ImVec4_c){0.15f, 0.15f, 0.15f, 1.00f};
+    colors[ImGuiCol_HeaderHovered] = (ImVec4_c){0.25f, 0.25f, 0.25f, 1.00f};
+    colors[ImGuiCol_HeaderActive] = (ImVec4_c){0.35f, 0.35f, 0.35f, 1.00f};
+    colors[ImGuiCol_Button] = (ImVec4_c){0.00f, 0.00f, 0.00f, 1.00f};
+    colors[ImGuiCol_ButtonHovered] = (ImVec4_c){0.25f, 0.25f, 0.25f, 1.00f};
+    colors[ImGuiCol_ButtonActive] = (ImVec4_c){0.35f, 0.35f, 0.35f, 1.00f};
+    colors[ImGuiCol_CheckMark] = (ImVec4_c){1.00f, 1.00f, 1.00f, 1.00f};
+    colors[ImGuiCol_SliderGrab] = (ImVec4_c){1.00f, 1.00f, 1.00f, 1.00f};
+    colors[ImGuiCol_SliderGrabActive] = (ImVec4_c){0.80f, 0.80f, 0.80f, 1.00f};
+    colors[ImGuiCol_ModalWindowDimBg] = (ImVec4_c){0.00f, 0.00f, 0.00f, 0.60f};
+    colors[ImGuiCol_TitleBg] = (ImVec4_c){0.00f, 0.00f, 0.00f, 1.00f};
+    colors[ImGuiCol_TitleBgActive] = (ImVec4_c){0.15f, 0.15f, 0.15f, 1.00f};
 
     ImGui_ImplSDL3_InitForSDLRenderer(cpWindow, cpRenderer);
     ImGui_ImplSDLRenderer3_Init_C(cpRenderer);
@@ -214,8 +214,9 @@ void openControlPanel(AppConfig* liveConfig) {
     modelManagerStartFetchCatalog();
 }
 
-void handleControlPanelEvent(const SDL_Event* event) {
-    if (!cpOpen) return;
+void handleControlPanelEvent(const SDL_Event *event) {
+    if (!cpOpen)
+        return;
 
     ImGui_ImplSDL3_ProcessEvent(event);
 
@@ -233,7 +234,7 @@ static void updatePreviewTexture(void) {
     previewFontLoadFailed = false;
 
     // Try to load the selected font
-    TTF_Font* font = TTF_OpenFont(uiConfig.font, uiConfig.font_size);
+    TTF_Font *font = TTF_OpenFont(uiConfig.font, uiConfig.font_size);
     if (!font) {
         // Fallback to default font
         font = TTF_OpenFont("fonts/cascadia.mono.ttf", uiConfig.font_size);
@@ -248,7 +249,7 @@ static void updatePreviewTexture(void) {
     TTF_CloseFont(font);
 }
 
-static const char* getActiveDownloadETA(ModelEntry* entry) {
+static const char *getActiveDownloadETA(ModelEntry *entry) {
     static char etaStr[32] = "";
 
     if (!entry || entry->state != MODEL_STATE_DOWNLOADING) {
@@ -283,7 +284,7 @@ static const char* getActiveDownloadETA(ModelEntry* entry) {
     return etaStr;
 }
 
-static void renderHeaderAndSidebar(SDL_Renderer* overlayRenderer) {
+static void renderHeaderAndSidebar(SDL_Renderer *overlayRenderer) {
     // Status Message & Control Buttons (Centered vertically)
     igAlignTextToFramePadding();
     if (whisperStatusError) {
@@ -293,7 +294,7 @@ static void renderHeaderAndSidebar(SDL_Renderer* overlayRenderer) {
     }
 
     igSameLine(0.0f, UI_SPACING);
-    
+
     // Align top buttons to the right edge of the window (Total width = 70 + 110 + 100 + 16 = 296)
     float rightAlignX = igGetWindowWidth() - 296.0f - igGetStyle()->WindowPadding.x;
     if (rightAlignX > igGetCursorPosX()) {
@@ -314,7 +315,7 @@ static void renderHeaderAndSidebar(SDL_Renderer* overlayRenderer) {
 
     // Move Window button
     if (igButton("Move Window", (ImVec2_c){110.0f, 0.0f})) {
-        SDL_Window* overlayWinReal = SDL_GetRenderWindow(overlayRenderer);
+        SDL_Window *overlayWinReal = SDL_GetRenderWindow(overlayRenderer);
         if (overlayWinReal) {
             SDL_SetWindowMousePassthrough(overlayWinReal, false);
             SDL_SetWindowBordered(overlayWinReal, true);
@@ -337,7 +338,7 @@ static void renderHeaderAndSidebar(SDL_Renderer* overlayRenderer) {
     // Split layout: Column 0 = Sidebar, Column 1 = Settings Pane
     igColumns(2, "SettingsSidebarLayout", true);
     igSetColumnWidth(0, 130.0f); // Sidebar width
-    
+
     // --- Column 0: Sidebar Navigation ---
     igPushStyleVar_Vec2(ImGuiStyleVar_SelectableTextAlign, (ImVec2_c){0.0f, 0.5f});
     if (igSelectable_Bool("View", cpActivePage == 0, 0, (ImVec2_c){0, 24.0f})) {
@@ -352,7 +353,7 @@ static void renderHeaderAndSidebar(SDL_Renderer* overlayRenderer) {
         cpActivePage = 2;
     }
     igPopStyleVar(1);
-    
+
     igNextColumn();
 }
 
@@ -362,10 +363,10 @@ static void renderSystemPage(void) {
 
 static void renderViewPage(void) {
     // Font Selection
-    const char* fontDisplayName = getFilenameFromPath(uiConfig.font);
+    const char *fontDisplayName = getFilenameFromPath(uiConfig.font);
     if (igBeginCombo("Font", fontDisplayName, 0)) {
         if (scannedFontCount == 0) {
-            igSelectable_Bool("No item found in folder##empty_font", false, ImGuiSelectableFlags_Disabled, (ImVec2_c){0,0});
+            igSelectable_Bool("No item found in folder##empty_font", false, ImGuiSelectableFlags_Disabled, (ImVec2_c){0, 0});
         } else {
             for (int i = 0; i < scannedFontCount; i++) {
                 bool isSelected = (strcmp(fontDisplayName, scannedFonts[i]) == 0);
@@ -398,11 +399,7 @@ static void renderViewPage(void) {
     }
 
     // Color Picking
-    float textColor[3] = {
-        uiConfig.text_color.r / 255.0f,
-        uiConfig.text_color.g / 255.0f,
-        uiConfig.text_color.b / 255.0f
-    };
+    float textColor[3] = {uiConfig.text_color.r / 255.0f, uiConfig.text_color.g / 255.0f, uiConfig.text_color.b / 255.0f};
     if (igColorEdit3("Text Color", textColor, 0)) {
         uiConfig.text_color.r = (uint8_t)(textColor[0] * 255.0f);
         uiConfig.text_color.g = (uint8_t)(textColor[1] * 255.0f);
@@ -410,11 +407,7 @@ static void renderViewPage(void) {
         previewNeedsUpdate = true;
     }
 
-    float outlineColor[3] = {
-        uiConfig.text_outline_color.r / 255.0f,
-        uiConfig.text_outline_color.g / 255.0f,
-        uiConfig.text_outline_color.b / 255.0f
-    };
+    float outlineColor[3] = {uiConfig.text_outline_color.r / 255.0f, uiConfig.text_outline_color.g / 255.0f, uiConfig.text_outline_color.b / 255.0f};
     if (igColorEdit3("Outline Color", outlineColor, 0)) {
         uiConfig.text_outline_color.r = (uint8_t)(outlineColor[0] * 255.0f);
         uiConfig.text_outline_color.g = (uint8_t)(outlineColor[1] * 255.0f);
@@ -427,18 +420,14 @@ static void renderViewPage(void) {
     // Live Preview
     igText("Live Preview:");
     ImVec2_c previewPos = igGetCursorScreenPos();
-    
-    // Draw a dark background rectangle for the preview (no rounding)
-    ImDrawList* drawList = igGetWindowDrawList();
-    ImDrawList_AddRectFilled(drawList, 
-        previewPos, 
-        (ImVec2_c){previewPos.x + UI_PREVIEW_BOX_WIDTH, previewPos.y + UI_PREVIEW_BOX_HEIGHT}, 
-        IM_COL32(15, 15, 15, 255), 0.0f, 0);
 
-    ImDrawList_AddRect(drawList,
-        previewPos,
-        (ImVec2_c){previewPos.x + UI_PREVIEW_BOX_WIDTH, previewPos.y + UI_PREVIEW_BOX_HEIGHT},
-        IM_COL32(80, 80, 80, 255), 0.0f, 1.0f, 0);
+    // Draw a dark background rectangle for the preview (no rounding)
+    ImDrawList *drawList = igGetWindowDrawList();
+    ImDrawList_AddRectFilled(drawList, previewPos, (ImVec2_c){previewPos.x + UI_PREVIEW_BOX_WIDTH, previewPos.y + UI_PREVIEW_BOX_HEIGHT},
+                             IM_COL32(15, 15, 15, 255), 0.0f, 0);
+
+    ImDrawList_AddRect(drawList, previewPos, (ImVec2_c){previewPos.x + UI_PREVIEW_BOX_WIDTH, previewPos.y + UI_PREVIEW_BOX_HEIGHT},
+                       IM_COL32(80, 80, 80, 255), 0.0f, 1.0f, 0);
 
     // Render the texture inside the box
     if (previewFontLoadFailed) {
@@ -464,17 +453,17 @@ static void renderViewPage(void) {
         float startY = previewPos.y + (UI_PREVIEW_BOX_HEIGHT - displayH) / 2.0f;
 
         igSetCursorScreenPos((ImVec2_c){startX, startY});
-        ImTextureRef_c texRef = { NULL, (ImTextureID)(intptr_t)previewTexture };
-        igImage(texRef, (ImVec2_c){displayW, displayH}, (ImVec2_c){0,0}, (ImVec2_c){1,1});
+        ImTextureRef_c texRef = {NULL, (ImTextureID)(intptr_t)previewTexture};
+        igImage(texRef, (ImVec2_c){displayW, displayH}, (ImVec2_c){0, 0}, (ImVec2_c){1, 1});
     }
 
     // Dummy element to advance the cursor past the preview box
     igSetCursorScreenPos((ImVec2_c){previewPos.x, previewPos.y + UI_PREVIEW_BOX_HEIGHT + UI_SPACING});
 }
 
-static void renderTranscriptionPage(const char* activeModelFilename, bool* triggerDeletePopup) {
+static void renderTranscriptionPage(const char *activeModelFilename, bool *triggerDeletePopup) {
     // Model Selection
-    ModelManager* mm = getModelManager();
+    ModelManager *mm = getModelManager();
     SDL_LockMutex(mm->lock);
 
     // Check for download errors to show automatic popups
@@ -491,23 +480,22 @@ static void renderTranscriptionPage(const char* activeModelFilename, bool* trigg
     // Check for catalog fetch errors to show automatic popups
     if (mm->catalogErrorMessage[0] != '\0') {
         char errorBuf[384];
-        const char* tip = "";
-        
+        const char *tip = "";
+
         // Detect common offline/network errors to append inline tips
-        if (SDL_strstr(mm->catalogErrorMessage, "resolve") != NULL ||
-            SDL_strstr(mm->catalogErrorMessage, "connect") != NULL ||
+        if (SDL_strstr(mm->catalogErrorMessage, "resolve") != NULL || SDL_strstr(mm->catalogErrorMessage, "connect") != NULL ||
             SDL_strstr(mm->catalogErrorMessage, "timeout") != NULL) {
             tip = "\n\nTip: Please check your Wi-Fi or internet connection.";
         } else if (SDL_strstr(mm->catalogErrorMessage, "parse") != NULL) {
             tip = "\n\nTip: This can happen if your network requires a login portal (e.g. public Wi-Fi). Please check your browser.";
         }
-        
+
         snprintf(errorBuf, sizeof(errorBuf), "Failed to fetch model catalog:\n%s%s", mm->catalogErrorMessage, tip);
         triggerGlobalError(errorBuf);
         mm->catalogErrorMessage[0] = '\0';
     }
 
-    const char* modelDisplayName = getFilenameFromPath(uiConfig.modelPath);
+    const char *modelDisplayName = getFilenameFromPath(uiConfig.modelPath);
     char comboLabel[256];
     SDL_strlcpy(comboLabel, modelDisplayName, sizeof(comboLabel));
 
@@ -515,7 +503,7 @@ static void renderTranscriptionPage(const char* activeModelFilename, bool* trigg
         if (strcmp(mm->models[i].filename, modelDisplayName) == 0) {
             if (mm->models[i].state == MODEL_STATE_DOWNLOADING) {
                 int pct = SDL_GetAtomicInt(&mm->models[i].progressPercent);
-                const char* eta = getActiveDownloadETA(&mm->models[i]);
+                const char *eta = getActiveDownloadETA(&mm->models[i]);
                 if (eta[0] != '\0') {
                     snprintf(comboLabel, sizeof(comboLabel), "Downloading %s (%d%%) %s", mm->models[i].name, pct, eta);
                 } else {
@@ -538,13 +526,13 @@ static void renderTranscriptionPage(const char* activeModelFilename, bool* trigg
     if (igBeginCombo("##Model", comboLabel, 0)) {
         if (mm->count == 0) {
             if (mm->fetchInProgress) {
-                igSelectable_Bool("Loading catalog...##empty", false, ImGuiSelectableFlags_Disabled, (ImVec2_c){0,0});
+                igSelectable_Bool("Loading catalog...##empty", false, ImGuiSelectableFlags_Disabled, (ImVec2_c){0, 0});
             } else {
-                igSelectable_Bool("Catalog empty / Offline##empty", false, ImGuiSelectableFlags_Disabled, (ImVec2_c){0,0});
+                igSelectable_Bool("Catalog empty / Offline##empty", false, ImGuiSelectableFlags_Disabled, (ImVec2_c){0, 0});
             }
         } else {
             for (int i = 0; i < mm->count; i++) {
-                ModelEntry* entry = &mm->models[i];
+                ModelEntry *entry = &mm->models[i];
                 bool isSelected = (strcmp(modelDisplayName, entry->filename) == 0);
                 bool isActive = (strcmp(activeModelFilename, entry->filename) == 0);
 
@@ -557,7 +545,7 @@ static void renderTranscriptionPage(const char* activeModelFilename, bool* trigg
 
                 ImVec2_c minVal = igGetItemRectMin();
                 ImVec2_c maxVal = igGetItemRectMax();
-                ImDrawList* drawList = igGetWindowDrawList();
+                ImDrawList *drawList = igGetWindowDrawList();
                 float rowWidth = maxVal.x - minVal.x;
 
                 // Draw border around the entire row for all on-disk models
@@ -568,32 +556,32 @@ static void renderTranscriptionPage(const char* activeModelFilename, bool* trigg
 
                 // Progress bar background for active download/verify state
                 if (entry->state == MODEL_STATE_DOWNLOADING || entry->state == MODEL_STATE_VERIFYING) {
-                    float pct = (entry->state == MODEL_STATE_DOWNLOADING) ? 
-                        (float)SDL_GetAtomicInt(&entry->progressPercent) / 100.0f : 1.0f;
+                    float pct = (entry->state == MODEL_STATE_DOWNLOADING) ? (float)SDL_GetAtomicInt(&entry->progressPercent) / 100.0f : 1.0f;
 
-                    ImVec2_c progressMax = { minVal.x + rowWidth * pct, maxVal.y };
+                    ImVec2_c progressMax = {minVal.x + rowWidth * pct, maxVal.y};
                     ImU32 barCol = igGetColorU32_Col(ImGuiCol_Header, 0.4f);
                     ImDrawList_AddRectFilled(drawList, minVal, progressMax, barCol, 0.0f, 0);
 
                     char overlayText[128];
                     if (entry->state == MODEL_STATE_DOWNLOADING) {
-                        const char* eta = getActiveDownloadETA(entry);
-                        const char* prefix = (strlen(entry->name) > 17) ? "Down..." : "Downloading";
+                        const char *eta = getActiveDownloadETA(entry);
+                        const char *prefix = (strlen(entry->name) > 17) ? "Down..." : "Downloading";
                         snprintf(overlayText, sizeof(overlayText), "[%s %d%%]%s", prefix, (int)(pct * 100), eta);
                     } else {
                         SDL_strlcpy(overlayText, "[Verifying]", sizeof(overlayText));
                     }
 
                     float rightTextX = maxVal.x - 36.0f - igCalcTextSize(overlayText, NULL, false, -1.0f).x - igGetStyle()->ItemSpacing.x;
-                    if (rightTextX < minVal.x) rightTextX = minVal.x;
+                    if (rightTextX < minVal.x)
+                        rightTextX = minVal.x;
 
-                    ImVec2_c textPos = { rightTextX, minVal.y + 7.0f };
+                    ImVec2_c textPos = {rightTextX, minVal.y + 7.0f};
                     ImU32 textCol = igGetColorU32_Vec4((ImVec4_c){1.0f, 1.0f, 1.0f, 0.8f});
                     ImDrawList_AddText_Vec2(drawList, textPos, textCol, overlayText, NULL);
                 }
 
                 // Align action text icon on the far right of the selectable row container
-                const char* iconStr = "";
+                const char *iconStr = "";
                 ImU32 iconCol = 0xFFFFFFFF;
 
                 if (entry->state == MODEL_STATE_DOWNLOADED) {
@@ -615,7 +603,7 @@ static void renderTranscriptionPage(const char* activeModelFilename, bool* trigg
                 if (iconStr[0] != '\0') {
                     float iconWidth = igCalcTextSize(iconStr, NULL, false, -1.0f).x;
                     float iconX = maxVal.x - iconWidth - 8.0f;
-                    ImVec2_c iconPos = { iconX, minVal.y + 7.0f };
+                    ImVec2_c iconPos = {iconX, minVal.y + 7.0f};
                     ImDrawList_AddText_Vec2(drawList, iconPos, iconCol, iconStr, NULL);
                 }
 
@@ -674,18 +662,19 @@ static void renderTranscriptionPage(const char* activeModelFilename, bool* trigg
     igCheckbox("Use GPU (Vulkan)", &uiConfig.use_gpu);
 }
 
-static void renderFooter(ControlPanelStatus* status, bool isDirty) {
+static void renderFooter(ControlPanelStatus *status, bool isDirty) {
     float windowHeight = igGetWindowHeight();
     float paddingY = igGetStyle()->WindowPadding.y;
     float footerStartY = windowHeight - paddingY - 30.0f - 20.0f; // 30px button height + 20px margin
-    
+
     igSetCursorPosY(footerStartY);
     igSeparator();
     igSpacing();
 
     // Buttons (Save & Load Defaults - right-aligned, Load Defaults on Left)
     float btnStartX = igGetWindowWidth() - (UI_BUTTON_WIDTH * 2.0f) - UI_SPACING - igGetStyle()->WindowPadding.x;
-    if (btnStartX < 0.0f) btnStartX = 0.0f;
+    if (btnStartX < 0.0f)
+        btnStartX = 0.0f;
 
     igSetCursorPosX(btnStartX);
 
@@ -731,9 +720,7 @@ static void renderFooter(ControlPanelStatus* status, bool isDirty) {
                     *pLiveConfig = uiConfig;
                 }
                 status->configSaved = true;
-                if (strcmp(uiConfig.modelPath, savedConfig.modelPath) != 0 ||
-                    uiConfig.use_gpu != savedConfig.use_gpu ||
-                    whisperStatusError) {
+                if (strcmp(uiConfig.modelPath, savedConfig.modelPath) != 0 || uiConfig.use_gpu != savedConfig.use_gpu || whisperStatusError) {
                     status->modelChanged = true;
                 }
                 savedConfig = uiConfig;
@@ -746,17 +733,14 @@ static void renderFooter(ControlPanelStatus* status, bool isDirty) {
     }
 }
 
-static void renderModals(const char* activeModelFilename) {
+static void renderModals(const char *activeModelFilename) {
     // Render Global Error Popup Modal
     if (showGlobalUiErrorPopup) {
         ImVec2_c parentPos = igGetWindowPos();
         ImVec2_c parentSize = igGetWindowSize();
-        ImVec2_c centerPos = {
-            parentPos.x + parentSize.x * 0.5f,
-            parentPos.y + parentSize.y * 0.5f
-        };
+        ImVec2_c centerPos = {parentPos.x + parentSize.x * 0.5f, parentPos.y + parentSize.y * 0.5f};
         igSetNextWindowPos(centerPos, ImGuiCond_Appearing, (ImVec2_c){0.5f, 0.5f});
-        
+
         igOpenPopup_Str("Error##GlobalErrorPopup", 0);
         showGlobalUiErrorPopup = false; // Reset trigger flag immediately to avoid resets
     }
@@ -767,13 +751,14 @@ static void renderModals(const char* activeModelFilename) {
         igPushTextWrapPos(igGetCursorPosX() + 328.0f); // 360px - margins
         igTextWrapped("%s", globalUiErrorMessage);
         igPopTextWrapPos();
-        
+
         igSpacing();
         igSeparator();
         igSpacing();
-        
+
         float okButtonPosX = igGetWindowWidth() - 120.0f - igGetStyle()->WindowPadding.x;
-        if (okButtonPosX < 0.0f) okButtonPosX = 0.0f;
+        if (okButtonPosX < 0.0f)
+            okButtonPosX = 0.0f;
         igSetCursorPosX(okButtonPosX);
         if (igButton("OK", (ImVec2_c){120.0f, 30.0f})) {
             igCloseCurrentPopup();
@@ -788,10 +773,10 @@ static void renderModals(const char* activeModelFilename) {
         centerPos.y = igGetIO_Nil()->DisplaySize.y * 0.5f;
         igSetNextWindowPos(centerPos, ImGuiCond_Appearing, (ImVec2_c){0.5f, 0.5f});
         igSetNextWindowSize((ImVec2_c){380.0f, 0.0f}, ImGuiCond_Always);
-        
+
         if (igBeginPopupModal("Confirm Deletion##Modal", NULL, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_AlwaysAutoResize)) {
             char modelName[256] = "";
-            ModelManager* mm = getModelManager();
+            ModelManager *mm = getModelManager();
             SDL_LockMutex(mm->lock);
             if (g_DeleteTargetIndex < mm->count) {
                 SDL_strlcpy(modelName, mm->models[g_DeleteTargetIndex].name, sizeof(modelName));
@@ -799,16 +784,17 @@ static void renderModals(const char* activeModelFilename) {
             SDL_UnlockMutex(mm->lock);
 
             igTextWrapped("Are you sure you want to delete the model '%s'?", modelName);
-            
+
             igSpacing();
             igSeparator();
             igSpacing();
-            
+
             float buttonWidth = 120.0f;
             float spacing = 8.0f;
             float startX = igGetWindowWidth() - (buttonWidth * 2.0f) - spacing - igGetStyle()->WindowPadding.x;
-            if (startX < 0.0f) startX = 0.0f;
-            
+            if (startX < 0.0f)
+                startX = 0.0f;
+
             igSetCursorPosX(startX);
             if (igButton("Delete", (ImVec2_c){buttonWidth, 30.0f})) {
                 if (g_DeleteTargetIndex != -1) {
@@ -827,9 +813,9 @@ static void renderModals(const char* activeModelFilename) {
     }
 }
 
-ControlPanelStatus updateAndRenderControlPanel(SDL_Renderer* overlayRenderer) {
+ControlPanelStatus updateAndRenderControlPanel(SDL_Renderer *overlayRenderer) {
     ControlPanelStatus status = {0};
-    const char* activeModelFilename = getFilenameFromPath(savedConfig.modelPath);
+    const char *activeModelFilename = getFilenameFromPath(savedConfig.modelPath);
     bool triggerDeletePopup = false;
 
     // Regenerate preview if needed
@@ -851,16 +837,11 @@ ControlPanelStatus updateAndRenderControlPanel(SDL_Renderer* overlayRenderer) {
 
     // Check dirty state
     bool isDirty = whisperStatusError;
-    if (strcmp(uiConfig.font, savedConfig.font) != 0 ||
-        uiConfig.font_size != savedConfig.font_size ||
-        uiConfig.outline_thickness != savedConfig.outline_thickness ||
-        uiConfig.text_color.r != savedConfig.text_color.r ||
-        uiConfig.text_color.g != savedConfig.text_color.g ||
-        uiConfig.text_color.b != savedConfig.text_color.b ||
-        uiConfig.text_outline_color.r != savedConfig.text_outline_color.r ||
-        uiConfig.text_outline_color.g != savedConfig.text_outline_color.g ||
-        uiConfig.text_outline_color.b != savedConfig.text_outline_color.b ||
-        strcmp(uiConfig.modelPath, savedConfig.modelPath) != 0 ||
+    if (strcmp(uiConfig.font, savedConfig.font) != 0 || uiConfig.font_size != savedConfig.font_size ||
+        uiConfig.outline_thickness != savedConfig.outline_thickness || uiConfig.text_color.r != savedConfig.text_color.r ||
+        uiConfig.text_color.g != savedConfig.text_color.g || uiConfig.text_color.b != savedConfig.text_color.b ||
+        uiConfig.text_outline_color.r != savedConfig.text_outline_color.r || uiConfig.text_outline_color.g != savedConfig.text_outline_color.g ||
+        uiConfig.text_outline_color.b != savedConfig.text_outline_color.b || strcmp(uiConfig.modelPath, savedConfig.modelPath) != 0 ||
         uiConfig.use_gpu != savedConfig.use_gpu) {
         isDirty = true;
     }
@@ -891,7 +872,7 @@ ControlPanelStatus updateAndRenderControlPanel(SDL_Renderer* overlayRenderer) {
 
     // Render ImGui
     igRender();
-    
+
     SDL_SetRenderDrawColor(cpRenderer, 30, 30, 30, 255);
     SDL_RenderClear(cpRenderer);
     ImGui_ImplSDLRenderer3_RenderDrawData_C(igGetDrawData(), cpRenderer);
@@ -901,7 +882,8 @@ ControlPanelStatus updateAndRenderControlPanel(SDL_Renderer* overlayRenderer) {
 }
 
 void closeControlPanel(void) {
-    if (!cpOpen) return;
+    if (!cpOpen)
+        return;
 
     // Shutdown ImGui
     ImGui_ImplSDLRenderer3_Shutdown_C();
@@ -926,12 +908,11 @@ void closeControlPanel(void) {
     cpOpen = false;
 }
 
-
 bool isControlPanelOpen(void) {
     return cpOpen;
 }
 
-void setControlPanelWhisperError(bool error, const char* message) {
+void setControlPanelWhisperError(bool error, const char *message) {
     whisperStatusError = error;
     if (message) {
         SDL_strlcpy(whisperStatusMessage, message, sizeof(whisperStatusMessage));
