@@ -57,6 +57,16 @@ set(SDL_RENDER_VULKAN ON)
 set(SDL_OPENGLES OFF)
 set(SDL_CCACHE ON)
 
+# Configure git hooks path for contributors automatically
+if(EXISTS "${CMAKE_SOURCE_DIR}/.git")
+    execute_process(
+        COMMAND git config core.hooksPath .githooks
+        WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+        OUTPUT_QUIET
+        ERROR_QUIET
+    )
+endif()
+
 # Apply SDL mouse passthrough patch if not already applied
 execute_process(
     COMMAND git apply --check "${CMAKE_SOURCE_DIR}/deps/patches/sdl_mouse_passthrough.patch"
@@ -181,6 +191,20 @@ target_include_directories(Real-Time-Subtitler SYSTEM PRIVATE
 option(RTS_BENCH "Enable inference benchmark logging to rts_bench.csv" OFF)
 option(RTS_ENABLE_SANITIZERS "Enable AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
 option(RTS_ENABLE_TSAN "Enable ThreadSanitizer" OFF)
+option(RTS_CLANG_TIDY "Enable clang-tidy static analysis during compilation" OFF)
+
+if(RTS_CLANG_TIDY)
+    find_program(CLANG_TIDY_EXE NAMES clang-tidy)
+    if(CLANG_TIDY_EXE)
+        message(STATUS "Enabling clang-tidy: ${CLANG_TIDY_EXE}")
+        set_target_properties(Real-Time-Subtitler PROPERTIES
+            C_CLANG_TIDY "${CLANG_TIDY_EXE}"
+            CXX_CLANG_TIDY "${CLANG_TIDY_EXE}"
+        )
+    else()
+        message(WARNING "RTS_CLANG_TIDY is ON but clang-tidy executable was not found.")
+    endif()
+endif()
 
 if(RTS_ENABLE_SANITIZERS AND RTS_ENABLE_TSAN)
     message(FATAL_ERROR "RTS_ENABLE_SANITIZERS (ASan/UBSan) and RTS_ENABLE_TSAN (TSan) cannot be enabled together. Please enable only one.")

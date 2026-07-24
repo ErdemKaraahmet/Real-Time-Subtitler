@@ -1,0 +1,18 @@
+#!/bin/sh
+
+# Find staged C and Header files in src/ and include/
+FILES=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '^(src/|include/).*\.(c|h)$')
+
+if [ -n "$FILES" ]; then
+    if command -v clang-format >/dev/null 2>&1; then
+        echo "Running clang-format on staged files..."
+        for file in $FILES; do
+            clang-format -i "$file"
+            git add "$file"
+        done
+    else
+        echo "Warning: clang-format is not installed. Skipping auto-formatting."
+    fi
+fi
+
+exit 0

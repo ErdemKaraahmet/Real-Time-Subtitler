@@ -1,0 +1,13 @@
+---
+Checks: '
+  bugprone-*,
+  cert-*,
+  clang-analyzer-*,
+  performance-*,
+  portability-*,
+  -bugprone-easily-swappable-parameters,
+  -clang-analyzer-security.insecureAPI.strcpy
+'
+HeaderFilterRegex: '^(src|include)/.*'
+WarningsAsErrors: '*'
+...
