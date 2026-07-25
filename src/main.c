@@ -37,7 +37,7 @@ int whisperThread(void *data);
 
 void handleEvents(SDL_Window *window, bool *done, bool *needsRedraw, int timeout, AppConfig *config);
 
-int main(int argc, char *argv[]) {
+int main(void) {
 #ifdef _WIN32
     // Hide the console when double-clicked from Explorer.
     // When launched from a terminal, other processes share the console so count > 1.
@@ -76,10 +76,10 @@ int main(int argc, char *argv[]) {
     SDL_Log("Audio capture initialized.");
 
     SDL_Log("Loading whisper model: %s", config->modelPath);
-    bool prevGpu = config->use_gpu;
+    bool previousGpu = config->use_gpu;
     if (whisperInit(config->modelPath, &config->use_gpu)) {
         SDL_Log("Whisper model loaded");
-        if (prevGpu != config->use_gpu) {
+        if (previousGpu != config->use_gpu) {
             saveConfig(config); // Save the CPU fallback configuration
         }
     } else {
@@ -104,11 +104,11 @@ int main(int argc, char *argv[]) {
     initTray();
 
     // Load a font
-    TTF_Font *font = TTF_OpenFont(config->font, config->font_size);
+    TTF_Font *font = TTF_OpenFont(config->font, (float)config->font_size);
     if (!font) {
         SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Couldn't load configured font: %s. Trying fallback default font.", SDL_GetError());
         SDL_strlcpy(config->font, "fonts/cascadia.mono.ttf", sizeof(config->font));
-        font = TTF_OpenFont(config->font, config->font_size);
+        font = TTF_OpenFont(config->font, (float)config->font_size);
         if (!font) {
             SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Couldn't load fallback font: %s", SDL_GetError());
             return 1;
@@ -146,7 +146,9 @@ int main(int argc, char *argv[]) {
 
                 int currentX, currentY;
                 SDL_GetWindowPosition(window, &currentX, &currentY);
-                SDL_SetWindowPosition(window, (int)(currentX + (width - text_width) / 2), (int)(currentY + (height - text_height) / 2));
+                int offsetX = (int)(((float)width - text_width) * 0.5f);
+                int offsetY = (int)(((float)height - text_height) * 0.5f);
+                SDL_SetWindowPosition(window, currentX + offsetX, currentY + offsetY);
 
                 width = (int)text_width; // update
                 height = (int)text_height;
@@ -183,7 +185,7 @@ int main(int argc, char *argv[]) {
 
             // Draw the text in the center
             if (texture != NULL) {
-                SDL_FRect dstRect = {(width - text_width) / 2, (height - text_height) / 2, text_width, text_height};
+                SDL_FRect dstRect = {((float)width - text_width) / 2.0f, ((float)height - text_height) / 2.0f, text_width, text_height};
                 SDL_RenderTexture(renderer, texture, NULL, &dstRect);
             }
             SDL_RenderPresent(renderer);
@@ -201,7 +203,7 @@ int main(int argc, char *argv[]) {
             if (cpStatus.configSaved) {
                 // Only reload font if the font path or size actually changed
                 if (strcmp(config->font, prevFont) != 0 || config->font_size != prevFontSize) {
-                    TTF_Font *new_font = TTF_OpenFont(config->font, config->font_size);
+                    TTF_Font *new_font = TTF_OpenFont(config->font, (float)config->font_size);
                     if (new_font) {
                         if (font)
                             TTF_CloseFont(font);
@@ -274,7 +276,7 @@ bool isAppPaused(void) {
     return paused;
 }
 
-void handleEvents(SDL_Window *window, bool *done, bool *needsRedraw, int timeout, AppConfig *config) {
+void handleEvents(SDL_Window *window, bool *pDone, bool *needsRedraw, int timeout, AppConfig *config) {
     SDL_Event event;
     if (SDL_WaitEventTimeout(&event, timeout)) {
         do {
@@ -282,7 +284,7 @@ void handleEvents(SDL_Window *window, bool *done, bool *needsRedraw, int timeout
             handleControlPanelEvent(&event);
 
             if (event.type == SDL_EVENT_QUIT) {
-                *done = true;
+                *pDone = true;
             }
 
             if (event.type == SDL_EVENT_USER) {
@@ -323,6 +325,7 @@ void handleEvents(SDL_Window *window, bool *done, bool *needsRedraw, int timeout
 }
 
 int whisperThread(void *data) {
+    (void)data;
     while (!done) {
         if (chunkReady && !paused) {
             SDL_LockMutex(textMutex);
