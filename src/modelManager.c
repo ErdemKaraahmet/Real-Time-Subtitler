@@ -70,7 +70,7 @@ static SDL_EnumerationResult SDLCALL scanLocalModelsCallback(void *userdata, con
             char fullPath[512];
             snprintf(fullPath, sizeof(fullPath), "%s/%s", dirname, fname);
             SDL_PathInfo info;
-            entry->remoteSize = SDL_GetPathInfo(fullPath, &info) ? info.size : 0;
+            entry->remoteSize = (SDL_GetPathInfo(fullPath, &info) && info.size <= (Uint64)INT64_MAX) ? (int64_t)info.size : 0;
 
             entry->state = MODEL_STATE_DOWNLOADED;
             entry->oid[0] = '\0';
@@ -133,6 +133,7 @@ typedef struct {
     size_t size;
 } MemoryBuffer;
 
+// cppcheck-suppress constParameterCallback
 static size_t writeMemoryCallback(void *contents, size_t size, size_t nmemb, void *userp) {
     size_t realsize = size * nmemb;
     MemoryBuffer *mem = (MemoryBuffer *)userp;
@@ -195,7 +196,7 @@ static int SDLCALL fetchCatalogThreadFunc(void *data) {
 
                     // Filter: must start with "ggml-" and end in ".bin"
                     if (pathLen > 4 && strncmp(path, "ggml-", 5) == 0 && strcmp(path + pathLen - 4, ".bin") == 0) {
-                        cJSON *sizeItem = cJSON_GetObjectItemCaseSensitive(element, "size");
+                        const cJSON *sizeItem = cJSON_GetObjectItemCaseSensitive(element, "size");
                         cJSON *lfsItem = cJSON_GetObjectItemCaseSensitive(element, "lfs");
                         int64_t remoteSize = sizeItem ? (int64_t)sizeItem->valuedouble : 0;
                         const char *oid = "";
@@ -286,7 +287,7 @@ typedef struct {
 static int downloadProgressCallback(void *clientp, curl_off_t dltotal, curl_off_t dlnow, curl_off_t ultotal, curl_off_t ulnow) {
     (void)ultotal;
     (void)ulnow;
-    DownloadProgressData *data = (DownloadProgressData *)clientp;
+    const DownloadProgressData *data = (DownloadProgressData *)clientp;
 
     if (SDL_GetAtomicInt(&g_DownloadCancelFlag) == 1) {
         return 1; // Abort transfer
@@ -328,7 +329,8 @@ static int downloadProgressCallback(void *clientp, curl_off_t dltotal, curl_off_
             double speed = (double)dlnow / elapsed;
             if (speed > 0) {
                 curl_off_t remainingBytes = dltotal - dlnow;
-                int remainingSeconds = (int)(remainingBytes / speed);
+                double secs = (double)remainingBytes / speed;
+                int remainingSeconds = (secs > (double)INT_MAX) ? INT_MAX : (int)secs;
                 SDL_SetAtomicInt(&entry->etaSeconds, remainingSeconds);
             }
         }
@@ -355,7 +357,7 @@ static bool calculateFileSHA256(const char *filePath, char *destHex) {
     SHA256_BYTE hash[SHA256_BLOCK_SIZE];
     sha256_final(&ctx, hash);
 
-    for (int i = 0; i < SHA256_BLOCK_SIZE; i++) {
+    for (size_t i = 0; i < SHA256_BLOCK_SIZE; i++) {
         sprintf(destHex + (i * 2), "%02x", hash[i]);
     }
     destHex[64] = '\0';
@@ -380,7 +382,7 @@ static int SDLCALL downloadThreadFunc(void *data) {
     int64_t resumeOffset = 0;
     SDL_PathInfo pathInfo;
     if (SDL_GetPathInfo(partPath, &pathInfo)) {
-        resumeOffset = pathInfo.size;
+        resumeOffset = (pathInfo.size <= (Uint64)INT64_MAX) ? (int64_t)pathInfo.size : 0;
     }
 
     FILE *file = fopen(partPath, resumeOffset > 0 ? "ab" : "wb");

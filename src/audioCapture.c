@@ -21,6 +21,7 @@ void data_callback(ma_device *pDevice, void *pOutput, const void *pInput, ma_uin
     memcpy(pRingBuffer, pInput, frameCount * sizeof(float));
     ma_pcm_rb_commit_write(&ringBuffer, frameCount);
 
+    (void)pDevice;
     (void)pOutput;
 }
 
@@ -109,20 +110,25 @@ Fetches available 16kHz float samples from the internal buffer.
 @param outBuffer Target array to store samples.
 @param sampleSize used in Whisper also
  */
-bool getAudioChunk(float *outputBuffer, int sampleSize) {
+bool getAudioChunk(float *outputBuffer, ma_uint32 sampleSize) {
     void *pRingBuffer;
-
-    ma_pcm_rb_acquire_read(&ringBuffer, &sampleSize, &pRingBuffer);
-    memcpy(outputBuffer, pRingBuffer, sampleSize * sizeof(float));
-    ma_pcm_rb_commit_read(&ringBuffer, sampleSize);
+    ma_uint32 framesToRead = sampleSize;
+    ma_pcm_rb_acquire_read(&ringBuffer, &framesToRead, &pRingBuffer);
+    if (pRingBuffer && framesToRead > 0) {
+        memcpy(outputBuffer, pRingBuffer, framesToRead * sizeof(float));
+        ma_pcm_rb_commit_read(&ringBuffer, framesToRead);
+    }
+    if (framesToRead < sampleSize) {
+        memset(outputBuffer + framesToRead, 0, (sampleSize - framesToRead) * sizeof(float));
+    }
 
     // Check for sound activity (VAD)
     float sum = 0.0f;
-    for (int i = 0; i < sampleSize; ++i) {
+    for (ma_uint32 i = 0; i < sampleSize; ++i) {
         float val = outputBuffer[i];
         sum += (val < 0.0f) ? -val : val;
     }
-    return (sum / sampleSize) > RMS_THRESHOLD;
+    return (sum / (float)sampleSize) > RMS_THRESHOLD;
 }
 
 bool audioChunkReady(ma_uint32 sampleSize) {

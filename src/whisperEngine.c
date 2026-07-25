@@ -11,10 +11,6 @@ static struct whisper_context *ctx = NULL;
 static FILE *benchFile = NULL;
 #endif
 
-void quiet_log_callback(enum ggml_log_level level, const char *text, void *user_data) {
-    // Leave this completely empty to discard all logs
-}
-
 // Initialize
 bool whisperInit(const char *modelPath, bool *use_gpu) {
     char fullPath[512];
@@ -46,9 +42,6 @@ bool whisperInit(const char *modelPath, bool *use_gpu) {
         ctx = whisper_init_from_file_with_params(fullPath, cparams);
     }
 
-    // Now silence whisper's internal logging for runtime
-    whisper_log_set(quiet_log_callback, NULL);
-
     if (ctx != NULL) {
         SDL_Log("Whisper context created successfully (GPU: %s)", cparams.use_gpu ? "yes" : "no");
 #ifdef RTS_BENCH
@@ -64,7 +57,7 @@ bool whisperInit(const char *modelPath, bool *use_gpu) {
 }
 
 // Returns true if there is new text
-bool whisperProcess(float *pcmf32, int n_samples, char *outputText, int outputLength) {
+bool whisperProcess(float *pcmf32, int n_samples, char *outputText, size_t outputLength) {
     if (!ctx)
         return false;
 
@@ -76,9 +69,9 @@ bool whisperProcess(float *pcmf32, int n_samples, char *outputText, int outputLe
     wparams.single_segment = true;                       // Force single segment
     wparams.no_context = true;                           // Prevent using past chunks as context to avoid repetition loops
     wparams.temperature_inc = 0.5f;                      // Amount the temperature increases each time it retries, 1 is max so 0.5 is two retries
-    wparams.audio_ctx =
-        384; // Crop audio context window to size of 2s chunks plus safety padding, whisper is trained on 30s chunks which is 1500 frames
-    wparams.max_tokens = 32; // Cap maximum tokens generated per chunk to stop hallucinations
+    wparams.audio_ctx = 384;                             // Crop audio context window to size of 2s chunks plus safety padding, whisper is
+                                                         // trained on 30s chunks which is 1500 frames
+    wparams.max_tokens = 32;                             // Cap maximum tokens generated per chunk to stop hallucinations
 
 #ifdef RTS_BENCH
     Uint64 t0 = SDL_GetPerformanceCounter();
@@ -91,15 +84,22 @@ bool whisperProcess(float *pcmf32, int n_samples, char *outputText, int outputLe
     const int n_segments = whisper_full_n_segments(ctx);
     for (int i = 0; i < n_segments; ++i) {
         const char *text = whisper_full_get_segment_text(ctx, i);
-        strncat(outputText, text, outputLength);
-        if (text && strlen(text) > 0) {
+        if (!text)
+            break;
+        const size_t text_len = strlen(text);
+        if (text_len > 0) {
+            const size_t current_len = strlen(outputText);
+            if (outputLength > 1 && current_len < outputLength - 1) {
+                const size_t max_copy = outputLength - 1 - current_len;
+                strncat(outputText, text, max_copy);
+            }
             printf("%s", text);
         }
     }
 
 #ifdef RTS_BENCH
     if (benchFile && n_segments > 0) {
-        double inference_ms = (double)(SDL_GetPerformanceCounter() - t0) / SDL_GetPerformanceFrequency() * 1000.0;
+        double inference_ms = (double)(SDL_GetPerformanceCounter() - t0) / (double)SDL_GetPerformanceFrequency() * 1000.0;
         float prob_sum = 0.0f;
         int token_count = 0;
         for (int i = 0; i < n_segments; ++i) {
@@ -112,7 +112,7 @@ bool whisperProcess(float *pcmf32, int n_samples, char *outputText, int outputLe
                 }
             }
         }
-        float avg_prob = token_count > 0 ? prob_sum / token_count : 0.0f;
+        float avg_prob = token_count > 0 ? prob_sum / (float)token_count : 0.0f;
         fprintf(benchFile, "%.2f,%.4f,%d\n", inference_ms, avg_prob, token_count);
         fflush(benchFile);
     }

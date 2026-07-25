@@ -2,7 +2,8 @@
 #include <SDL3_ttf/SDL_ttf.h>
 #include "configManager.h"
 
-SDL_Texture *createTextTexture(SDL_Renderer *renderer, TTF_Font *font, const char *text, AppConfig *config, float *text_width, float *text_height) {
+SDL_Texture *createTextTexture(SDL_Renderer *renderer, TTF_Font *font, const char *text, const AppConfig *config, float *text_width,
+                               float *text_height) {
     if (font == NULL || text == NULL || text[0] == '\0') {
         return NULL;
     } else {

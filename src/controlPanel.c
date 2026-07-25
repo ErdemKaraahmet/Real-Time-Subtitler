@@ -30,7 +30,6 @@ static const float UI_WINDOW_WIDTH = 710.0f;
 static const float UI_PADDING = 12.0f;
 static const float UI_SPACING = 8.0f;
 static const float UI_BUTTON_WIDTH = 120.0f;
-static const float UI_BUTTON_HEIGHT = 30.0f;
 static const float UI_PREVIEW_BOX_WIDTH = 556.0f; // 580 - 24
 static const float UI_PREVIEW_BOX_HEIGHT = 100.0f;
 static const float UI_WINDOW_HEIGHT = 450.0f;
@@ -235,10 +234,10 @@ static void updatePreviewTexture(void) {
     previewFontLoadFailed = false;
 
     // Try to load the selected font
-    TTF_Font *font = TTF_OpenFont(uiConfig.font, uiConfig.font_size);
+    TTF_Font *font = TTF_OpenFont(uiConfig.font, (float)uiConfig.font_size);
     if (!font) {
         // Fallback to default font
-        font = TTF_OpenFont("fonts/cascadia.mono.ttf", uiConfig.font_size);
+        font = TTF_OpenFont("fonts/cascadia.mono.ttf", (float)uiConfig.font_size);
         if (!font) {
             previewFontLoadFailed = true;
             return;
@@ -262,20 +261,14 @@ static const char *getActiveDownloadETA(ModelEntry *entry) {
     if (eta >= 0) {
         if (eta < 60) {
             snprintf(etaStr, sizeof(etaStr), "[%ds]", eta);
+        } else if (eta < 600) {
+            snprintf(etaStr, sizeof(etaStr), "[%.1fm]", (double)eta / 60.0);
         } else if (eta < 3600) {
-            float mins = eta / 60.0f;
-            if (mins < 10.0f) {
-                snprintf(etaStr, sizeof(etaStr), "[%.1fm]", mins);
-            } else {
-                snprintf(etaStr, sizeof(etaStr), "[%dm]", (int)mins);
-            }
+            snprintf(etaStr, sizeof(etaStr), "[%dm]", eta / 60);
+        } else if (eta < 36000) {
+            snprintf(etaStr, sizeof(etaStr), "[%.1fh]", (double)eta / 3600.0);
         } else if (eta < 360000) {
-            float hrs = eta / 3600.0f;
-            if (hrs < 10.0f) {
-                snprintf(etaStr, sizeof(etaStr), "[%.1fh]", hrs);
-            } else {
-                snprintf(etaStr, sizeof(etaStr), "[%dh]", (int)hrs);
-            }
+            snprintf(etaStr, sizeof(etaStr), "[%dh]", eta / 3600);
         } else {
             SDL_strlcpy(etaStr, "[?h]", sizeof(etaStr));
         }
@@ -286,6 +279,7 @@ static const char *getActiveDownloadETA(ModelEntry *entry) {
 }
 
 static void renderHeaderAndSidebar(SDL_Renderer *overlayRenderer) {
+    (void)overlayRenderer;
     // Status Message & Control Buttons (Centered vertically)
     igAlignTextToFramePadding();
     if (whisperStatusError) {
@@ -547,7 +541,6 @@ static void renderTranscriptionPage(const char *activeModelFilename, bool *trigg
                 ImVec2_c minVal = igGetItemRectMin();
                 ImVec2_c maxVal = igGetItemRectMax();
                 ImDrawList *drawList = igGetWindowDrawList();
-                float rowWidth = maxVal.x - minVal.x;
 
                 // Draw border around the entire row for all on-disk models
                 if (entry->state == MODEL_STATE_DOWNLOADED) {
@@ -558,7 +551,7 @@ static void renderTranscriptionPage(const char *activeModelFilename, bool *trigg
                 // Progress bar background for active download/verify state
                 if (entry->state == MODEL_STATE_DOWNLOADING || entry->state == MODEL_STATE_VERIFYING) {
                     float pct = (entry->state == MODEL_STATE_DOWNLOADING) ? (float)SDL_GetAtomicInt(&entry->progressPercent) / 100.0f : 1.0f;
-
+                    float rowWidth = maxVal.x - minVal.x;
                     ImVec2_c progressMax = {minVal.x + rowWidth * pct, maxVal.y};
                     ImU32 barCol = igGetColorU32_Col(ImGuiCol_Header, 0.4f);
                     ImDrawList_AddRectFilled(drawList, minVal, progressMax, barCol, 0.0f, 0);

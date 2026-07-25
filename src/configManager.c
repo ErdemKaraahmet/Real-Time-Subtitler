@@ -11,10 +11,10 @@ typedef struct {
 
 static SDL_EnumerationResult SDLCALL scanFirstModelCallback(void *userdata, const char *dirname, const char *fname) {
     (void)dirname;
-    ScanFirstModelData *data = (ScanFirstModelData *)userdata;
 
     size_t len = strlen(fname);
     if (len > 4 && strcmp(fname + len - 4, ".bin") == 0) {
+        ScanFirstModelData *data = userdata;
         snprintf(data->firstModel, sizeof(data->firstModel), "models/%s", fname);
         return SDL_ENUM_FAILURE;
     }
@@ -52,13 +52,14 @@ static char *readFileContents(const char *path) {
     }
     fseek(file, 0, SEEK_SET);
 
-    char *buffer = (char *)malloc((size_t)length + 1);
+    size_t len_bytes = (size_t)length;
+    char *buffer = malloc(len_bytes + 1);
     if (!buffer) {
         fclose(file);
         return NULL;
     }
 
-    size_t read = fread(buffer, 1, (size_t)length, file);
+    size_t read = fread(buffer, 1, len_bytes, file);
     buffer[read] = '\0';
     fclose(file);
     return buffer;
