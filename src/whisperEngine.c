@@ -7,6 +7,10 @@
 
 static struct whisper_context *ctx = NULL;
 
+#ifdef TEST
+    std::cout << "TESTING" << std::endl;
+#endif
+
 #ifdef RTS_BENCH
 static FILE *benchFile = NULL;
 #endif
@@ -118,6 +122,10 @@ bool whisperProcess(float *pcmf32, int n_samples, char *outputText, int outputLe
     }
 #endif
 
+#ifdef TEST    
+    typedef struct SubtitleToken test_txt[16];
+#endif
+    
     return true;
 }
 
