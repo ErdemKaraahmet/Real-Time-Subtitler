@@ -49,6 +49,7 @@ if [ "$RUN_CPPCHECK" = "ON" ]; then
     if command -v cppcheck >/dev/null 2>&1; then
         echo "Running Cppcheck analysis..."
         cppcheck --enable=warning,style,performance,portability \
+                 --check-level=exhaustive \
                  --inline-suppr \
                  --error-exitcode=1 \
                  -I include/ -I src/ \

@@ -40,7 +40,7 @@ if (Get-Command clang-format -ErrorAction SilentlyContinue) {
 if ($Cppcheck) {
     if (Get-Command cppcheck -ErrorAction SilentlyContinue) {
         Write-Host "Running Cppcheck analysis..."
-        cppcheck --enable=warning,style,performance,portability --inline-suppr --error-exitcode=1 -I include/ -I src/ src/ include/
+        cppcheck --enable=warning,style,performance,portability --check-level=exhaustive --inline-suppr --error-exitcode=1 -I include/ -I src/ src/ include/
     } else {
         Write-Host "Warning: cppcheck is not installed."
     }
