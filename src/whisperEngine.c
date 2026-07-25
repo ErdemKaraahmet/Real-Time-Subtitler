@@ -8,7 +8,7 @@
 static struct whisper_context *ctx = NULL;
 
 #ifdef TEST
-    std::cout << "TESTING" << std::endl;
+    printf("TESTING\n");
 #endif
 
 #ifdef RTS_BENCH
