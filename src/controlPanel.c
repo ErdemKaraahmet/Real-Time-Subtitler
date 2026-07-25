@@ -10,6 +10,7 @@
 #include "modelManager.h"
 #include "utils.h"
 #include "version.h"
+#include "appEvents.h"
 
 #ifndef IM_COL32
 #define IM_COL32(R, G, B, A) (((ImU32)(A) << 24) | ((ImU32)(B) << 16) | ((ImU32)(G) << 8) | ((ImU32)(R) << 0))
@@ -315,11 +316,11 @@ static void renderHeaderAndSidebar(SDL_Renderer *overlayRenderer) {
 
     // Move Window button
     if (igButton("Move Window", (ImVec2_c){110.0f, 0.0f})) {
-        SDL_Window *overlayWinReal = SDL_GetRenderWindow(overlayRenderer);
-        if (overlayWinReal) {
-            SDL_SetWindowMousePassthrough(overlayWinReal, false);
-            SDL_SetWindowBordered(overlayWinReal, true);
-        }
+        SDL_Event e;
+        SDL_zero(e);
+        e.type = SDL_EVENT_USER;
+        e.user.code = APP_EVENT_MOVE_WINDOW;
+        SDL_PushEvent(&e);
     }
 
     igSameLine(0.0f, UI_SPACING);

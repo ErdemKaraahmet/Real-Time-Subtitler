@@ -6,19 +6,17 @@
 #include <SDL3/SDL.h>
 
 static SDL_Tray *s_tray = NULL;
-static SDL_Window *s_window = NULL;
 static SDL_TrayEntry *s_pauseEntry = NULL;
 static bool s_paused = false;
 
 // Forward declarations
 static void buildMenu(void);
-static void cb_focus(void *userdata, SDL_TrayEntry *entry);
+static void cb_move_window(void *userdata, SDL_TrayEntry *entry);
 static void cb_control_panel(void *userdata, SDL_TrayEntry *entry);
 static void cb_toggle(void *userdata, SDL_TrayEntry *entry);
 static void cb_quit(void *userdata, SDL_TrayEntry *entry);
 
-bool initTray(SDL_Window *window) {
-    s_window = window;
+bool initTray(void) {
 
     // Search parent directory
     char iconPath[512];
@@ -66,7 +64,7 @@ static void buildMenu(void) {
     SDL_SetTrayEntryCallback(controlPanel, cb_control_panel, NULL);
 
     SDL_TrayEntry *focus = SDL_InsertTrayEntryAt(menu, -1, "Move Window", SDL_TRAYENTRY_BUTTON);
-    SDL_SetTrayEntryCallback(focus, cb_focus, NULL);
+    SDL_SetTrayEntryCallback(focus, cb_move_window, NULL);
 
     s_pauseEntry = SDL_InsertTrayEntryAt(menu, -1, s_paused ? "Resume" : "Pause", SDL_TRAYENTRY_BUTTON);
     SDL_SetTrayEntryCallback(s_pauseEntry, cb_toggle, NULL);
@@ -88,12 +86,15 @@ void setTrayPauseState(bool paused) {
 
 // --- Callbacks (called on the main thread via SDL's event pump) ---
 
-static void cb_focus(void *userdata, SDL_TrayEntry *entry) {
+static void cb_move_window(void *userdata, SDL_TrayEntry *entry) {
     (void)userdata;
     (void)entry;
 
-    SDL_SetWindowMousePassthrough(s_window, false);
-    SDL_SetWindowBordered(s_window, true);
+    SDL_Event e;
+    SDL_zero(e);
+    e.type = SDL_EVENT_USER;
+    e.user.code = APP_EVENT_MOVE_WINDOW;
+    SDL_PushEvent(&e);
 }
 
 static void cb_control_panel(void *userdata, SDL_TrayEntry *entry) {

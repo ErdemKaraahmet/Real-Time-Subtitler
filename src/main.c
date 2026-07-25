@@ -35,7 +35,7 @@ static bool done = false;
 
 int whisperThread(void *data);
 
-void handleEvents(SDL_Window *window, bool *done, DragState *dragState, bool *needsRedraw, int timeout, AppConfig *config);
+void handleEvents(SDL_Window *window, bool *done, bool *needsRedraw, int timeout, AppConfig *config);
 
 int main(int argc, char *argv[]) {
 #ifdef _WIN32
@@ -101,7 +101,7 @@ int main(int argc, char *argv[]) {
     SDL_Log("Window created.");
 
     SDL_Log("Initializing system tray...");
-    initTray(window);
+    initTray();
 
     // Load a font
     TTF_Font *font = TTF_OpenFont(config->font, config->font_size);
@@ -117,8 +117,6 @@ int main(int argc, char *argv[]) {
 
     // Create the text surface and texture
     float text_width, text_height;
-
-    DragState dragState = DragState_default;
 
     textMutex = SDL_CreateMutex();
     SDL_Thread *wThread = SDL_CreateThread(whisperThread, "whisper", NULL);
@@ -165,15 +163,9 @@ int main(int argc, char *argv[]) {
         modelManagerPoll();
         bool cpOpen = isControlPanelOpen();
 
-        // Wait for events. Timeout is 16ms when custom dragging or Control Panel is open, 100ms when idle/stationary.
-        int timeout = (dragState.isDragging || cpOpen) ? 16 : 100;
-        handleEvents(window, &done, &dragState, &needsRedraw, timeout, config);
-
-        // If we are dragging move the window
-        dragWindow(window, &dragState);
-        if (dragState.isDragging) {
-            needsRedraw = true;
-        }
+        // Wait for events. Timeout is 16ms when Control Panel is open, 100ms when idle/stationary.
+        int timeout = (cpOpen) ? 16 : 100;
+        handleEvents(window, &done, &needsRedraw, timeout, config);
 
         // Clear the subtitle overlay if no new text has arrived within the timeout
         if (texture != NULL && lastTextUpdateTime > 0 && SDL_GetTicks() - lastTextUpdateTime > (Uint64)(CHUNK_LENGTH_SECONDS + 1) * 1000) {
@@ -282,7 +274,7 @@ bool isAppPaused(void) {
     return paused;
 }
 
-void handleEvents(SDL_Window *window, bool *done, DragState *drag, bool *needsRedraw, int timeout, AppConfig *config) {
+void handleEvents(SDL_Window *window, bool *done, bool *needsRedraw, int timeout, AppConfig *config) {
     SDL_Event event;
     if (SDL_WaitEventTimeout(&event, timeout)) {
         do {
@@ -310,12 +302,15 @@ void handleEvents(SDL_Window *window, bool *done, DragState *drag, bool *needsRe
                     paused = false;
                     resumeAudio();
                     setTrayPauseState(false);
+                } else if (event.user.code == APP_EVENT_MOVE_WINDOW) {
+                    SDL_SetWindowMousePassthrough(window, false);
+                    SDL_SetWindowBordered(window, true);
                 } else if (event.user.code == APP_EVENT_OPEN_CONTROL) {
                     openControlPanel(config);
                 }
                 *needsRedraw = true;
             }
-            if (event.type == SDL_EVENT_WINDOW_FOCUS_LOST) {
+            if (event.type == SDL_EVENT_WINDOW_FOCUS_LOST && event.window.windowID == SDL_GetWindowID(window)) {
                 SDL_SetWindowMousePassthrough(window, true);
                 SDL_SetWindowBordered(window, false);
                 *needsRedraw = true;
