@@ -55,7 +55,7 @@ To build without GPU acceleration:
 ```bash
 cmake -B build -DRTS_GPU=OFF
 ```
-Note: If you are building without it and can skip some dependencies 
+Note: If you are building without it you can skip some dependencies 
 - `vulkan-devel`, `spirv-headers` and `shaderc` on Windows
 - `libvulkan-dev`,`glslc` and `spirv-headers` on Linux
 
