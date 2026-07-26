@@ -101,6 +101,11 @@ set_source_files_properties(
 set(GGML_OPENMP OFF)
 
 option(RTS_GPU "Build with GPU acceleration" ON)
+option(TEST OFF)
+
+if(TEST)
+    target_compile_definitions(Real-Time-Subtitler PRIVATE TEST)
+endif()
 
 if(RTS_GPU)
     if(APPLE)
