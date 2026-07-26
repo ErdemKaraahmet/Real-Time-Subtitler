@@ -69,7 +69,7 @@ bool whisperInit(const char *modelPath, bool *use_gpu) {
 }
 
 // Returns true if there is new text
-bool whisperProcess(float *pcmf32, int n_samples, char *outputText, int outputLength, SubtitleToken* outputTokens, int ontputTokenNums) {
+bool whisperProcess(float *pcmf32, int n_samples, char *outputText, int outputLength, SubtitleToken* outputTokens, int *ontputTokenNums) {
     if (!ctx)
         return false;
 

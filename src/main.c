@@ -33,6 +33,9 @@ static SDL_Texture *texture = NULL;   // promoted so pause handler can clear it
 static Uint64 lastTextUpdateTime = 0; // timestamp of the last whisper text update (ms)
 static bool done = false;
 
+SubtitleToken outputTokens[1024];
+int tokenNum;
+
 int whisperThread(void *data);
 
 void handleEvents(SDL_Window *window, bool *done, bool *needsRedraw, int timeout, AppConfig *config);
@@ -327,7 +330,7 @@ int whisperThread(void *data) {
         if (chunkReady && !paused) {
             SDL_LockMutex(textMutex);
             subtitleText[0] = '\0';
-            whisperProcess(audioChunk, SAMPLE_SIZE, subtitleText, sizeof(subtitleText));
+            whisperProcess(audioChunk, SAMPLE_SIZE, subtitleText, sizeof(subtitleText), outputTokens, &tokenNum);
             textUpdated = true;
             SDL_UnlockMutex(textMutex);
             chunkReady = false;
