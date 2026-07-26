@@ -7,14 +7,14 @@ SDL_Texture *createTextTexture(SDL_Renderer *renderer, TTF_Font *font, SubtitleT
     if (font == NULL || textToken == NULL || textTokenNum <= 0) {
         return NULL;
     } else {
-        const char *text;
+        char text[1024] = {};
 
         for(int i = 0;i < textTokenNum;++ i)
         {
             const char *tmpText = textToken[i].text;
             if(tmpText != NULL && strcmp(tmpText,"<|endoftext|>") != 0)
             {
-                strncat(text,tmpText,sizeof(tmpText));
+                strncat(text,tmpText,sizeof(text) - strlen(text) - 1);
             }
         }
 
