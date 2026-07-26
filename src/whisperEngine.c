@@ -109,8 +109,12 @@ bool whisperProcess(float *pcmf32, int n_samples, char *outputText, int outputLe
             {
                 const char* tokenText = whisper_full_get_token_text(ctx,i,j);
                 float tokenProbablity = whisper_full_get_token_data(ctx,i,j).p;
+                if(strcmp(tokenText,"<|endoftext|>") == 0)break;
                 printf("%s,",tokenText);
                 printf("%f ; ",tokenProbablity);
+                strncpy(tokens[j].text,tokenText,sizeof(tokenText) - 1);
+                tokens[j].text[sizeof(tokens[j].text) - 1] = '\0';
+                tokens[j].probability = tokenProbablity;
             }
             printf("\n");
         }
