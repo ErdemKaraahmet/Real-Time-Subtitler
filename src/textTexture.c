@@ -1,11 +1,23 @@
 #include <SDL3/SDL.h>
 #include <SDL3_ttf/SDL_ttf.h>
 #include "configManager.h"
+#include "whisperEngine.h"
 
-SDL_Texture *createTextTexture(SDL_Renderer *renderer, TTF_Font *font, const char *text, AppConfig *config, float *text_width, float *text_height) {
-    if (font == NULL || text == NULL || text[0] == '\0') {
+SDL_Texture *createTextTexture(SDL_Renderer *renderer, TTF_Font *font, SubtitleToken *textToken, int textTokenNum, AppConfig *config, float *text_width, float *text_height) {
+    if (font == NULL || textToken == NULL || textTokenNum <= 0) {
         return NULL;
     } else {
+        const char *text;
+
+        for(int i = 0;i < textTokenNum;++ i)
+        {
+            const char *tmpText = textToken[i].text;
+            if(tmpText != NULL && strcmp(tmpText,"<|endoftext|>") != 0)
+            {
+                strncat(text,tmpText,sizeof(tmpText));
+            }
+        }
+
         SDL_Color bgColor = config->text_outline_color;
         SDL_Color fgColor = config->text_color;
 
