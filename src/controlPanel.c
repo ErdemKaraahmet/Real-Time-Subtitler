@@ -228,9 +228,12 @@ void handleControlPanelEvent(const SDL_Event *event) {
 
 static void updatePreviewTexture(void) {
     SubtitleToken sample[3];
-    *sample[0].text = "Sample";
-    *sample[1].text = " Text";
-    *sample[2].text = " Preview";
+    strcpy(sample[0].text,"Sample");
+    strcpy(sample[1].text," Text");
+    strcpy(sample[2].text," Preview");
+    sample[0].probability = 0.9;
+    sample[1].probability = 0.7;
+    sample[2].probability = 0.1;
 
     if (previewTexture) {
         SDL_DestroyTexture(previewTexture);
