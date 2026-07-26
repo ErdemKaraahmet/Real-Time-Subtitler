@@ -6,6 +6,7 @@
 #include <SDL3/SDL.h>
 
 static struct whisper_context *ctx = NULL;
+typedef struct SubtitleTokens tokens[124];
 
 #ifdef TEST
     printf("TESTING\n");
