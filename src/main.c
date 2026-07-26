@@ -142,7 +142,7 @@ int main(int argc, char *argv[]) {
                 SDL_DestroyTexture(texture);
             if (!strcmp(subtitleText, " [BLANK_AUDIO]"))
                 subtitleText[0] = '\0'; // whisper outputs " [BLANK_AUDIO]" on empty audio, to not print it exactly
-            texture = createTextTexture(renderer, font, subtitleText, config, &text_width, &text_height);
+            texture = createTextTexture(renderer, font, outputTokens, tokenNum, config, &text_width, &text_height);
 
             // Resize the window to fit snugly to the text
             if (texture != NULL) {
