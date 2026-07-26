@@ -1,4 +1,5 @@
 #include "configManager.h"
+#include <SDL3/SDL.h>
 #include "utils.h"
 #include "cJSON.h"
 #include <stdio.h>
@@ -15,8 +16,10 @@ static SDL_EnumerationResult SDLCALL scanFirstModelCallback(void *userdata, cons
     size_t len = strlen(fname);
     if (len > 4 && strcmp(fname + len - 4, ".bin") == 0) {
         ScanFirstModelData *data = userdata;
-        snprintf(data->firstModel, sizeof(data->firstModel), "models/%s", fname);
-        return SDL_ENUM_FAILURE;
+        int res = snprintf(data->firstModel, sizeof(data->firstModel), "models/%s", fname);
+        if (res >= 0 && (size_t)res < sizeof(data->firstModel)) {
+            return SDL_ENUM_SUCCESS;
+        }
     }
     return SDL_ENUM_CONTINUE;
 }
@@ -37,32 +40,6 @@ static void getFirstLocalModelPath(char *dest, size_t destSize) {
 
 static void resolveConfigPath(char *dest, size_t destSize) {
     utilsResolvePath(dest, destSize, "config.json");
-}
-
-static char *readFileContents(const char *path) {
-    FILE *file = fopen(path, "rb");
-    if (!file)
-        return NULL;
-
-    fseek(file, 0, SEEK_END);
-    long length = ftell(file);
-    if (length <= 0) {
-        fclose(file);
-        return NULL;
-    }
-    fseek(file, 0, SEEK_SET);
-
-    size_t len_bytes = (size_t)length;
-    char *buffer = malloc(len_bytes + 1);
-    if (!buffer) {
-        fclose(file);
-        return NULL;
-    }
-
-    size_t read = fread(buffer, 1, len_bytes, file);
-    buffer[read] = '\0';
-    fclose(file);
-    return buffer;
 }
 
 static SDL_Color parseColorObject(const cJSON *obj, SDL_Color fallback) {
@@ -97,16 +74,18 @@ ConfigLoadStatus loadConfig(AppConfig *conf) {
     char configPath[512];
     resolveConfigPath(configPath, sizeof(configPath));
 
-    char *contents = readFileContents(configPath);
+    char *contents = (char *)SDL_LoadFile(configPath, NULL);
     if (!contents)
         return CONFIG_LOAD_FILE_NOT_FOUND;
 
     cJSON *root = cJSON_Parse(contents);
-    free(contents);
+    SDL_free(contents);
     if (!root) {
-        char backupPath[520];
-        snprintf(backupPath, sizeof(backupPath), "%s.bak", configPath);
-        rename(configPath, backupPath);
+        char backupPath[sizeof(configPath) + 4];
+        int res = snprintf(backupPath, sizeof(backupPath), "%s.bak", configPath);
+        if (res >= 0) {
+            SDL_RenamePath(configPath, backupPath);
+        }
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to parse config JSON, backed up broken file to %s", backupPath);
         return CONFIG_LOAD_PARSE_ERROR;
     }
@@ -175,14 +154,15 @@ bool saveConfig(const AppConfig *conf) {
 
     FILE *file = fopen(configPath, "w");
     if (!file) {
-        free(jsonStr);
+        cJSON_free(jsonStr);
         return false;
     }
 
-    fputs(jsonStr, file);
-    fclose(file);
-    free(jsonStr);
-    return true;
+    bool writeOk = (fputs(jsonStr, file) != EOF);
+    bool closeOk = (fclose(file) == 0);
+    cJSON_free(jsonStr);
+
+    return writeOk && closeOk;
 }
 
 AppConfig loadDefaultConfig(void) {

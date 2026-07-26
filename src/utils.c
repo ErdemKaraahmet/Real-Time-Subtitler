@@ -2,13 +2,16 @@
 #include <stdio.h>
 #include "utils.h"
 
-void utilsResolvePath(char *dest, size_t destSize, const char *relativePath) {
+bool utilsResolvePath(char *dest, size_t destSize, const char *relativePath) {
     const char *basePath = SDL_GetBasePath();
     if (basePath) {
-        snprintf(dest, destSize, "%s%s", basePath, relativePath);
-    } else {
-        SDL_strlcpy(dest, relativePath, destSize);
+        int res = snprintf(dest, destSize, "%s%s", basePath, relativePath);
+        if (res >= 0 && (size_t)res < destSize) {
+            return true;
+        }
     }
+    SDL_strlcpy(dest, relativePath, destSize);
+    return false;
 }
 
 bool utilsIsFileReadable(const char *relativePath) {

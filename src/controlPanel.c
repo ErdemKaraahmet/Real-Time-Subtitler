@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdarg.h>
 #include "textTexture.h"
 #include "modelManager.h"
 #include "utils.h"
@@ -59,9 +60,16 @@ static int cpActivePage = 0; // 0 = View, 1 = Transcription
 static char globalUiErrorMessage[512] = "";
 static bool showGlobalUiErrorPopup = false;
 
-static void triggerGlobalError(const char *message) {
-    if (message) {
-        SDL_strlcpy(globalUiErrorMessage, message, sizeof(globalUiErrorMessage));
+#if defined(__GNUC__) || defined(__clang__)
+__attribute__((format(printf, 1, 2)))
+#endif
+static void
+triggerGlobalError(const char *fmt, ...) {
+    if (fmt) {
+        va_list args;
+        va_start(args, fmt);
+        (void)vsnprintf(globalUiErrorMessage, sizeof(globalUiErrorMessage), fmt, args);
+        va_end(args);
         showGlobalUiErrorPopup = true;
     }
 }
@@ -103,7 +111,7 @@ void openControlPanelToTranscriptionWithError(AppConfig *liveConfig, const char 
     cpActivePage = 1;
     openControlPanel(liveConfig);
     if (errorMessage) {
-        triggerGlobalError(errorMessage);
+        triggerGlobalError("%s", errorMessage);
     }
 }
 
@@ -260,15 +268,15 @@ static const char *getActiveDownloadETA(ModelEntry *entry) {
     int eta = SDL_GetAtomicInt(&entry->etaSeconds);
     if (eta >= 0) {
         if (eta < 60) {
-            snprintf(etaStr, sizeof(etaStr), "[%ds]", eta);
+            (void)snprintf(etaStr, sizeof(etaStr), "[%ds]", eta);
         } else if (eta < 600) {
-            snprintf(etaStr, sizeof(etaStr), "[%.1fm]", (double)eta / 60.0);
+            (void)snprintf(etaStr, sizeof(etaStr), "[%.1fm]", (double)eta / 60.0);
         } else if (eta < 3600) {
-            snprintf(etaStr, sizeof(etaStr), "[%dm]", eta / 60);
+            (void)snprintf(etaStr, sizeof(etaStr), "[%dm]", eta / 60);
         } else if (eta < 36000) {
-            snprintf(etaStr, sizeof(etaStr), "[%.1fh]", (double)eta / 3600.0);
+            (void)snprintf(etaStr, sizeof(etaStr), "[%.1fh]", (double)eta / 3600.0);
         } else if (eta < 360000) {
-            snprintf(etaStr, sizeof(etaStr), "[%dh]", eta / 3600);
+            (void)snprintf(etaStr, sizeof(etaStr), "[%dh]", eta / 3600);
         } else {
             SDL_strlcpy(etaStr, "[?h]", sizeof(etaStr));
         }
@@ -366,9 +374,9 @@ static void renderViewPage(void) {
             for (int i = 0; i < scannedFontCount; i++) {
                 bool isSelected = (strcmp(fontDisplayName, scannedFonts[i]) == 0);
                 char itemDisplay[128];
-                snprintf(itemDisplay, sizeof(itemDisplay), "%s##font%d", scannedFonts[i], i);
+                (void)snprintf(itemDisplay, sizeof(itemDisplay), "%s##font%d", scannedFonts[i], i);
                 if (igSelectable_Bool(itemDisplay, isSelected, 0, (ImVec2_c){0, 0})) {
-                    snprintf(uiConfig.font, sizeof(uiConfig.font), "fonts/%s", scannedFonts[i]);
+                    (void)snprintf(uiConfig.font, sizeof(uiConfig.font), "fonts/%s", scannedFonts[i]);
                     previewNeedsUpdate = true;
                 }
                 if (isSelected) {
@@ -394,7 +402,7 @@ static void renderViewPage(void) {
     }
 
     // Color Picking
-    float textColor[3] = {uiConfig.text_color.r / 255.0f, uiConfig.text_color.g / 255.0f, uiConfig.text_color.b / 255.0f};
+    float textColor[3] = {(float)uiConfig.text_color.r / 255.0f, (float)uiConfig.text_color.g / 255.0f, (float)uiConfig.text_color.b / 255.0f};
     if (igColorEdit3("Text Color", textColor, 0)) {
         uiConfig.text_color.r = (uint8_t)(textColor[0] * 255.0f);
         uiConfig.text_color.g = (uint8_t)(textColor[1] * 255.0f);
@@ -402,7 +410,8 @@ static void renderViewPage(void) {
         previewNeedsUpdate = true;
     }
 
-    float outlineColor[3] = {uiConfig.text_outline_color.r / 255.0f, uiConfig.text_outline_color.g / 255.0f, uiConfig.text_outline_color.b / 255.0f};
+    float outlineColor[3] = {(float)uiConfig.text_outline_color.r / 255.0f, (float)uiConfig.text_outline_color.g / 255.0f,
+                             (float)uiConfig.text_outline_color.b / 255.0f};
     if (igColorEdit3("Outline Color", outlineColor, 0)) {
         uiConfig.text_outline_color.r = (uint8_t)(outlineColor[0] * 255.0f);
         uiConfig.text_outline_color.g = (uint8_t)(outlineColor[1] * 255.0f);
@@ -464,9 +473,7 @@ static void renderTranscriptionPage(const char *activeModelFilename, bool *trigg
     // Check for download errors to show automatic popups
     for (int i = 0; i < mm->count; i++) {
         if (mm->models[i].state == MODEL_STATE_DOWNLOAD_ERROR) {
-            char errorBuf[256];
-            snprintf(errorBuf, sizeof(errorBuf), "Download failed for %s:\n%s", mm->models[i].name, mm->models[i].errorMessage);
-            triggerGlobalError(errorBuf);
+            triggerGlobalError("Download failed for %s:\n%s", mm->models[i].name, mm->models[i].errorMessage);
             mm->models[i].state = MODEL_STATE_NOT_DOWNLOADED;
             mm->models[i].errorMessage[0] = '\0';
         }
@@ -474,7 +481,6 @@ static void renderTranscriptionPage(const char *activeModelFilename, bool *trigg
 
     // Check for catalog fetch errors to show automatic popups
     if (mm->catalogErrorMessage[0] != '\0') {
-        char errorBuf[384];
         const char *tip = "";
 
         // Detect common offline/network errors to append inline tips
@@ -485,8 +491,7 @@ static void renderTranscriptionPage(const char *activeModelFilename, bool *trigg
             tip = "\n\nTip: This can happen if your network requires a login portal (e.g. public Wi-Fi). Please check your browser.";
         }
 
-        snprintf(errorBuf, sizeof(errorBuf), "Failed to fetch model catalog:\n%s%s", mm->catalogErrorMessage, tip);
-        triggerGlobalError(errorBuf);
+        triggerGlobalError("Failed to fetch model catalog:\n%s%s", mm->catalogErrorMessage, tip);
         mm->catalogErrorMessage[0] = '\0';
     }
 
@@ -500,12 +505,12 @@ static void renderTranscriptionPage(const char *activeModelFilename, bool *trigg
                 int pct = SDL_GetAtomicInt(&mm->models[i].progressPercent);
                 const char *eta = getActiveDownloadETA(&mm->models[i]);
                 if (eta[0] != '\0') {
-                    snprintf(comboLabel, sizeof(comboLabel), "Downloading %s (%d%%) %s", mm->models[i].name, pct, eta);
+                    (void)snprintf(comboLabel, sizeof(comboLabel), "Downloading %s (%d%%) %s", mm->models[i].name, pct, eta);
                 } else {
-                    snprintf(comboLabel, sizeof(comboLabel), "Downloading %s (%d%%)", mm->models[i].name, pct);
+                    (void)snprintf(comboLabel, sizeof(comboLabel), "Downloading %s (%d%%)", mm->models[i].name, pct);
                 }
             } else if (mm->models[i].state == MODEL_STATE_VERIFYING) {
-                snprintf(comboLabel, sizeof(comboLabel), "Verifying %s...", mm->models[i].name);
+                (void)snprintf(comboLabel, sizeof(comboLabel), "Verifying %s...", mm->models[i].name);
             } else {
                 SDL_strlcpy(comboLabel, mm->models[i].name, sizeof(comboLabel));
             }
@@ -532,7 +537,7 @@ static void renderTranscriptionPage(const char *activeModelFilename, bool *trigg
                 bool isActive = (strcmp(activeModelFilename, entry->filename) == 0);
 
                 char itemDisplay[256];
-                snprintf(itemDisplay, sizeof(itemDisplay), "%s (%.1f MB)", entry->name, (double)entry->remoteSize / (1024.0 * 1024.0));
+                (void)snprintf(itemDisplay, sizeof(itemDisplay), "%s (%.1f MB)", entry->name, (double)entry->remoteSize / (1024.0 * 1024.0));
 
                 igPushID_Int(i);
 
@@ -560,7 +565,7 @@ static void renderTranscriptionPage(const char *activeModelFilename, bool *trigg
                     if (entry->state == MODEL_STATE_DOWNLOADING) {
                         const char *eta = getActiveDownloadETA(entry);
                         const char *prefix = (strlen(entry->name) > 17) ? "Down..." : "Downloading";
-                        snprintf(overlayText, sizeof(overlayText), "[%s %d%%]%s", prefix, (int)(pct * 100), eta);
+                        (void)snprintf(overlayText, sizeof(overlayText), "[%s %d%%]%s", prefix, (int)(pct * 100), eta);
                     } else {
                         SDL_strlcpy(overlayText, "[Verifying]", sizeof(overlayText));
                     }
@@ -619,7 +624,7 @@ static void renderTranscriptionPage(const char *activeModelFilename, bool *trigg
                     } else {
                         // Selection Triggered - ONLY if already downloaded
                         if (entry->state == MODEL_STATE_DOWNLOADED) {
-                            snprintf(uiConfig.modelPath, sizeof(uiConfig.modelPath), "models/%s", entry->filename);
+                            (void)snprintf(uiConfig.modelPath, sizeof(uiConfig.modelPath), "models/%s", entry->filename);
                             igCloseCurrentPopup();
                         }
                     }
@@ -700,15 +705,13 @@ static void renderFooter(ControlPanelStatus *status, bool isDirty) {
             }
 
             if (!fontOk || !modelOk) {
-                char tempMsg[256] = "";
                 if (!fontOk && !modelOk) {
-                    snprintf(tempMsg, sizeof(tempMsg), "%s\n%s", fontError, modelError);
+                    triggerGlobalError("%s\n%s", fontError, modelError);
                 } else if (!fontOk) {
-                    SDL_strlcpy(tempMsg, fontError, sizeof(tempMsg));
+                    triggerGlobalError("%s", fontError);
                 } else {
-                    SDL_strlcpy(tempMsg, modelError, sizeof(tempMsg));
+                    triggerGlobalError("%s", modelError);
                 }
-                triggerGlobalError(tempMsg);
             } else if (saveConfig(&uiConfig)) {
                 if (pLiveConfig) {
                     *pLiveConfig = uiConfig;
