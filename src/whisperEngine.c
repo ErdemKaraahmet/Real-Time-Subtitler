@@ -6,7 +6,7 @@
 #include <SDL3/SDL.h>
 
 static struct whisper_context *ctx = NULL;
-SubtitleToken tokens[124];
+SubtitleToken tokens[1024];
 
 #ifdef TEST
     printf("TESTING\n");
@@ -69,7 +69,7 @@ bool whisperInit(const char *modelPath, bool *use_gpu) {
 }
 
 // Returns true if there is new text
-bool whisperProcess(float *pcmf32, int n_samples, char *outputText, int outputLength) {
+bool whisperProcess(float *pcmf32, int n_samples, char *outputText, int outputLength, SubtitleToken* outputTokens, int ontputTokenNums) {
     if (!ctx)
         return false;
 
