@@ -105,7 +105,9 @@ bool whisperProcess(float *pcmf32, int n_samples, char *outputText, int outputLe
         if(text && strlen(text) > 0)
         {
             int token_count = 0;
-            printf("token num:%d\n",n_tokens);
+            #ifdef TEST
+                printf("token num:%d\n",n_tokens);
+            #endif
             for(int j = 0;j < n_tokens; ++j)
             {
                 const char* tokenText = whisper_full_get_token_text(ctx,i,j);
