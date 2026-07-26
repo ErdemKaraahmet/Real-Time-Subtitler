@@ -69,7 +69,7 @@ bool whisperInit(const char *modelPath, bool *use_gpu) {
 }
 
 // Returns true if there is new text
-bool whisperProcess(float *pcmf32, int n_samples, char *outputText, int outputLength, SubtitleToken* outputTokens, int *ontputTokenNums) {
+bool whisperProcess(float *pcmf32, int n_samples, char *outputText, int outputLength, SubtitleToken* outputTokens, int *outputTokenNums) {
     if (!ctx)
         return false;
 
@@ -104,19 +104,36 @@ bool whisperProcess(float *pcmf32, int n_samples, char *outputText, int outputLe
         // printf("\n");
         if(text && strlen(text) > 0)
         {
+            int token_count = 0;
             printf("token num:%d\n",n_tokens);
             for(int j = 0;j < n_tokens; ++j)
             {
                 const char* tokenText = whisper_full_get_token_text(ctx,i,j);
                 float tokenProbablity = whisper_full_get_token_data(ctx,i,j).p;
                 if(strcmp(tokenText,"<|endoftext|>") == 0)break;
-                printf("%s,",tokenText);
-                printf("%f ; ",tokenProbablity);
-                strncpy(tokens[j].text,tokenText,sizeof(tokenText) - 1);
-                tokens[j].text[sizeof(tokens[j].text) - 1] = '\0';
-                tokens[j].probability = tokenProbablity;
+
+                if(token_count < 1024)
+                {
+                    strncpy(outputTokens[token_count].text,tokenText,sizeof(outputTokens[token_count].text) - 1);
+                    outputTokens[token_count].text[sizeof(outputTokens[token_count]) - 1] = '\0';
+                    outputTokens[token_count].probability = tokenProbablity;
+                    token_count ++;
+                }
+                #ifdef TEST
+                    printf("%s,",tokenText);
+                    printf("%f ; ",tokenProbablity);
+                #endif
+                // strncpy(tokens[j].text,tokenText,sizeof(tokenText) - 1);
+                // tokens[j].text[sizeof(tokens[j].text) - 1] = '\0';
+                // tokens[j].probability = tokenProbablity;
             }
-            printf("\n");
+            #ifdef TEST
+                printf("\n");
+            #endif
+            if(outputTokenNums)
+            {
+                *outputTokenNums = token_count;
+            }
         }
     }
 
