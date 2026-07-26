@@ -96,10 +96,19 @@ bool whisperProcess(float *pcmf32, int n_samples, char *outputText, int outputLe
     const int n_segments = whisper_full_n_segments(ctx);
     for (int i = 0; i < n_segments; ++i) {
         const char *text = whisper_full_get_segment_text(ctx, i);
+        const int n_tokens = whisper_full_n_tokens(ctx,i);
         strncat(outputText, text, outputLength);
-        if (text && strlen(text) > 0) {
-            printf("%s", text);
+        // if (text && strlen(text) > 0) {
+        //     printf("%s", text);
+        // }
+        // printf("\n");
+        for(int j = 0;j < n_tokens; ++j)
+        {
+            printf("%s,",whisper_full_get_token_text(ctx,i,j));
+            float tokenProbablity = whisper_full_get_token_data(ctx,i,j).p;
+            printf("%f ; ",tokenProbablity);
         }
+        printf("\n");
     }
 
 #ifdef RTS_BENCH
