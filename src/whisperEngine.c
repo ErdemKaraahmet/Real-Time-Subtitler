@@ -93,6 +93,7 @@ bool whisperProcess(float *pcmf32, int n_samples, char *outputText, int outputLe
         return false;
     }
 
+    *outputTokenNums = 0;
     const int n_segments = whisper_full_n_segments(ctx);
     for (int i = 0; i < n_segments; ++i) {
         const char *text = whisper_full_get_segment_text(ctx, i);
@@ -105,9 +106,9 @@ bool whisperProcess(float *pcmf32, int n_samples, char *outputText, int outputLe
         if(text && strlen(text) > 0)
         {
             int token_count = 0;
-            #ifdef TEST
+            // #ifdef TEST
                 printf("token num:%d\n",n_tokens);
-            #endif
+            // #endif
             for(int j = 0;j < n_tokens; ++j)
             {
                 const char* tokenText = whisper_full_get_token_text(ctx,i,j);
@@ -117,21 +118,21 @@ bool whisperProcess(float *pcmf32, int n_samples, char *outputText, int outputLe
                 if(token_count < 1024)
                 {
                     strncpy(outputTokens[token_count].text,tokenText,sizeof(outputTokens[token_count].text) - 1);
-                    outputTokens[token_count].text[sizeof(outputTokens[token_count]) - 1] = '\0';
+                    outputTokens[token_count].text[sizeof(outputTokens[token_count].text) - 1] = '\0';
                     outputTokens[token_count].probability = tokenProbablity;
                     token_count ++;
                 }
-                #ifdef TEST
+                // #ifdef TEST
                     printf("%s,",tokenText);
                     printf("%f ; ",tokenProbablity);
-                #endif
+                // #endif
                 // strncpy(tokens[j].text,tokenText,sizeof(tokenText) - 1);
                 // tokens[j].text[sizeof(tokens[j].text) - 1] = '\0';
                 // tokens[j].probability = tokenProbablity;
             }
-            #ifdef TEST
+            // #ifdef TEST
                 printf("\n");
-            #endif
+            // #endif
             if(outputTokenNums)
             {
                 *outputTokenNums = token_count;
