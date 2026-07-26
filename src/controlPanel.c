@@ -227,6 +227,11 @@ void handleControlPanelEvent(const SDL_Event *event) {
 }
 
 static void updatePreviewTexture(void) {
+    SubtitleToken sample[3];
+    *sample[0].text = "Sample";
+    *sample[1].text = " Text";
+    *sample[2].text = " Preview";
+
     if (previewTexture) {
         SDL_DestroyTexture(previewTexture);
         previewTexture = NULL;
@@ -246,7 +251,7 @@ static void updatePreviewTexture(void) {
     }
 
     // Render preview texture
-    previewTexture = createTextTexture(cpRenderer, font, "Sample Text Preview", &uiConfig, &previewWidth, &previewHeight);
+    previewTexture = createTextTexture(cpRenderer, font, sample, 3, &uiConfig, &previewWidth, &previewHeight);
     TTF_CloseFont(font);
 }
 
