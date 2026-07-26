@@ -107,6 +107,7 @@ bool whisperProcess(float *pcmf32, int n_samples, char *outputText, int outputLe
         {
             int token_count = 0;
             // #ifdef TEST
+                printf("this sig:%s\n",text);
                 printf("token num:%d\n",n_tokens);
             // #endif
             for(int j = 0;j < n_tokens; ++j)
