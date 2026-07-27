@@ -46,7 +46,6 @@ SDL_Texture *createTextTexture(SDL_Renderer *renderer, TTF_Font *font, SubtitleT
     } else {
         SDL_Color bgColor = config->text_outline_color;
         SDL_Color fgColor = config->text_color;
-        SDL_Surface *textSurface;
         int thickness = config->outline_thickness;
         float cursor_x = 0.0f;
 
@@ -96,13 +95,13 @@ SDL_Texture *createTextTexture(SDL_Renderer *renderer, TTF_Font *font, SubtitleT
                 SDL_Rect destinationRect = {(int)cursor_x,thickness,tmpSurface->w,tmpSurface->h};
                 SDL_BlitSurface(foreGroundText,NULL,tmpSurface,&destinationRect);
 
-                SDL_BlitSurface(tmpSurface,NULL,textSurface,&destinationRect);
+                SDL_BlitSurface(tmpSurface,NULL,canvas,&destinationRect);
 
                 cursor_x += tmpSurface->w;
             }
         }
 
-        SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, textSurface);
+        SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, canvas);
         return texture;
     }
 }
@@ -113,7 +112,7 @@ SDL_Texture *createColorTextTexture(SDL_Renderer *renderer, TTF_Font *font, Subt
     } else {
         SDL_Color bgColor = config->text_outline_color;
         SDL_Color fgColor = config->text_color;
-        SDL_Surface *textSurface;
+        SDL_Surface *canvas;
         int thickness = config->outline_thickness;
         float cursor_x = 0.0f;
 
@@ -132,13 +131,13 @@ SDL_Texture *createColorTextTexture(SDL_Renderer *renderer, TTF_Font *font, Subt
                 SDL_Rect destinationRect = {(int)cursor_x,thickness,tmpSurface->w,tmpSurface->h};
                 SDL_BlitSurface(foreGroundText,NULL,tmpSurface,&destinationRect);
 
-                SDL_BlitSurface(tmpSurface,NULL,textSurface,&destinationRect);
+                SDL_BlitSurface(tmpSurface,NULL,canvas,&destinationRect);
 
                 cursor_x += tmpSurface->w;
             }
         }
 
-        SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, textSurface);
+        SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, canvas);
         return texture;
     }
 }
