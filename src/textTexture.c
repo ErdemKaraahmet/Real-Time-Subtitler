@@ -49,8 +49,10 @@ SDL_Texture *createColorTextTexture(SDL_Renderer *renderer, TTF_Font *font, Subt
     } else {
         SDL_Color bgColor = config->text_outline_color;
         SDL_Color fgColor = config->text_color;
+        SDL_Texture *texture;
         int thickness = config->outline_thickness;
-        
+        float cursor_x = 0.0f;
+
         for(int i = 0;i < textTokenNum;++ i)
         {
             const char *tmpText = textToken[i].text;
@@ -58,15 +60,19 @@ SDL_Texture *createColorTextTexture(SDL_Renderer *renderer, TTF_Font *font, Subt
             {
                 TTF_SetFontOutline(font,thickness);
                 SDL_Texture *backGroundText = TTF_RenderText_Blended(font, tmpText, 0, bgColor);
+
                 TTF_SetFontOutline(font,0);
                 SDL_Texture *foreGroundText = TTF_RenderText_Blended(font, tmpText, 0, bgColor);
-                SDL_Surface *tmpSurface;
+
+                SDL_Surface *tmpSurface = backGroundText;
+                SDL_Rect destinationRect = {(int)cursor_x,thickness,tmpSurface->w,tmpSurface->h};
+                SDL_BlitSurface(foreGroundText,NULL,tmpSurface,&destinationRect);
+
+                SDL_BlitSurface(tmpSurface,NULL,texture,&destinationRect);
+
+                cursor_x += tmpSurface->w;
             }
         }
-
-        SDL_Surface *background();
-
-        SDL_Texture *texture;
 
         return texture;
     }
