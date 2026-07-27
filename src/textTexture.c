@@ -46,7 +46,7 @@ SDL_Texture *createTextTexture(SDL_Renderer *renderer, TTF_Font *font, SubtitleT
     } else {
         SDL_Color bgColor = config->text_outline_color;
         SDL_Color fgColor = config->text_color;
-        SDL_Texture *texture;
+        SDL_Surface *textSurface;
         int thickness = config->outline_thickness;
         float cursor_x = 0.0f;
 
@@ -56,21 +56,22 @@ SDL_Texture *createTextTexture(SDL_Renderer *renderer, TTF_Font *font, SubtitleT
             if(tmpText != NULL && strcmp(tmpText,"<|endoftext|>") != 0)
             {
                 TTF_SetFontOutline(font,thickness);
-                SDL_Texture *backGroundText = TTF_RenderText_Blended(font, tmpText, 0, bgColor);
+                SDL_Surface *backGroundText = TTF_RenderText_Blended(font, tmpText, 0, bgColor);
 
                 TTF_SetFontOutline(font,0);
-                SDL_Texture *foreGroundText = TTF_RenderText_Blended(font, tmpText, 0, bgColor);
+                SDL_Surface *foreGroundText = TTF_RenderText_Blended(font, tmpText, 0, bgColor);
 
                 SDL_Surface *tmpSurface = backGroundText;
                 SDL_Rect destinationRect = {(int)cursor_x,thickness,tmpSurface->w,tmpSurface->h};
                 SDL_BlitSurface(foreGroundText,NULL,tmpSurface,&destinationRect);
 
-                SDL_BlitSurface(tmpSurface,NULL,texture,&destinationRect);
+                SDL_BlitSurface(tmpSurface,NULL,textSurface,&destinationRect);
 
                 cursor_x += tmpSurface->w;
             }
         }
 
+        SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, textSurface);
         return texture;
     }
 }
@@ -81,7 +82,7 @@ SDL_Texture *createColorTextTexture(SDL_Renderer *renderer, TTF_Font *font, Subt
     } else {
         SDL_Color bgColor = config->text_outline_color;
         SDL_Color fgColor = config->text_color;
-        SDL_Texture *texture;
+        SDL_Surface *textSurface;
         int thickness = config->outline_thickness;
         float cursor_x = 0.0f;
 
@@ -91,21 +92,22 @@ SDL_Texture *createColorTextTexture(SDL_Renderer *renderer, TTF_Font *font, Subt
             if(tmpText != NULL && strcmp(tmpText,"<|endoftext|>") != 0)
             {
                 TTF_SetFontOutline(font,thickness);
-                SDL_Texture *backGroundText = TTF_RenderText_Blended(font, tmpText, 0, bgColor);
+                SDL_Surface *backGroundText = TTF_RenderText_Blended(font, tmpText, 0, bgColor);
 
                 TTF_SetFontOutline(font,0);
-                SDL_Texture *foreGroundText = TTF_RenderText_Blended(font, tmpText, 0, bgColor);
+                SDL_Surface *foreGroundText = TTF_RenderText_Blended(font, tmpText, 0, bgColor);
 
                 SDL_Surface *tmpSurface = backGroundText;
                 SDL_Rect destinationRect = {(int)cursor_x,thickness,tmpSurface->w,tmpSurface->h};
                 SDL_BlitSurface(foreGroundText,NULL,tmpSurface,&destinationRect);
 
-                SDL_BlitSurface(tmpSurface,NULL,texture,&destinationRect);
+                SDL_BlitSurface(tmpSurface,NULL,textSurface,&destinationRect);
 
                 cursor_x += tmpSurface->w;
             }
         }
 
+        SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, textSurface);
         return texture;
     }
 }
