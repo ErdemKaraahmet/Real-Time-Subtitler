@@ -107,8 +107,8 @@ bool whisperProcess(float *pcmf32, int n_samples, char *outputText, int outputLe
         {
             int token_count = 0;
             // #ifdef TEST
-                printf("this sig:%s\n",text);
-                printf("token num:%d\n",n_tokens);
+                SDL_Log("this sig:%s\n",text);
+                SDL_Log("token num:%d\n",n_tokens);
             // #endif
             for(int j = 0;j < n_tokens; ++j)
             {
@@ -124,15 +124,15 @@ bool whisperProcess(float *pcmf32, int n_samples, char *outputText, int outputLe
                     token_count ++;
                 }
                 // #ifdef TEST
-                    printf("%s,",tokenText);
-                    printf("%f ; ",tokenProbablity);
+                    SDL_Log("%s,",tokenText);
+                    SDL_Log("%f ; ",tokenProbablity);
                 // #endif
                 // strncpy(tokens[j].text,tokenText,sizeof(tokenText) - 1);
                 // tokens[j].text[sizeof(tokens[j].text) - 1] = '\0';
                 // tokens[j].probability = tokenProbablity;
             }
             // #ifdef TEST
-                printf("\n");
+                SDL_Log("\n");
             // #endif
             if(outputTokenNums)
             {
