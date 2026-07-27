@@ -63,6 +63,7 @@ SDL_Texture *createTextTexture(SDL_Renderer *renderer, TTF_Font *font, SubtitleT
                 total_width += temp->w + word_spacing;
                 if(temp->h > max_height)max_height = temp->h;
             }
+            SDL_DestroySurface(temp);
         }
         if(total_width > 0)total_width -= word_spacing;
         if(max_height == 0)return NULL;
