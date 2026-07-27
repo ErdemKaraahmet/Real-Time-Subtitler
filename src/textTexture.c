@@ -94,11 +94,13 @@ SDL_Texture *createTextTexture(SDL_Renderer *renderer, TTF_Font *font, SubtitleT
 
                 SDL_Surface *tmpSurface = backGroundText;
                 SDL_Rect destinationRect = {(int)cursor_x,thickness,tmpSurface->w,tmpSurface->h};
-                SDL_BlitSurface(foreGroundText,NULL,tmpSurface,&destinationRect);
+                SDL_Rect foreRect = {thickness,thickness,foreGroundText->w,foreGroundText->h};
+                SDL_Rect canvaRect = {(int)cursor_x,0,tmpSurface->w,tmpSurface->h};
+                SDL_BlitSurface(foreGroundText,NULL,tmpSurface,&foreRect);
 
-                SDL_BlitSurface(tmpSurface,NULL,canvas,&destinationRect);
+                SDL_BlitSurface(tmpSurface,NULL,canvas,&canvaRect);
 
-                cursor_x += tmpSurface->w;
+                cursor_x += (tmpSurface->w + 2);
             }
         }
 
