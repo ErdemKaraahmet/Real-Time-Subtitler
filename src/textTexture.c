@@ -102,6 +102,10 @@ SDL_Texture *createTextTexture(SDL_Renderer *renderer, TTF_Font *font, SubtitleT
         }
 
         SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, canvas);
+        *text_width = (float)canvas->w;
+        *text_height = (float)canvas->h;
+
+        SDL_DestroySurface(canvas);
         return texture;
     }
 }
@@ -134,10 +138,18 @@ SDL_Texture *createColorTextTexture(SDL_Renderer *renderer, TTF_Font *font, Subt
                 SDL_BlitSurface(tmpSurface,NULL,canvas,&destinationRect);
 
                 cursor_x += tmpSurface->w;
+
+                SDL_DestroySurface(tmpSurface);
+                SDL_DestroySurface(backGroundText);
+                SDL_DestroySurface(foreGroundText);
             }
         }
 
         SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, canvas);
+        *text_width = (float)canvas->w;
+        *text_height = (float)canvas->h;
+
+        SDL_DestroySurface(canvas);
         return texture;
     }
 }
