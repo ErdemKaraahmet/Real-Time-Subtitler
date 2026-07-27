@@ -74,7 +74,9 @@ SDL_Texture *createTextTexture(SDL_Renderer *renderer, TTF_Font *font, SubtitleT
             SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to create canvas: %s", SDL_GetError());
             return NULL;
         }
-        const SDL_PixelFormatDetails *details = SDL_GetPixelFormatDetailsForSurface(canvas);
+        SDL_PixelFormat form;
+        form = canvas->format;
+        const SDL_PixelFormatDetails *details = SDL_GetPixelFormatDetails(form);
         SDL_Palette *palette = SDL_GetSurfacePalette(canvas);
         Uint32 color = SDL_MapRGBA(details,palette,0,0,0,0);
         SDL_FillSurfaceRect(canvas,NULL,color);
