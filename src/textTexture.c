@@ -14,7 +14,6 @@ SDL_Texture *createTextTexture(SDL_Renderer *renderer, TTF_Font *font, SubtitleT
 
         int total_width = 0;
         int max_height = 0;
-        const int word_spacing = 2;
         for(int i = 0;i < textTokenNum;++ i)
         {
             const char *tmpText = textToken[i].text;
@@ -23,12 +22,11 @@ SDL_Texture *createTextTexture(SDL_Renderer *renderer, TTF_Font *font, SubtitleT
             SDL_Surface *temp = TTF_RenderText_Blended(font, tmpText, 0, bgColor);
             if(temp)
             {
-                total_width += temp->w + word_spacing;
+                total_width += temp->w;
                 if(temp->h > max_height)max_height = temp->h;
             }
             SDL_DestroySurface(temp);
         }
-        if(total_width > 0)total_width -= word_spacing;
         if(max_height == 0)return NULL;
 
         SDL_Surface *canvas = SDL_CreateSurface(total_width,max_height,SDL_PIXELFORMAT_ABGR8888);
@@ -86,8 +84,7 @@ SDL_Texture *createColorTextTexture(SDL_Renderer *renderer, TTF_Font *font, Subt
         float cursor_x = 0.0f;
 
         int total_width = 0;
-        int max_height = 0;
-        const int word_spacing = 2;
+        int max_height = 0;;
         for(int i = 0;i < textTokenNum;++ i)
         {
             const char *tmpText = textToken[i].text;
@@ -96,12 +93,11 @@ SDL_Texture *createColorTextTexture(SDL_Renderer *renderer, TTF_Font *font, Subt
             SDL_Surface *temp = TTF_RenderText_Blended(font, tmpText, 0, bgColor);
             if(temp)
             {
-                total_width += temp->w + word_spacing;
+                total_width += temp->w;
                 if(temp->h > max_height)max_height = temp->h;
             }
             SDL_DestroySurface(temp);
         }
-        if(total_width > 0)total_width -= word_spacing;
         if(max_height == 0)return NULL;
 
         SDL_Surface *canvas = SDL_CreateSurface(total_width,max_height,SDL_PIXELFORMAT_ABGR8888);
@@ -160,7 +156,6 @@ SDL_Texture *createOpacityTextTexture(SDL_Renderer *renderer, TTF_Font *font, Su
 
         int total_width = 0;
         int max_height = 0;
-        const int word_spacing = 2;
         for(int i = 0;i < textTokenNum;++ i)
         {
             const char *tmpText = textToken[i].text;
@@ -169,12 +164,11 @@ SDL_Texture *createOpacityTextTexture(SDL_Renderer *renderer, TTF_Font *font, Su
             SDL_Surface *temp = TTF_RenderText_Blended(font, tmpText, 0, bgColor);
             if(temp)
             {
-                total_width += temp->w + word_spacing;
+                total_width += temp->w;
                 if(temp->h > max_height)max_height = temp->h;
             }
             SDL_DestroySurface(temp);
         }
-        if(total_width > 0)total_width -= word_spacing;
         if(max_height == 0)return NULL;
 
         SDL_Surface *canvas = SDL_CreateSurface(total_width,max_height,SDL_PIXELFORMAT_ABGR8888);
