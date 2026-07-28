@@ -16,6 +16,8 @@
 #define IM_COL32(R, G, B, A) (((ImU32)(A) << 24) | ((ImU32)(B) << 16) | ((ImU32)(G) << 8) | ((ImU32)(R) << 0))
 #endif
 
+#define modeNums 3
+
 // External getter for pause state from main.c
 extern bool isAppPaused(void);
 
@@ -426,9 +428,8 @@ static void renderViewPage(void) {
 
     //Display Mod Selecting
     int displayModeSelection = 0;
-    const int modeNums = 3;
-    const char *modeNames[modeNums] = {"Plain Text", "Confidence Colors", "Confidence Opacity"};
-    bool modeSelected[modeNums] = {0, 0, 0};
+    const char *modeNames[modeNums] = { "Plain Text", "Confidence Colors", "Confidence Opacity" };
+    bool modeSelected[modeNums] = { false, false, false };
     if(igBeginCombo("Display Model","Plain Text",0))
     {
         //printf("hhh\n");
