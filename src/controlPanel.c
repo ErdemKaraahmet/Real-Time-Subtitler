@@ -408,11 +408,11 @@ static void renderViewPage(void) {
     }
 
     // Color Picking
-    float textColor[3] = {uiConfig.text_color.r / 255.0f, uiConfig.text_color.g / 255.0f, uiConfig.text_color.b / 255.0f};
+    float textColor[3] = {uiConfig.normal_text_color.r / 255.0f, uiConfig.normal_text_color.g / 255.0f, uiConfig.normal_text_color.b / 255.0f};
     if (igColorEdit3("Text Color", textColor, 0)) {
-        uiConfig.text_color.r = (uint8_t)(textColor[0] * 255.0f);
-        uiConfig.text_color.g = (uint8_t)(textColor[1] * 255.0f);
-        uiConfig.text_color.b = (uint8_t)(textColor[2] * 255.0f);
+        uiConfig.normal_text_color.r = (uint8_t)(textColor[0] * 255.0f);
+        uiConfig.normal_text_color.g = (uint8_t)(textColor[1] * 255.0f);
+        uiConfig.normal_text_color.b = (uint8_t)(textColor[2] * 255.0f);
         previewNeedsUpdate = true;
     }
 
@@ -847,8 +847,8 @@ ControlPanelStatus updateAndRenderControlPanel(SDL_Renderer *overlayRenderer) {
     // Check dirty state
     bool isDirty = whisperStatusError;
     if (strcmp(uiConfig.font, savedConfig.font) != 0 || uiConfig.font_size != savedConfig.font_size ||
-        uiConfig.outline_thickness != savedConfig.outline_thickness || uiConfig.text_color.r != savedConfig.text_color.r ||
-        uiConfig.text_color.g != savedConfig.text_color.g || uiConfig.text_color.b != savedConfig.text_color.b ||
+        uiConfig.outline_thickness != savedConfig.outline_thickness || uiConfig.normal_text_color.r != savedConfig.normal_text_color.r ||
+        uiConfig.normal_text_color.g != savedConfig.normal_text_color.g || uiConfig.normal_text_color.b != savedConfig.normal_text_color.b ||
         uiConfig.text_outline_color.r != savedConfig.text_outline_color.r || uiConfig.text_outline_color.g != savedConfig.text_outline_color.g ||
         uiConfig.text_outline_color.b != savedConfig.text_outline_color.b || strcmp(uiConfig.modelPath, savedConfig.modelPath) != 0 ||
         uiConfig.use_gpu != savedConfig.use_gpu) {
