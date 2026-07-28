@@ -424,6 +424,14 @@ static void renderViewPage(void) {
         previewNeedsUpdate = true;
     }
 
+    //Display Mod Selecting
+    if(igBeginCombo("Display Model","aaaaa",0));
+    {
+        printf("hhh\n");
+    }
+
+    igEndCombo();
+
     igSpacing();
 
     // Live Preview
