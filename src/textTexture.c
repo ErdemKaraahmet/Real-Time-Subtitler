@@ -3,7 +3,12 @@
 #include "configManager.h"
 #include "whisperEngine.h"
 
-SDL_Texture *createTextTexture(SDL_Renderer *renderer, TTF_Font *font, SubtitleToken *textToken, int textTokenNum, AppConfig *config, float *text_width, float *text_height) {
+SDL_Texture *createTextTexture(SDL_Renderer *renderer, TTF_Font *font, SubtitleToken *textToken, int textTokenNum, AppConfig *config, float *text_width, float *text_height) 
+{
+    
+}
+
+SDL_Texture *createNormalTextTexture(SDL_Renderer *renderer, TTF_Font *font, SubtitleToken *textToken, int textTokenNum, AppConfig *config, float *text_width, float *text_height) {
     if (font == NULL || textToken == NULL || textTokenNum <= 0) {
         return NULL;
     } else {
