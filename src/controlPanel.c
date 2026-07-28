@@ -34,7 +34,7 @@ static const float UI_SPACING = 8.0f;
 static const float UI_BUTTON_WIDTH = 120.0f;
 static const float UI_BUTTON_HEIGHT = 30.0f;
 static const float UI_PREVIEW_BOX_WIDTH = 556.0f; // 580 - 24
-static const float UI_PREVIEW_BOX_HEIGHT = 100.0f;
+static const float UI_PREVIEW_BOX_HEIGHT = 70.0f;
 static const float UI_WINDOW_HEIGHT = 450.0f;
 
 static int g_DeleteTargetIndex = -1;
