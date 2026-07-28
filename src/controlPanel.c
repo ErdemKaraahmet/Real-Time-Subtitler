@@ -425,9 +425,12 @@ static void renderViewPage(void) {
     }
 
     //Display Mod Selecting
-    if(igBeginCombo("Display Model","aaaaa",0))
+    if(igBeginCombo("Display Model","Plain Text",0))
     {
-        printf("hhh\n");
+        //printf("hhh\n");
+        igSelectable_Bool("Plain text",1,ImGuiSelectableFlags_Disabled,(ImVec2_c){0,0});
+        igSelectable_Bool("Confidence Colors",0,ImGuiSelectableFlags_Disabled,(ImVec2_c){0,0});
+        igSelectable_Bool("Confidence Opacity",0,ImGuiSelectableFlags_Disabled,(ImVec2_c){0,0});
         igEndCombo();
     }
 
