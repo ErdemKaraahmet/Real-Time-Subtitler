@@ -425,12 +425,11 @@ static void renderViewPage(void) {
     }
 
     //Display Mod Selecting
-    if(igBeginCombo("Display Model","aaaaa",0));
+    if(igBeginCombo("Display Model","aaaaa",0))
     {
         printf("hhh\n");
+        igEndCombo();
     }
-
-    igEndCombo();
 
     igSpacing();
 
