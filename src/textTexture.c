@@ -113,6 +113,7 @@ static SDL_Surface *createColorTextTexture(TTF_Font *font, SubtitleToken *textTo
         for(int i = 0;i < textTokenNum;++ i)
         {
             const char *tmpText = textToken[i].text;
+            const float tmpProbablity = textToken[i].probability;
             if(tmpText != NULL && strcmp(tmpText,"<|endoftext|>") != 0)
             {
                 TTF_SetFontOutline(font,thickness);
