@@ -5,10 +5,38 @@
 
 SDL_Texture *createTextTexture(SDL_Renderer *renderer, TTF_Font *font, SubtitleToken *textToken, int textTokenNum, AppConfig *config, float *text_width, float *text_height) 
 {
+    SDL_Surface *textSurface = NULL;
+    SDL_Texture *resultTexture = NULL;
+
+    switch(config->display_mode)
+    {
+        case 0:
+        {
+            createNormalTextTexture(textSurface, font, textToken, textTokenNum, config);
+        }
+        case 1:
+        {
+            createColorTextTexture(textSurface, font, textToken, textTokenNum, config);
+        }
+        case 2:
+        {
+            createOpacityTextTexture(textSurface, font, textToken, textTokenNum, config);
+        }
+        default:
+            return NULL;
+    }
+    if(textSurface == NULL)
+        return NULL;
     
+    resultTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
+    if(resultTexture == NULL)return NULL;
+
+    *text_width = (float)textSurface->w;
+    *text_height = (float)textSurface->h;
+    return resultTexture;
 }
 
-SDL_Texture *createNormalTextTexture(SDL_Renderer *renderer, TTF_Font *font, SubtitleToken *textToken, int textTokenNum, AppConfig *config, float *text_width, float *text_height) {
+SDL_Surface *createNormalTextTexture(SDL_Surface *canvas, TTF_Font *font, SubtitleToken *textToken, int textTokenNum, AppConfig *config) {
     if (font == NULL || textToken == NULL || textTokenNum <= 0) {
         return NULL;
     } else {
@@ -34,7 +62,7 @@ SDL_Texture *createNormalTextTexture(SDL_Renderer *renderer, TTF_Font *font, Sub
         }
         if(max_height == 0)return NULL;
 
-        SDL_Surface *canvas = SDL_CreateSurface(total_width,max_height,SDL_PIXELFORMAT_ABGR8888);
+        canvas = SDL_CreateSurface(total_width,max_height,SDL_PIXELFORMAT_ABGR8888);
         if(!canvas)
         {
             SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to create canvas: %s", SDL_GetError());
@@ -70,16 +98,11 @@ SDL_Texture *createNormalTextTexture(SDL_Renderer *renderer, TTF_Font *font, Sub
             }
         }
 
-        SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, canvas);
-        *text_width = (float)canvas->w;
-        *text_height = (float)canvas->h;
-
-        SDL_DestroySurface(canvas);
-        return texture;
+        return canvas;
     }
 }
 
-SDL_Texture *createColorTextTexture(SDL_Renderer *renderer, TTF_Font *font, SubtitleToken *textToken, int textTokenNum, AppConfig *config, float *text_width, float *text_height) {
+SDL_Surface *createColorTextTexture(SDL_Surface *canvas, TTF_Font *font, SubtitleToken *textToken, int textTokenNum, AppConfig *config) {
     if (font == NULL || textToken == NULL || textTokenNum <= 0) {
         return NULL;
     } else {
@@ -105,7 +128,7 @@ SDL_Texture *createColorTextTexture(SDL_Renderer *renderer, TTF_Font *font, Subt
         }
         if(max_height == 0)return NULL;
 
-        SDL_Surface *canvas = SDL_CreateSurface(total_width,max_height,SDL_PIXELFORMAT_ABGR8888);
+        canvas = SDL_CreateSurface(total_width,max_height,SDL_PIXELFORMAT_ABGR8888);
         if(!canvas)
         {
             SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to create canvas: %s", SDL_GetError());
@@ -141,16 +164,11 @@ SDL_Texture *createColorTextTexture(SDL_Renderer *renderer, TTF_Font *font, Subt
             }
         }
 
-        SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, canvas);
-        *text_width = (float)canvas->w;
-        *text_height = (float)canvas->h;
-
-        SDL_DestroySurface(canvas);
-        return texture;
+        return canvas;
     }
 }
 
-SDL_Texture *createOpacityTextTexture(SDL_Renderer *renderer, TTF_Font *font, SubtitleToken *textToken, int textTokenNum, AppConfig *config, float *text_width, float *text_height) {
+SDL_Surface *createOpacityTextTexture(SDL_Surface *canvas, TTF_Font *font, SubtitleToken *textToken, int textTokenNum, AppConfig *config) {
     if (font == NULL || textToken == NULL || textTokenNum <= 0) {
         return NULL;
     } else {
@@ -176,7 +194,7 @@ SDL_Texture *createOpacityTextTexture(SDL_Renderer *renderer, TTF_Font *font, Su
         }
         if(max_height == 0)return NULL;
 
-        SDL_Surface *canvas = SDL_CreateSurface(total_width,max_height,SDL_PIXELFORMAT_ABGR8888);
+        canvas = SDL_CreateSurface(total_width,max_height,SDL_PIXELFORMAT_ABGR8888);
         if(!canvas)
         {
             SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to create canvas: %s", SDL_GetError());
@@ -212,11 +230,6 @@ SDL_Texture *createOpacityTextTexture(SDL_Renderer *renderer, TTF_Font *font, Su
             }
         }
 
-        SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, canvas);
-        *text_width = (float)canvas->w;
-        *text_height = (float)canvas->h;
-
-        SDL_DestroySurface(canvas);
-        return texture;
+        return canvas;
     }
 }
