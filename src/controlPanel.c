@@ -425,12 +425,23 @@ static void renderViewPage(void) {
     }
 
     //Display Mod Selecting
+    int displayModeSelection = 0;
+    const int modeNums = 3;
+    const char *modeNames[modeNums] = {"Plain Text", "Confidence Colors", "Confidence Opacity"};
+    bool modeSelected[modeNums] = {0, 0, 0};
     if(igBeginCombo("Display Model","Plain Text",0))
     {
         //printf("hhh\n");
-        igSelectable_Bool("Plain text",1,ImGuiSelectableFlags_Disabled,(ImVec2_c){0,0});
-        igSelectable_Bool("Confidence Colors",0,ImGuiSelectableFlags_Disabled,(ImVec2_c){0,0});
-        igSelectable_Bool("Confidence Opacity",0,ImGuiSelectableFlags_Disabled,(ImVec2_c){0,0});
+        for(int i = 0;i < modeNums;++ i)
+        {
+            if(igSelectable_Bool(modeNames[i],modeSelected[i],0,(ImVec2_c){0,0}))
+            {
+                for(int j = 0;j < modeNums;++ j)
+                {
+                    modeSelected[j] = (j == i);
+                }
+            }
+        }
         igEndCombo();
     }
 
