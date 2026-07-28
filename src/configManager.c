@@ -189,7 +189,7 @@ AppConfig loadDefaultConfig(void) {
         .font = "fonts/cascadia.mono.ttf",
         .font_size = 24,
         .outline_thickness = 4,
-        .display_mode = 1,
+        .display_mode = 2,
         .normal_text_color = {255, 255, 255, 255},
         .color_text_color_l = {255, 0, 0, 200},
         .color_text_color_m = {255, 255, 0, 200},
