@@ -57,14 +57,14 @@ bool whisperInit(const char *modelPath, bool *use_gpu) {
 }
 
 // Returns true if there is new text
-bool whisperProcess(float *pcmf32, int n_samples, char *outputText, size_t outputLength) {
+bool whisperProcess(float *pcmf32, int n_samples, char *outputText, size_t outputLength, int n_threads) {
     if (!ctx)
         return false;
 
     struct whisper_full_params wparams = whisper_full_default_params(WHISPER_SAMPLING_GREEDY);
     wparams.print_progress = false;
     wparams.language = "en";
-    wparams.n_threads = SDL_GetNumLogicalCPUCores() / 2; // Limit threads to avoid hyperthreading
+    wparams.n_threads = n_threads > 0 ? n_threads : 1;
     wparams.no_timestamps = true;                        // Reduces decode overhead
     wparams.single_segment = true;                       // Force single segment
     wparams.no_context = true;                           // Prevent using past chunks as context to avoid repetition loops

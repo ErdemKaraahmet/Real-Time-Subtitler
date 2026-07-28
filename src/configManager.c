@@ -127,6 +127,11 @@ ConfigLoadStatus loadConfig(AppConfig *conf) {
         conf->use_gpu = cJSON_IsTrue(item);
     }
 
+    item = cJSON_GetObjectItemCaseSensitive(root, "cpu_threads");
+    if (cJSON_IsNumber(item)) {
+        conf->cpu_threads = item->valueint;
+    }
+
     cJSON_Delete(root);
     return CONFIG_LOAD_OK;
 }
@@ -146,6 +151,7 @@ bool saveConfig(const AppConfig *conf) {
     cJSON_AddItemToObject(root, "text_outline_color", colorToJson(conf->text_outline_color));
     cJSON_AddStringToObject(root, "modelPath", conf->modelPath);
     cJSON_AddBoolToObject(root, "use_gpu", conf->use_gpu);
+    cJSON_AddNumberToObject(root, "cpu_threads", conf->cpu_threads);
 
     char *jsonStr = cJSON_Print(root);
     cJSON_Delete(root);
@@ -173,7 +179,12 @@ AppConfig loadDefaultConfig(void) {
         .text_color = {255, 255, 255, 255},
         .text_outline_color = {0, 0, 0, 255},
         .use_gpu = true,
+        .cpu_threads = SDL_GetNumLogicalCPUCores() / 2,
     };
+
+    if (conf.cpu_threads < 1) {
+        conf.cpu_threads = 1;
+    }
 
     getFirstLocalModelPath(conf.modelPath, sizeof(conf.modelPath));
 

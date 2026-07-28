@@ -659,6 +659,24 @@ static void renderTranscriptionPage(const char *activeModelFilename, bool *trigg
     igSpacing();
     // GPU Toggle
     igCheckbox("Use GPU (Vulkan)", &uiConfig.use_gpu);
+
+    // CPU Thread Count (only relevant when running on CPU)
+    if (!uiConfig.use_gpu) {
+        int maxThreads = SDL_GetNumLogicalCPUCores();
+        if (maxThreads < 1) {
+            maxThreads = 1;
+        }
+        int tempThreads = uiConfig.cpu_threads;
+
+        igSetNextItemWidth(120.0f);
+        igPushStyleColor_Vec4(ImGuiCol_SliderGrab, (ImVec4_c){0.85f, 0.15f, 0.15f, 1.00f});
+        igPushStyleColor_Vec4(ImGuiCol_SliderGrabActive, (ImVec4_c){1.00f, 0.25f, 0.25f, 1.00f});
+        igPushStyleColor_Vec4(ImGuiCol_FrameBgActive, (ImVec4_c){0.30f, 0.05f, 0.05f, 1.00f});
+        if (igSliderInt("CPU Threads", &tempThreads, 1, maxThreads, "%d", 0)) {
+            uiConfig.cpu_threads = tempThreads;
+        }
+        igPopStyleColor(3);
+    }
 }
 
 static void renderFooter(ControlPanelStatus *status, bool isDirty) {
@@ -839,7 +857,7 @@ ControlPanelStatus updateAndRenderControlPanel(SDL_Renderer *overlayRenderer) {
         uiConfig.text_color.g != savedConfig.text_color.g || uiConfig.text_color.b != savedConfig.text_color.b ||
         uiConfig.text_outline_color.r != savedConfig.text_outline_color.r || uiConfig.text_outline_color.g != savedConfig.text_outline_color.g ||
         uiConfig.text_outline_color.b != savedConfig.text_outline_color.b || strcmp(uiConfig.modelPath, savedConfig.modelPath) != 0 ||
-        uiConfig.use_gpu != savedConfig.use_gpu) {
+        uiConfig.use_gpu != savedConfig.use_gpu || uiConfig.cpu_threads != savedConfig.cpu_threads) {
         isDirty = true;
     }
 

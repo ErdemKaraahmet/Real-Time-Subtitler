@@ -119,7 +119,7 @@ int main(void) {
     float text_width, text_height;
 
     textMutex = SDL_CreateMutex();
-    SDL_Thread *wThread = SDL_CreateThread(whisperThread, "whisper", NULL);
+    SDL_Thread *wThread = SDL_CreateThread(whisperThread, "whisper", config);
     if (!wThread) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to create whisper thread: %s", SDL_GetError());
     }
@@ -325,12 +325,12 @@ void handleEvents(SDL_Window *window, bool *pDone, bool *needsRedraw, int timeou
 }
 
 int whisperThread(void *data) {
-    (void)data;
+    const AppConfig *config = (AppConfig *)data;
     while (!done) {
         if (chunkReady && !paused) {
             SDL_LockMutex(textMutex);
             subtitleText[0] = '\0';
-            whisperProcess(audioChunk, SAMPLE_SIZE, subtitleText, sizeof(subtitleText));
+            whisperProcess(audioChunk, SAMPLE_SIZE, subtitleText, sizeof(subtitleText), config->cpu_threads);
             textUpdated = true;
             SDL_UnlockMutex(textMutex);
             chunkReady = false;

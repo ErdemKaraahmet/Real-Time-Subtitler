@@ -12,6 +12,7 @@ typedef struct {
     SDL_Color text_outline_color;
     char modelPath[512];
     bool use_gpu;
+    int cpu_threads;
 } AppConfig;
 
 AppConfig loadDefaultConfig(void);
