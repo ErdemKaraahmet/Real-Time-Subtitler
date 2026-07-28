@@ -65,13 +65,13 @@ bool whisperProcess(float *pcmf32, int n_samples, char *outputText, size_t outpu
     wparams.print_progress = false;
     wparams.language = "en";
     wparams.n_threads = n_threads > 0 ? n_threads : 1;
-    wparams.no_timestamps = true;                        // Reduces decode overhead
-    wparams.single_segment = true;                       // Force single segment
-    wparams.no_context = true;                           // Prevent using past chunks as context to avoid repetition loops
-    wparams.temperature_inc = 0.5f;                      // Amount the temperature increases each time it retries, 1 is max so 0.5 is two retries
-    wparams.audio_ctx = 384;                             // Crop audio context window to size of 2s chunks plus safety padding, whisper is
-                                                         // trained on 30s chunks which is 1500 frames
-    wparams.max_tokens = 32;                             // Cap maximum tokens generated per chunk to stop hallucinations
+    wparams.no_timestamps = true;   // Reduces decode overhead
+    wparams.single_segment = true;  // Force single segment
+    wparams.no_context = true;      // Prevent using past chunks as context to avoid repetition loops
+    wparams.temperature_inc = 0.5f; // Amount the temperature increases each time it retries, 1 is max so 0.5 is two retries
+    wparams.audio_ctx = 384;        // Crop audio context window to size of 2s chunks plus safety padding, whisper is
+                                    // trained on 30s chunks which is 1500 frames
+    wparams.max_tokens = 32;        // Cap maximum tokens generated per chunk to stop hallucinations
 
 #ifdef RTS_BENCH
     Uint64 t0 = SDL_GetPerformanceCounter();

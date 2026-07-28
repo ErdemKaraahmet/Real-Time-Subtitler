@@ -144,7 +144,7 @@ void openControlPanel(AppConfig *liveConfig) {
 
     // Set window icon
     char iconPath[512];
-    utilsResolvePath(iconPath, sizeof(iconPath), "spaceholder_rts_icon.png");
+    utilsResolvePath(iconPath, sizeof(iconPath), "rts_icon.png");
     SDL_Surface *icon = SDL_LoadPNG(iconPath);
     if (icon) {
         SDL_SetWindowIcon(cpWindow, icon);

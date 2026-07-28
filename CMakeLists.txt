@@ -288,7 +288,7 @@ add_custom_command(TARGET Real-Time-Subtitler POST_BUILD
 # copy icon asset next to the exe
 add_custom_command(TARGET Real-Time-Subtitler POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-    "${CMAKE_SOURCE_DIR}/placeholder_rts_icon.png"
+    "${CMAKE_SOURCE_DIR}/rts_icon.png"
     $<TARGET_FILE_DIR:Real-Time-Subtitler>
 )
 
