@@ -3,43 +3,7 @@
 #include "configManager.h"
 #include "whisperEngine.h"
 
-SDL_Texture *createTextTexture(SDL_Renderer *renderer, TTF_Font *font, SubtitleToken *textToken, int textTokenNum, AppConfig *config, float *text_width, float *text_height) 
-{
-    SDL_Surface *textSurface = NULL;
-    SDL_Texture *resultTexture = NULL;
-
-    switch(config->display_mode)
-    {
-        case 0:
-        {
-            textSurface = createNormalTextTexture(font, textToken, textTokenNum, config);
-            break;
-        }
-        case 1:
-        {
-            textSurface = createColorTextTexture(font, textToken, textTokenNum, config);
-            break;
-        }
-        case 2:
-        {
-            textSurface = createOpacityTextTexture(font, textToken, textTokenNum, config);
-            break;
-        }
-        default:
-            return NULL;
-    }
-    if(textSurface == NULL)
-        return NULL;
-    
-    resultTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
-    if(resultTexture == NULL)return NULL;
-
-    *text_width = (float)textSurface->w;
-    *text_height = (float)textSurface->h;
-    return resultTexture;
-}
-
-SDL_Surface *createNormalTextTexture(TTF_Font *font, SubtitleToken *textToken, int textTokenNum, AppConfig *config) {
+static SDL_Surface *createNormalTextTexture(TTF_Font *font, SubtitleToken *textToken, int textTokenNum, AppConfig *config) {
     if (font == NULL || textToken == NULL || textTokenNum <= 0) {
         return NULL;
     } else {
@@ -107,7 +71,7 @@ SDL_Surface *createNormalTextTexture(TTF_Font *font, SubtitleToken *textToken, i
     }
 }
 
-SDL_Surface *createColorTextTexture(TTF_Font *font, SubtitleToken *textToken, int textTokenNum, AppConfig *config) {
+static SDL_Surface *createColorTextTexture(TTF_Font *font, SubtitleToken *textToken, int textTokenNum, AppConfig *config) {
     if (font == NULL || textToken == NULL || textTokenNum <= 0) {
         return NULL;
     } else {
@@ -175,7 +139,7 @@ SDL_Surface *createColorTextTexture(TTF_Font *font, SubtitleToken *textToken, in
     }
 }
 
-SDL_Surface *createOpacityTextTexture(TTF_Font *font, SubtitleToken *textToken, int textTokenNum, AppConfig *config) {
+static SDL_Surface *createOpacityTextTexture(TTF_Font *font, SubtitleToken *textToken, int textTokenNum, AppConfig *config) {
     if (font == NULL || textToken == NULL || textTokenNum <= 0) {
         return NULL;
     } else {
@@ -241,4 +205,40 @@ SDL_Surface *createOpacityTextTexture(TTF_Font *font, SubtitleToken *textToken, 
 
         return canvas;
     }
+}
+
+SDL_Texture *createTextTexture(SDL_Renderer *renderer, TTF_Font *font, SubtitleToken *textToken, int textTokenNum, AppConfig *config, float *text_width, float *text_height) 
+{
+    SDL_Surface *textSurface = NULL;
+    SDL_Texture *resultTexture = NULL;
+
+    switch(config->display_mode)
+    {
+        case 0:
+        {
+            textSurface = createNormalTextTexture(font, textToken, textTokenNum, config);
+            break;
+        }
+        case 1:
+        {
+            textSurface = createColorTextTexture(font, textToken, textTokenNum, config);
+            break;
+        }
+        case 2:
+        {
+            textSurface = createOpacityTextTexture(font, textToken, textTokenNum, config);
+            break;
+        }
+        default:
+            return NULL;
+    }
+    if(textSurface == NULL)
+        return NULL;
+    
+    resultTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
+    if(resultTexture == NULL)return NULL;
+
+    *text_width = (float)textSurface->w;
+    *text_height = (float)textSurface->h;
+    return resultTexture;
 }
