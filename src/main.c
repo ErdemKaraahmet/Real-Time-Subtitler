@@ -144,6 +144,8 @@ int main(int argc, char *argv[]) {
                 subtitleText[0] = '\0'; // whisper outputs " [BLANK_AUDIO]" on empty audio, to not print it exactly
             texture = createTextTexture(renderer, font, outputTokens, tokenNum, config, &text_width, &text_height);
 
+            SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+
             // Resize the window to fit snugly to the text
             if (texture != NULL) {
 

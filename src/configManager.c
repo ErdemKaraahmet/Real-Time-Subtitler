@@ -129,7 +129,7 @@ ConfigLoadStatus loadConfig(AppConfig *conf) {
 
     item = cJSON_GetObjectItemCaseSensitive(root, "text_color");
     if (cJSON_IsObject(item)) {
-        conf->text_color = parseColorObject(item, conf->text_color);
+        conf->normal_text_color = parseColorObject(item, conf->normal_text_color);
     }
 
     item = cJSON_GetObjectItemCaseSensitive(root, "text_outline_color");
@@ -162,7 +162,7 @@ bool saveConfig(const AppConfig *conf) {
     cJSON_AddStringToObject(root, "font", conf->font);
     cJSON_AddNumberToObject(root, "font_size", conf->font_size);
     cJSON_AddNumberToObject(root, "outline_thickness", conf->outline_thickness);
-    cJSON_AddItemToObject(root, "text_color", colorToJson(conf->text_color));
+    cJSON_AddItemToObject(root, "text_color", colorToJson(conf->normal_text_color));
     cJSON_AddItemToObject(root, "text_outline_color", colorToJson(conf->text_outline_color));
     cJSON_AddStringToObject(root, "modelPath", conf->modelPath);
     cJSON_AddBoolToObject(root, "use_gpu", conf->use_gpu);
@@ -189,7 +189,14 @@ AppConfig loadDefaultConfig(void) {
         .font = "fonts/cascadia.mono.ttf",
         .font_size = 24,
         .outline_thickness = 4,
-        .text_color = {255, 255, 255, 255},
+        .display_mode = 1,
+        .normal_text_color = {255, 255, 255, 255},
+        .color_text_color_l = {255, 0, 0, 200},
+        .color_text_color_m = {255, 255, 0, 200},
+        .color_text_color_h = {0, 255, 0, 200},
+        .opacity_text_color_l = {255, 0, 0, 255},
+        .opacity_text_color_m = {255, 255, 0, 255},
+        .opacity_text_color_h = {0, 255, 0, 255},
         .text_outline_color = {0, 0, 0, 255},
         .use_gpu = true,
     };

@@ -13,6 +13,9 @@ typedef struct {
     SDL_Color color_text_color_l;
     SDL_Color color_text_color_m;
     SDL_Color color_text_color_h;
+    SDL_Color opacity_text_color_l;
+    SDL_Color opacity_text_color_m;
+    SDL_Color opacity_text_color_h;
     SDL_Color text_outline_color;
     float base_alpha;
     char modelPath[512];
