@@ -432,15 +432,17 @@ static void renderViewPage(void) {
 
     if(igBeginCombo("Display Model",modeNames[displayModeSelection],0))
     {
-        //printf("hhh\n");
         for(int i = 0;i < modeNums;++ i)
         {
             if(igSelectable_Bool(modeNames[i], (i == displayModeSelection), 0, (ImVec2_c){0,0}))
             {
                 displayModeSelection = i;
+                uiConfig.display_mode = i;
+                previewNeedsUpdate = true;
             }
         }
         igEndCombo();
+            // printf("mode:%d",uiConfig.display_mode);
     }
 
     igSpacing();
@@ -870,7 +872,7 @@ ControlPanelStatus updateAndRenderControlPanel(SDL_Renderer *overlayRenderer) {
         uiConfig.normal_text_color.g != savedConfig.normal_text_color.g || uiConfig.normal_text_color.b != savedConfig.normal_text_color.b ||
         uiConfig.text_outline_color.r != savedConfig.text_outline_color.r || uiConfig.text_outline_color.g != savedConfig.text_outline_color.g ||
         uiConfig.text_outline_color.b != savedConfig.text_outline_color.b || strcmp(uiConfig.modelPath, savedConfig.modelPath) != 0 ||
-        uiConfig.use_gpu != savedConfig.use_gpu) {
+        uiConfig.use_gpu != savedConfig.use_gpu || uiConfig.display_mode != savedConfig.display_mode) {
         isDirty = true;
     }
 
