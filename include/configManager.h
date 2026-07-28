@@ -9,8 +9,12 @@ typedef struct {
     int font_size;
     int outline_thickness;
     int display_mode; // 0 for normal,1 for color,2 for opacity
-    SDL_Color text_color;
+    SDL_Color normal_text_color;
+    SDL_Color color_text_color_l;
+    SDL_Color color_text_color_m;
+    SDL_Color color_text_color_h;
     SDL_Color text_outline_color;
+    float base_alpha;
     char modelPath[512];
     bool use_gpu;
 } AppConfig;
