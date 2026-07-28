@@ -159,7 +159,9 @@ static SDL_Surface *createOpacityTextTexture(TTF_Font *font, SubtitleToken *text
         return NULL;
     } else {
         SDL_Color bgColor = config->text_outline_color;
-        SDL_Color fgColor = config->normal_text_color;
+        SDL_Color lfgColor = config->opacity_text_color_l;
+        SDL_Color mfgColor = config->opacity_text_color_m;
+        SDL_Color hfgColor = config->opacity_text_color_h;
         int thickness = config->outline_thickness;
         float cursor_x = 0.0f;
 
@@ -196,13 +198,26 @@ static SDL_Surface *createOpacityTextTexture(TTF_Font *font, SubtitleToken *text
         for(int i = 0;i < textTokenNum;++ i)
         {
             const char *tmpText = textToken[i].text;
+            const float tmpProbablity = textToken[i].probability;
             if(tmpText != NULL && strcmp(tmpText,"<|endoftext|>") != 0)
             {
                 TTF_SetFontOutline(font,thickness);
                 SDL_Surface *backGroundText = TTF_RenderText_Blended(font, tmpText, 0, bgColor);
+                SDL_Surface *foreGroundText;
 
                 TTF_SetFontOutline(font,0);
-                SDL_Surface *foreGroundText = TTF_RenderText_Blended(font, tmpText, 0, fgColor);
+                if(tmpProbablity >= 0.8)
+                {
+                    foreGroundText = TTF_RenderText_Blended(font, tmpText, 0, hfgColor);
+                }
+                else if(tmpProbablity < 0.8 && tmpProbablity >= 0.5)
+                {
+                    foreGroundText = TTF_RenderText_Blended(font, tmpText, 0, mfgColor);
+                }
+                else
+                {
+                    foreGroundText = TTF_RenderText_Blended(font, tmpText, 0, lfgColor);
+                }
 
                 SDL_Surface *tmpSurface = backGroundText;
                 SDL_Rect destinationRect = {(int)cursor_x,thickness,tmpSurface->w,tmpSurface->h};
