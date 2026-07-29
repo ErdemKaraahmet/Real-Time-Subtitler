@@ -74,6 +74,7 @@ On Windows (PowerShell):
 
 ```bash
 # Run Clang-Tidy on local git diff only:
+cmake -B build -S . -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 git diff -U0 -- 'src/*.[ch]' 'include/*.[ch]' | clang-tidy-diff -p1 -path build
 
 # Run Cppcheck static analysis manually:
