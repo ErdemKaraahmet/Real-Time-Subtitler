@@ -28,6 +28,7 @@ jobs:
       - name: Run Cppcheck
         run: |
           cppcheck --enable=warning,style,performance,portability \
+                   --check-level=exhaustive \
                    --inline-suppr \
                    --error-exitcode=1 \
                    -I include/ -I src/ \

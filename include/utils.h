@@ -7,9 +7,9 @@
  *
  * @param dest The buffer to write the resolved path into.
  * @param destSize The capacity of the dest buffer.
- * @param relativePath The path relative to the application base folder.
+ * @return true if resolved without truncation, false otherwise.
  */
-void utilsResolvePath(char *dest, size_t destSize, const char *relativePath);
+bool utilsResolvePath(char *dest, size_t destSize, const char *relativePath);
 
 /**
  * Checks if a file exists and is readable.

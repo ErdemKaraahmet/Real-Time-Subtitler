@@ -20,7 +20,7 @@ bool initTray(void) {
 
     // Search parent directory
     char iconPath[512];
-    utilsResolvePath(iconPath, sizeof(iconPath), "placeholder_rts_icon.png");
+    utilsResolvePath(iconPath, sizeof(iconPath), "rts_icon.png");
 
     SDL_Surface *icon = SDL_LoadPNG(iconPath);
     SDL_Log("Icon load: %s", icon ? "OK" : SDL_GetError());

@@ -7,6 +7,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+static const char MODEL_BASE_URL[] = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/";
+
 static ModelManager g_ModelManager;
 static SDL_Thread *g_FetchThread = NULL;
 static SDL_AtomicInt g_FetchFinished;
@@ -68,9 +70,13 @@ static SDL_EnumerationResult SDLCALL scanLocalModelsCallback(void *userdata, con
 
             // Get local file size
             char fullPath[512];
-            snprintf(fullPath, sizeof(fullPath), "%s/%s", dirname, fname);
+            int res = snprintf(fullPath, sizeof(fullPath), "%s/%s", dirname, fname);
             SDL_PathInfo info;
-            entry->remoteSize = SDL_GetPathInfo(fullPath, &info) ? info.size : 0;
+            if (res >= 0 && (size_t)res < sizeof(fullPath) && SDL_GetPathInfo(fullPath, &info) && info.size <= (Uint64)INT64_MAX) {
+                entry->remoteSize = (int64_t)info.size;
+            } else {
+                entry->remoteSize = 0;
+            }
 
             entry->state = MODEL_STATE_DOWNLOADED;
             entry->oid[0] = '\0';
@@ -133,6 +139,7 @@ typedef struct {
     size_t size;
 } MemoryBuffer;
 
+// cppcheck-suppress constParameterCallback
 static size_t writeMemoryCallback(void *contents, size_t size, size_t nmemb, void *userp) {
     size_t realsize = size * nmemb;
     MemoryBuffer *mem = (MemoryBuffer *)userp;
@@ -195,7 +202,7 @@ static int SDLCALL fetchCatalogThreadFunc(void *data) {
 
                     // Filter: must start with "ggml-" and end in ".bin"
                     if (pathLen > 4 && strncmp(path, "ggml-", 5) == 0 && strcmp(path + pathLen - 4, ".bin") == 0) {
-                        cJSON *sizeItem = cJSON_GetObjectItemCaseSensitive(element, "size");
+                        const cJSON *sizeItem = cJSON_GetObjectItemCaseSensitive(element, "size");
                         cJSON *lfsItem = cJSON_GetObjectItemCaseSensitive(element, "lfs");
                         int64_t remoteSize = sizeItem ? (int64_t)sizeItem->valuedouble : 0;
                         const char *oid = "";
@@ -286,7 +293,7 @@ typedef struct {
 static int downloadProgressCallback(void *clientp, curl_off_t dltotal, curl_off_t dlnow, curl_off_t ultotal, curl_off_t ulnow) {
     (void)ultotal;
     (void)ulnow;
-    DownloadProgressData *data = (DownloadProgressData *)clientp;
+    const DownloadProgressData *data = (DownloadProgressData *)clientp;
 
     if (SDL_GetAtomicInt(&g_DownloadCancelFlag) == 1) {
         return 1; // Abort transfer
@@ -328,7 +335,8 @@ static int downloadProgressCallback(void *clientp, curl_off_t dltotal, curl_off_
             double speed = (double)dlnow / elapsed;
             if (speed > 0) {
                 curl_off_t remainingBytes = dltotal - dlnow;
-                int remainingSeconds = (int)(remainingBytes / speed);
+                double secs = (double)remainingBytes / speed;
+                int remainingSeconds = (secs > (double)INT_MAX) ? INT_MAX : (int)secs;
                 SDL_SetAtomicInt(&entry->etaSeconds, remainingSeconds);
             }
         }
@@ -345,18 +353,22 @@ static bool calculateFileSHA256(const char *filePath, char *destHex) {
     sha256_init(&ctx);
 
     uint8_t buffer[65536];
-    size_t bytesRead;
-    while ((bytesRead = fread(buffer, 1, sizeof(buffer), file)) > 0) {
-        sha256_update(&ctx, (const SHA256_BYTE *)buffer, bytesRead);
+    while (!feof(file) && !ferror(file)) {
+        size_t bytesRead = fread(buffer, 1, sizeof(buffer), file);
+        if (bytesRead > 0) {
+            sha256_update(&ctx, (const SHA256_BYTE *)buffer, bytesRead);
+        }
     }
 
-    fclose(file);
+    (void)fclose(file);
 
     SHA256_BYTE hash[SHA256_BLOCK_SIZE];
     sha256_final(&ctx, hash);
 
-    for (int i = 0; i < SHA256_BLOCK_SIZE; i++) {
-        sprintf(destHex + (i * 2), "%02x", hash[i]);
+    for (size_t i = 0; i < SHA256_BLOCK_SIZE; i++) {
+        if (snprintf(destHex + (i * 2), 3, "%02x", hash[i]) != 2) {
+            return false;
+        }
     }
     destHex[64] = '\0';
     return true;
@@ -373,14 +385,21 @@ static int SDLCALL downloadThreadFunc(void *data) {
 
     char partPath[512];
     char relPartPath[256];
-    snprintf(relPartPath, sizeof(relPartPath), "models/%s.part", filename);
+    int resPart = snprintf(relPartPath, sizeof(relPartPath), "models/%s.part", filename);
+    if (resPart < 0 || (size_t)resPart >= sizeof(relPartPath)) {
+        SDL_LockMutex(g_ModelManager.lock);
+        entry->state = MODEL_STATE_DOWNLOAD_ERROR;
+        SDL_strlcpy(entry->errorMessage, "Path formatting failed", sizeof(entry->errorMessage));
+        SDL_UnlockMutex(g_ModelManager.lock);
+        return 1;
+    }
     utilsResolvePath(partPath, sizeof(partPath), relPartPath);
 
     // Check if partial file exists for resume support
     int64_t resumeOffset = 0;
     SDL_PathInfo pathInfo;
     if (SDL_GetPathInfo(partPath, &pathInfo)) {
-        resumeOffset = pathInfo.size;
+        resumeOffset = (pathInfo.size <= (Uint64)INT64_MAX) ? (int64_t)pathInfo.size : 0;
     }
 
     FILE *file = fopen(partPath, resumeOffset > 0 ? "ab" : "wb");
@@ -396,7 +415,7 @@ static int SDLCALL downloadThreadFunc(void *data) {
 
     CURL *curl = curl_easy_init();
     if (!curl) {
-        fclose(file);
+        (void)fclose(file);
         SDL_LockMutex(g_ModelManager.lock);
         entry->state = MODEL_STATE_DOWNLOAD_ERROR;
         SDL_strlcpy(entry->errorMessage, "Failed to initialize libcurl", sizeof(entry->errorMessage));
@@ -406,8 +425,19 @@ static int SDLCALL downloadThreadFunc(void *data) {
         return -1;
     }
 
-    char url[512];
-    snprintf(url, sizeof(url), "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/%s", filename);
+    char url[sizeof(MODEL_BASE_URL) + sizeof(filename)];
+    int resUrl = snprintf(url, sizeof(url), "%s%s", MODEL_BASE_URL, filename);
+    if (resUrl < 0) {
+        (void)fclose(file);
+        curl_easy_cleanup(curl);
+        SDL_LockMutex(g_ModelManager.lock);
+        entry->state = MODEL_STATE_DOWNLOAD_ERROR;
+        SDL_strlcpy(entry->errorMessage, "URL formatting failed", sizeof(entry->errorMessage));
+        SDL_UnlockMutex(g_ModelManager.lock);
+
+        SDL_SetAtomicInt(&g_DownloadFinished, 1);
+        return -1;
+    }
 
     DownloadProgressData progressData = {.index = index, .resumeOffset = resumeOffset};
 
@@ -430,13 +460,13 @@ static int SDLCALL downloadThreadFunc(void *data) {
     }
 
     CURLcode res = curl_easy_perform(curl);
-    fclose(file);
+    bool closeOk = (fclose(file) == 0);
     curl_easy_cleanup(curl);
 
     SDL_LockMutex(g_ModelManager.lock);
     bool cancelled = (SDL_GetAtomicInt(&g_DownloadCancelFlag) == 1);
 
-    if (res == CURLE_OK && !cancelled) {
+    if (res == CURLE_OK && closeOk && !cancelled) {
         entry->state = MODEL_STATE_VERIFYING;
 
         char expectedSha[65];
@@ -456,25 +486,32 @@ static int SDLCALL downloadThreadFunc(void *data) {
         } else if (expectedSha[0] != '\0' && strcmp(computedSha, expectedSha) != 0) {
             SDL_LockMutex(g_ModelManager.lock);
             entry->state = MODEL_STATE_DOWNLOAD_ERROR;
-            snprintf(entry->errorMessage, sizeof(entry->errorMessage), "Integrity mismatch! Expected: %s, got: %s", expectedSha, computedSha);
+            (void)snprintf(entry->errorMessage, sizeof(entry->errorMessage), "Integrity mismatch! Expected: %s, got: %s", expectedSha, computedSha);
             SDL_UnlockMutex(g_ModelManager.lock);
             SDL_RemovePath(partPath);
         } else {
-            char binPath[512];
             char relBinPath[256];
-            snprintf(relBinPath, sizeof(relBinPath), "models/%s", filename);
-            utilsResolvePath(binPath, sizeof(binPath), relBinPath);
-            SDL_RemovePath(binPath);
+            int resBin = snprintf(relBinPath, sizeof(relBinPath), "models/%s", filename);
+            if (resBin >= 0 && (size_t)resBin < sizeof(relBinPath)) {
+                char binPath[512];
+                utilsResolvePath(binPath, sizeof(binPath), relBinPath);
+                SDL_RemovePath(binPath);
 
-            if (SDL_RenamePath(partPath, binPath)) {
-                SDL_LockMutex(g_ModelManager.lock);
-                entry->state = MODEL_STATE_DOWNLOADED;
-                SDL_SetAtomicInt(&entry->progressPercent, 100);
-                SDL_UnlockMutex(g_ModelManager.lock);
+                if (SDL_RenamePath(partPath, binPath)) {
+                    SDL_LockMutex(g_ModelManager.lock);
+                    entry->state = MODEL_STATE_DOWNLOADED;
+                    SDL_SetAtomicInt(&entry->progressPercent, 100);
+                    SDL_UnlockMutex(g_ModelManager.lock);
+                } else {
+                    SDL_LockMutex(g_ModelManager.lock);
+                    entry->state = MODEL_STATE_DOWNLOAD_ERROR;
+                    SDL_strlcpy(entry->errorMessage, "Failed to promote temp file to destination", sizeof(entry->errorMessage));
+                    SDL_UnlockMutex(g_ModelManager.lock);
+                }
             } else {
                 SDL_LockMutex(g_ModelManager.lock);
                 entry->state = MODEL_STATE_DOWNLOAD_ERROR;
-                SDL_strlcpy(entry->errorMessage, "Failed to promote temp file to destination", sizeof(entry->errorMessage));
+                SDL_strlcpy(entry->errorMessage, "Destination path formatting failed", sizeof(entry->errorMessage));
                 SDL_UnlockMutex(g_ModelManager.lock);
             }
         }
@@ -484,7 +521,7 @@ static int SDLCALL downloadThreadFunc(void *data) {
             entry->state = MODEL_STATE_NOT_DOWNLOADED;
         } else {
             entry->state = MODEL_STATE_DOWNLOAD_ERROR;
-            snprintf(entry->errorMessage, sizeof(entry->errorMessage), "Curl failed: %s", curl_easy_strerror(res));
+            (void)snprintf(entry->errorMessage, sizeof(entry->errorMessage), "Curl failed: %s", curl_easy_strerror(res));
         }
         SDL_UnlockMutex(g_ModelManager.lock);
     }
@@ -531,7 +568,7 @@ bool modelManagerStartDownload(int index) {
     entry->errorMessage[0] = '\0';
     SDL_UnlockMutex(g_ModelManager.lock);
 
-    g_DownloadThread = SDL_CreateThread(downloadThreadFunc, "ModelDownload", (void *)(uintptr_t)index);
+    g_DownloadThread = SDL_CreateThread(downloadThreadFunc, "ModelDownload", (void *)(uintptr_t)index); // NOLINT(performance-no-int-to-ptr)
     if (!g_DownloadThread) {
         g_ActiveDownloadIndex = -1;
         SDL_LockMutex(g_ModelManager.lock);
@@ -562,11 +599,16 @@ bool modelManagerDeleteModel(int index, const char *activeModelFilename) {
         return false; // Active model protection
     }
 
-    char fullPath[512];
     char relFullPath[256];
-    snprintf(relFullPath, sizeof(relFullPath), "models/%s", entry->filename);
-    utilsResolvePath(fullPath, sizeof(fullPath), relFullPath);
-    SDL_RemovePath(fullPath);
+    int resDel = snprintf(relFullPath, sizeof(relFullPath), "models/%s", entry->filename);
+    if (resDel >= 0 && (size_t)resDel < sizeof(relFullPath)) {
+        char fullPath[512];
+        utilsResolvePath(fullPath, sizeof(fullPath), relFullPath);
+        SDL_RemovePath(fullPath);
+    } else {
+        SDL_UnlockMutex(g_ModelManager.lock);
+        return false;
+    }
 
     entry->state = MODEL_STATE_NOT_DOWNLOADED;
     SDL_SetAtomicInt(&entry->progressPercent, 0);

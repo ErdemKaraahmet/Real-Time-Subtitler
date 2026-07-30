@@ -20,6 +20,7 @@ typedef struct {
     float base_alpha;
     char modelPath[512];
     bool use_gpu;
+    int cpu_threads;
 } AppConfig;
 
 AppConfig loadDefaultConfig(void);

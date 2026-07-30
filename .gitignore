@@ -62,5 +62,24 @@ models/*.bin
 models/*.part
 bench/*.csv
 .vscode/
+fonts/*
+!fonts/cascadia.mono.ttf
+!fonts/Roboto_Condensed-Black.ttf
 imgui.ini
 
+# CMake generated files
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+CMakeConfigureLog.yaml
+Makefile
+compile_commands.json
+generated/
+
+# OS and Editor files
+.DS_Store
+Thumbs.db
+.idea/
+*.swp
+*.swo
+*.log

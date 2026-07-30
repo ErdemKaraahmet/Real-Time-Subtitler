@@ -11,3 +11,4 @@ AlignConsecutiveAssignments: false
 AlignConsecutiveDeclarations: false
 IncludeBlocks: Preserve
 SortIncludes: false
+InsertNewlineAtEOF: true

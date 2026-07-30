@@ -16,10 +16,6 @@ SubtitleToken tokens[1024];
 static FILE *benchFile = NULL;
 #endif
 
-void quiet_log_callback(enum ggml_log_level level, const char *text, void *user_data) {
-    // Leave this completely empty to discard all logs
-}
-
 // Initialize
 bool whisperInit(const char *modelPath, bool *use_gpu) {
     char fullPath[512];
@@ -50,9 +46,6 @@ bool whisperInit(const char *modelPath, bool *use_gpu) {
         cparams.use_gpu = false;
         ctx = whisper_init_from_file_with_params(fullPath, cparams);
     }
-
-    // Now silence whisper's internal logging for runtime
-    whisper_log_set(quiet_log_callback, NULL);
 
     if (ctx != NULL) {
         SDL_Log("Whisper context created successfully (GPU: %s)", cparams.use_gpu ? "yes" : "no");
@@ -143,7 +136,7 @@ bool whisperProcess(float *pcmf32, int n_samples, char *outputText, int outputLe
 
 #ifdef RTS_BENCH
     if (benchFile && n_segments > 0) {
-        double inference_ms = (double)(SDL_GetPerformanceCounter() - t0) / SDL_GetPerformanceFrequency() * 1000.0;
+        double inference_ms = (double)(SDL_GetPerformanceCounter() - t0) / (double)SDL_GetPerformanceFrequency() * 1000.0;
         float prob_sum = 0.0f;
         int token_count = 0;
         for (int i = 0; i < n_segments; ++i) {
@@ -156,7 +149,7 @@ bool whisperProcess(float *pcmf32, int n_samples, char *outputText, int outputLe
                 }
             }
         }
-        float avg_prob = token_count > 0 ? prob_sum / token_count : 0.0f;
+        float avg_prob = token_count > 0 ? prob_sum / (float)token_count : 0.0f;
         fprintf(benchFile, "%.2f,%.4f,%d\n", inference_ms, avg_prob, token_count);
         fflush(benchFile);
     }

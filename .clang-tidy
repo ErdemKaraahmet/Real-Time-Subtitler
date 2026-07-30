@@ -6,7 +6,7 @@ Checks: '
   performance-*,
   portability-*,
   -bugprone-easily-swappable-parameters,
-  -clang-analyzer-security.insecureAPI.strcpy
+  -clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling
 '
 HeaderFilterRegex: '^(src|include)/.*'
 WarningsAsErrors: '*'
