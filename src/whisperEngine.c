@@ -1,9 +1,9 @@
 #include "whisperEngine.h"
-#include "whisper.h"
 #include "utils.h"
+#include "whisper.h"
+#include <SDL3/SDL.h>
 #include <stdio.h>
 #include <string.h>
-#include <SDL3/SDL.h>
 
 static struct whisper_context *ctx = NULL;
 
@@ -57,7 +57,8 @@ bool whisperInit(const char *modelPath, bool *use_gpu) {
 }
 
 // Returns true if there is new text
-bool whisperProcess(float *pcmf32, int n_samples, char *outputText, size_t outputLength, int n_threads) {
+bool whisperProcess(float *pcmf32, int n_samples, char *outputText, size_t outputLength, int n_threads, SubtitleToken *outputTokens,
+                    int *outputTokenNums) {
     if (!ctx)
         return false;
 
@@ -81,39 +82,83 @@ bool whisperProcess(float *pcmf32, int n_samples, char *outputText, size_t outpu
         return false;
     }
 
+    if (outputTokenNums) {
+        *outputTokenNums = 0;
+    }
+
     const int n_segments = whisper_full_n_segments(ctx);
+    int token_count = 0;
+    const whisper_token eot_token = whisper_token_eot(ctx);
+
     for (int i = 0; i < n_segments; ++i) {
         const char *text = whisper_full_get_segment_text(ctx, i);
-        if (!text)
-            break;
-        const size_t text_len = strlen(text);
-        if (text_len > 0) {
-            const size_t current_len = strlen(outputText);
-            if (outputLength > 1 && current_len < outputLength - 1) {
-                const size_t max_copy = outputLength - 1 - current_len;
-                strncat(outputText, text, max_copy);
+        if (text && strlen(text) > 0) {
+            SDL_strlcat(outputText, text, outputLength);
+
+            char tokenLogBuffer[4096] = {0};
+            size_t logLen = 0;
+
+            const int n_tokens = whisper_full_n_tokens(ctx, i);
+            for (int j = 0; j < n_tokens; ++j) {
+                const whisper_token token_id = whisper_full_get_token_id(ctx, i, j);
+                if (token_id >= eot_token) {
+                    break;
+                }
+
+                const char *tokenText = whisper_full_get_token_text(ctx, i, j);
+                if (tokenText == NULL || tokenText[0] == '\0' || strcmp(tokenText, "<|endoftext|>") == 0 || strcmp(tokenText, "[_EOT_]") == 0) {
+                    break;
+                }
+
+                float tokenProbability = whisper_full_get_token_data(ctx, i, j).p;
+
+                if (outputTokens && token_count < 1024) {
+                    SDL_strlcpy(outputTokens[token_count].text, tokenText, sizeof(outputTokens[token_count].text));
+                    outputTokens[token_count].probability = tokenProbability;
+                    token_count++;
+                }
+
+                const char *colorCode = "\033[32m"; // Green (high conf >= 0.8)
+                if (tokenProbability < 0.50f) {
+                    colorCode = "\033[31m"; // Red (low conf < 0.5)
+                } else if (tokenProbability < 0.80f) {
+                    colorCode = "\033[33m"; // Yellow (med conf 0.5..0.8)
+                }
+
+                int written = snprintf(tokenLogBuffer + logLen, sizeof(tokenLogBuffer) - logLen, "%s%s", colorCode, tokenText);
+                if (written > 0 && logLen + (size_t)written < sizeof(tokenLogBuffer)) {
+                    logLen += (size_t)written;
+                }
             }
-            printf("%s", text);
+
+            if (logLen > 0) {
+                SDL_strlcat(tokenLogBuffer, "\033[0m", sizeof(tokenLogBuffer));
+                SDL_Log("%s", tokenLogBuffer);
+            }
         }
+    }
+
+    if (outputTokenNums) {
+        *outputTokenNums = token_count;
     }
 
 #ifdef RTS_BENCH
     if (benchFile && n_segments > 0) {
         double inference_ms = (double)(SDL_GetPerformanceCounter() - t0) / (double)SDL_GetPerformanceFrequency() * 1000.0;
         float prob_sum = 0.0f;
-        int token_count = 0;
+        int token_count_bench = 0;
         for (int i = 0; i < n_segments; ++i) {
             int n_tok = whisper_full_n_tokens(ctx, i);
             for (int t = 0; t < n_tok; ++t) {
                 // Skip special tokens (>= EOT)
-                if (whisper_full_get_token_id(ctx, i, t) < whisper_token_eot(ctx)) {
+                if (whisper_full_get_token_id(ctx, i, t) < eot_token) {
                     prob_sum += whisper_full_get_token_p(ctx, i, t);
-                    token_count++;
+                    token_count_bench++;
                 }
             }
         }
-        float avg_prob = token_count > 0 ? prob_sum / (float)token_count : 0.0f;
-        fprintf(benchFile, "%.2f,%.4f,%d\n", inference_ms, avg_prob, token_count);
+        float avg_prob = token_count_bench > 0 ? prob_sum / (float)token_count_bench : 0.0f;
+        fprintf(benchFile, "%.2f,%.4f,%d\n", inference_ms, avg_prob, token_count_bench);
         fflush(benchFile);
     }
 #endif

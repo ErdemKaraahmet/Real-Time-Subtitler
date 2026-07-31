@@ -5,7 +5,6 @@
 #include <SDL3_ttf/SDL_ttf.h>
 #include <stdio.h>
 #include <string.h>
-#include <stdlib.h>
 #include <stdarg.h>
 #include "textTexture.h"
 #include "modelManager.h"
@@ -16,6 +15,8 @@
 #ifndef IM_COL32
 #define IM_COL32(R, G, B, A) (((ImU32)(A) << 24) | ((ImU32)(B) << 16) | ((ImU32)(G) << 8) | ((ImU32)(R) << 0))
 #endif
+
+#define displayModeNums 2
 
 // External getter for pause state from main.c
 extern bool isAppPaused(void);
@@ -32,7 +33,7 @@ static const float UI_PADDING = 12.0f;
 static const float UI_SPACING = 8.0f;
 static const float UI_BUTTON_WIDTH = 120.0f;
 static const float UI_PREVIEW_BOX_WIDTH = 556.0f; // 580 - 24
-static const float UI_PREVIEW_BOX_HEIGHT = 100.0f;
+static const float UI_PREVIEW_BOX_HEIGHT = 70.0f;
 static const float UI_WINDOW_HEIGHT = 450.0f;
 
 static int g_DeleteTargetIndex = -1;
@@ -234,6 +235,14 @@ void handleControlPanelEvent(const SDL_Event *event) {
 }
 
 static void updatePreviewTexture(void) {
+    SubtitleToken sample[3];
+    strcpy(sample[0].text, "Sample");
+    strcpy(sample[1].text, " Text");
+    strcpy(sample[2].text, " Preview");
+    sample[0].probability = 0.9f;
+    sample[1].probability = 0.7f;
+    sample[2].probability = 0.1f;
+
     if (previewTexture) {
         SDL_DestroyTexture(previewTexture);
         previewTexture = NULL;
@@ -253,7 +262,7 @@ static void updatePreviewTexture(void) {
     }
 
     // Render preview texture
-    previewTexture = createTextTexture(cpRenderer, font, "Sample Text Preview", &uiConfig, &previewWidth, &previewHeight);
+    previewTexture = createTextTexture(cpRenderer, font, sample, 3, &uiConfig, &previewWidth, &previewHeight);
     TTF_CloseFont(font);
 }
 
@@ -417,6 +426,20 @@ static void renderViewPage(void) {
         uiConfig.text_outline_color.g = (uint8_t)(outlineColor[1] * 255.0f);
         uiConfig.text_outline_color.b = (uint8_t)(outlineColor[2] * 255.0f);
         previewNeedsUpdate = true;
+    }
+
+    int displayModeSelection = uiConfig.display_mode;
+    const char *displayModeNames[displayModeNums] = {"Plain Text", "Confidence-Based Opacity"};
+
+    if (igBeginCombo("Display Mode", displayModeNames[displayModeSelection], 0)) {
+        for (int i = 0; i < displayModeNums; ++i) {
+            if (igSelectable_Bool(displayModeNames[i], (i == displayModeSelection), 0, (ImVec2_c){0, 0})) {
+                displayModeSelection = i;
+                uiConfig.display_mode = i;
+                previewNeedsUpdate = true;
+            }
+        }
+        igEndCombo();
     }
 
     igSpacing();
@@ -857,7 +880,8 @@ ControlPanelStatus updateAndRenderControlPanel(SDL_Renderer *overlayRenderer) {
         uiConfig.text_color.g != savedConfig.text_color.g || uiConfig.text_color.b != savedConfig.text_color.b ||
         uiConfig.text_outline_color.r != savedConfig.text_outline_color.r || uiConfig.text_outline_color.g != savedConfig.text_outline_color.g ||
         uiConfig.text_outline_color.b != savedConfig.text_outline_color.b || strcmp(uiConfig.modelPath, savedConfig.modelPath) != 0 ||
-        uiConfig.use_gpu != savedConfig.use_gpu || uiConfig.cpu_threads != savedConfig.cpu_threads) {
+        uiConfig.use_gpu != savedConfig.use_gpu || uiConfig.cpu_threads != savedConfig.cpu_threads ||
+        uiConfig.display_mode != savedConfig.display_mode) {
         isDirty = true;
     }
 

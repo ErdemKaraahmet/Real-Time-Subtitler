@@ -4,7 +4,6 @@
 #include "cJSON.h"
 #include <stdio.h>
 #include <string.h>
-#include <stdlib.h>
 
 typedef struct {
     char firstModel[256];
@@ -107,6 +106,11 @@ ConfigLoadStatus loadConfig(AppConfig *conf) {
         conf->outline_thickness = item->valueint;
     }
 
+    item = cJSON_GetObjectItemCaseSensitive(root, "display_mode");
+    if (cJSON_IsNumber(item)) {
+        conf->display_mode = item->valueint;
+    }
+
     item = cJSON_GetObjectItemCaseSensitive(root, "text_color");
     if (cJSON_IsObject(item)) {
         conf->text_color = parseColorObject(item, conf->text_color);
@@ -147,6 +151,7 @@ bool saveConfig(const AppConfig *conf) {
     cJSON_AddStringToObject(root, "font", conf->font);
     cJSON_AddNumberToObject(root, "font_size", conf->font_size);
     cJSON_AddNumberToObject(root, "outline_thickness", conf->outline_thickness);
+    cJSON_AddNumberToObject(root, "display_mode", conf->display_mode);
     cJSON_AddItemToObject(root, "text_color", colorToJson(conf->text_color));
     cJSON_AddItemToObject(root, "text_outline_color", colorToJson(conf->text_outline_color));
     cJSON_AddStringToObject(root, "modelPath", conf->modelPath);
@@ -176,6 +181,7 @@ AppConfig loadDefaultConfig(void) {
         .font = "fonts/cascadia.mono.ttf",
         .font_size = 24,
         .outline_thickness = 4,
+        .display_mode = 0,
         .text_color = {255, 255, 255, 255},
         .text_outline_color = {0, 0, 0, 255},
         .use_gpu = true,

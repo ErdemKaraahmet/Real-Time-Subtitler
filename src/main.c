@@ -1,8 +1,6 @@
 #include <SDL3/SDL.h>
 #include <SDL3_ttf/SDL_ttf.h>
-#include <stdio.h>
 #include <string.h>
-#include <stdlib.h>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -32,6 +30,9 @@ static SDL_Mutex *textMutex;
 static SDL_Texture *texture = NULL;   // promoted so pause handler can clear it
 static Uint64 lastTextUpdateTime = 0; // timestamp of the last whisper text update (ms)
 static bool done = false;
+
+static SubtitleToken outputTokens[1024];
+static int tokenNum;
 
 int whisperThread(void *data);
 
@@ -139,7 +140,9 @@ int main(void) {
                 SDL_DestroyTexture(texture);
             if (!strcmp(subtitleText, " [BLANK_AUDIO]"))
                 subtitleText[0] = '\0'; // whisper outputs " [BLANK_AUDIO]" on empty audio, to not print it exactly
-            texture = createTextTexture(renderer, font, subtitleText, config, &text_width, &text_height);
+            texture = createTextTexture(renderer, font, outputTokens, tokenNum, config, &text_width, &text_height);
+
+            SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
 
             // Resize the window to fit snugly to the text
             if (texture != NULL) {
@@ -330,7 +333,7 @@ int whisperThread(void *data) {
         if (chunkReady && !paused) {
             SDL_LockMutex(textMutex);
             subtitleText[0] = '\0';
-            whisperProcess(audioChunk, SAMPLE_SIZE, subtitleText, sizeof(subtitleText), config->cpu_threads);
+            whisperProcess(audioChunk, SAMPLE_SIZE, subtitleText, sizeof(subtitleText), config->cpu_threads, outputTokens, &tokenNum);
             textUpdated = true;
             SDL_UnlockMutex(textMutex);
             chunkReady = false;
