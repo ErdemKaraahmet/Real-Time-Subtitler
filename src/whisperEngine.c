@@ -1,16 +1,11 @@
 #include "whisperEngine.h"
-#include "whisper.h"
 #include "utils.h"
+#include "whisper.h"
+#include <SDL3/SDL.h>
 #include <stdio.h>
 #include <string.h>
-#include <SDL3/SDL.h>
 
 static struct whisper_context *ctx = NULL;
-SubtitleToken tokens[1024];
-
-#ifdef TEST
-    printf("TESTING\n");
-#endif
 
 #ifdef RTS_BENCH
 static FILE *benchFile = NULL;
@@ -62,21 +57,22 @@ bool whisperInit(const char *modelPath, bool *use_gpu) {
 }
 
 // Returns true if there is new text
-bool whisperProcess(float *pcmf32, int n_samples, char *outputText, int outputLength, SubtitleToken* outputTokens, int *outputTokenNums) {
+bool whisperProcess(float *pcmf32, int n_samples, char *outputText, size_t outputLength, int n_threads, SubtitleToken *outputTokens,
+                    int *outputTokenNums) {
     if (!ctx)
         return false;
 
     struct whisper_full_params wparams = whisper_full_default_params(WHISPER_SAMPLING_GREEDY);
     wparams.print_progress = false;
-    wparams.language = "auto";
-    wparams.n_threads = SDL_GetNumLogicalCPUCores() / 2; // Limit threads to avoid hyperthreading
-    wparams.no_timestamps = true;                        // Reduces decode overhead
-    wparams.single_segment = true;                       // Force single segment
-    wparams.no_context = true;                           // Prevent using past chunks as context to avoid repetition loops
-    wparams.temperature_inc = 0.5f;                      // Amount the temperature increases each time it retries, 1 is max so 0.5 is two retries
-    wparams.audio_ctx =
-        384; // Crop audio context window to size of 2s chunks plus safety padding, whisper is trained on 30s chunks which is 1500 frames
-    wparams.max_tokens = 32; // Cap maximum tokens generated per chunk to stop hallucinations
+    wparams.language = "en";
+    wparams.n_threads = n_threads > 0 ? n_threads : 1;
+    wparams.no_timestamps = true;   // Reduces decode overhead
+    wparams.single_segment = true;  // Force single segment
+    wparams.no_context = true;      // Prevent using past chunks as context to avoid repetition loops
+    wparams.temperature_inc = 0.5f; // Amount the temperature increases each time it retries, 1 is max so 0.5 is two retries
+    wparams.audio_ctx = 384;        // Crop audio context window to size of 2s chunks plus safety padding, whisper is
+                                    // trained on 30s chunks which is 1500 frames
+    wparams.max_tokens = 32;        // Cap maximum tokens generated per chunk to stop hallucinations
 
 #ifdef RTS_BENCH
     Uint64 t0 = SDL_GetPerformanceCounter();
@@ -86,79 +82,87 @@ bool whisperProcess(float *pcmf32, int n_samples, char *outputText, int outputLe
         return false;
     }
 
-    *outputTokenNums = 0;
+    if (outputTokenNums) {
+        *outputTokenNums = 0;
+    }
+
     const int n_segments = whisper_full_n_segments(ctx);
+    int token_count = 0;
+    const whisper_token eot_token = whisper_token_eot(ctx);
+
     for (int i = 0; i < n_segments; ++i) {
         const char *text = whisper_full_get_segment_text(ctx, i);
-        const int n_tokens = whisper_full_n_tokens(ctx,i);
-        strncat(outputText, text, outputLength);
-        // if (text && strlen(text) > 0) {
-        //     printf("%s", text);
-        // }
-        // printf("\n");
-        if(text && strlen(text) > 0)
-        {
-            int token_count = 0;
-            // #ifdef TEST
-                SDL_Log("this sig:%s\n",text);
-                SDL_Log("token num:%d\n",n_tokens);
-            // #endif
-            for(int j = 0;j < n_tokens; ++j)
-            {
-                const char* tokenText = whisper_full_get_token_text(ctx,i,j);
-                float tokenProbablity = whisper_full_get_token_data(ctx,i,j).p;
-                if(strcmp(tokenText,"<|endoftext|>") == 0)break;
+        if (text && strlen(text) > 0) {
+            SDL_strlcat(outputText, text, outputLength);
 
-                if(token_count < 1024)
-                {
-                    strncpy(outputTokens[token_count].text,tokenText,sizeof(outputTokens[token_count].text) - 1);
-                    outputTokens[token_count].text[sizeof(outputTokens[token_count].text) - 1] = '\0';
-                    outputTokens[token_count].probability = tokenProbablity;
-                    token_count ++;
+            char tokenLogBuffer[4096] = {0};
+            size_t logLen = 0;
+
+            const int n_tokens = whisper_full_n_tokens(ctx, i);
+            for (int j = 0; j < n_tokens; ++j) {
+                const whisper_token token_id = whisper_full_get_token_id(ctx, i, j);
+                if (token_id >= eot_token) {
+                    break;
                 }
-                // #ifdef TEST
-                    SDL_Log("%s,",tokenText);
-                    SDL_Log("%f ; ",tokenProbablity);
-                // #endif
-                // strncpy(tokens[j].text,tokenText,sizeof(tokenText) - 1);
-                // tokens[j].text[sizeof(tokens[j].text) - 1] = '\0';
-                // tokens[j].probability = tokenProbablity;
+
+                const char *tokenText = whisper_full_get_token_text(ctx, i, j);
+                if (tokenText == NULL || tokenText[0] == '\0' || strcmp(tokenText, "<|endoftext|>") == 0 || strcmp(tokenText, "[_EOT_]") == 0) {
+                    break;
+                }
+
+                float tokenProbability = whisper_full_get_token_data(ctx, i, j).p;
+
+                if (outputTokens && token_count < 1024) {
+                    SDL_strlcpy(outputTokens[token_count].text, tokenText, sizeof(outputTokens[token_count].text));
+                    outputTokens[token_count].probability = tokenProbability;
+                    token_count++;
+                }
+
+                const char *colorCode = "\033[32m"; // Green (high conf >= 0.8)
+                if (tokenProbability < 0.50f) {
+                    colorCode = "\033[31m"; // Red (low conf < 0.5)
+                } else if (tokenProbability < 0.80f) {
+                    colorCode = "\033[33m"; // Yellow (med conf 0.5..0.8)
+                }
+
+                int written = snprintf(tokenLogBuffer + logLen, sizeof(tokenLogBuffer) - logLen, "%s%s", colorCode, tokenText);
+                if (written > 0 && logLen + (size_t)written < sizeof(tokenLogBuffer)) {
+                    logLen += (size_t)written;
+                }
             }
-            // #ifdef TEST
-                SDL_Log("\n");
-            // #endif
-            if(outputTokenNums)
-            {
-                *outputTokenNums = token_count;
+
+            if (logLen > 0) {
+                SDL_strlcat(tokenLogBuffer, "\033[0m", sizeof(tokenLogBuffer));
+                SDL_Log("%s", tokenLogBuffer);
             }
         }
+    }
+
+    if (outputTokenNums) {
+        *outputTokenNums = token_count;
     }
 
 #ifdef RTS_BENCH
     if (benchFile && n_segments > 0) {
         double inference_ms = (double)(SDL_GetPerformanceCounter() - t0) / (double)SDL_GetPerformanceFrequency() * 1000.0;
         float prob_sum = 0.0f;
-        int token_count = 0;
+        int token_count_bench = 0;
         for (int i = 0; i < n_segments; ++i) {
             int n_tok = whisper_full_n_tokens(ctx, i);
             for (int t = 0; t < n_tok; ++t) {
                 // Skip special tokens (>= EOT)
-                if (whisper_full_get_token_id(ctx, i, t) < whisper_token_eot(ctx)) {
+                if (whisper_full_get_token_id(ctx, i, t) < eot_token) {
                     prob_sum += whisper_full_get_token_p(ctx, i, t);
-                    token_count++;
+                    token_count_bench++;
                 }
             }
         }
-        float avg_prob = token_count > 0 ? prob_sum / (float)token_count : 0.0f;
-        fprintf(benchFile, "%.2f,%.4f,%d\n", inference_ms, avg_prob, token_count);
+        float avg_prob = token_count_bench > 0 ? prob_sum / (float)token_count_bench : 0.0f;
+        fprintf(benchFile, "%.2f,%.4f,%d\n", inference_ms, avg_prob, token_count_bench);
         fflush(benchFile);
     }
 #endif
 
-#ifdef TEST    
-    typedef struct SubtitleToken test_txt[16];
-#endif
-    
     return true;
 }
 

@@ -1,8 +1,6 @@
 #include <SDL3/SDL.h>
 #include <SDL3_ttf/SDL_ttf.h>
-#include <stdio.h>
 #include <string.h>
-#include <stdlib.h>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -33,8 +31,8 @@ static SDL_Texture *texture = NULL;   // promoted so pause handler can clear it
 static Uint64 lastTextUpdateTime = 0; // timestamp of the last whisper text update (ms)
 static bool done = false;
 
-SubtitleToken outputTokens[1024];
-int tokenNum;
+static SubtitleToken outputTokens[1024];
+static int tokenNum;
 
 int whisperThread(void *data);
 
@@ -335,7 +333,7 @@ int whisperThread(void *data) {
         if (chunkReady && !paused) {
             SDL_LockMutex(textMutex);
             subtitleText[0] = '\0';
-            whisperProcess(audioChunk, SAMPLE_SIZE, subtitleText, sizeof(subtitleText), outputTokens, &tokenNum);
+            whisperProcess(audioChunk, SAMPLE_SIZE, subtitleText, sizeof(subtitleText), config->cpu_threads, outputTokens, &tokenNum);
             textUpdated = true;
             SDL_UnlockMutex(textMutex);
             chunkReady = false;

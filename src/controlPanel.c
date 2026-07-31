@@ -5,7 +5,6 @@
 #include <SDL3_ttf/SDL_ttf.h>
 #include <stdio.h>
 #include <string.h>
-#include <stdlib.h>
 #include <stdarg.h>
 #include "textTexture.h"
 #include "modelManager.h"
@@ -17,7 +16,7 @@
 #define IM_COL32(R, G, B, A) (((ImU32)(A) << 24) | ((ImU32)(B) << 16) | ((ImU32)(G) << 8) | ((ImU32)(R) << 0))
 #endif
 
-#define modeNums 3
+#define displayModeNums 2
 
 // External getter for pause state from main.c
 extern bool isAppPaused(void);
@@ -237,12 +236,12 @@ void handleControlPanelEvent(const SDL_Event *event) {
 
 static void updatePreviewTexture(void) {
     SubtitleToken sample[3];
-    strcpy(sample[0].text,"Sample");
-    strcpy(sample[1].text," Text");
-    strcpy(sample[2].text," Preview");
-    sample[0].probability = 0.9;
-    sample[1].probability = 0.7;
-    sample[2].probability = 0.1;
+    strcpy(sample[0].text, "Sample");
+    strcpy(sample[1].text, " Text");
+    strcpy(sample[2].text, " Preview");
+    sample[0].probability = 0.9f;
+    sample[1].probability = 0.7f;
+    sample[2].probability = 0.1f;
 
     if (previewTexture) {
         SDL_DestroyTexture(previewTexture);
@@ -412,11 +411,11 @@ static void renderViewPage(void) {
     }
 
     // Color Picking
-    float textColor[3] = {(float)uiConfig.normal_text_color.r / 255.0f, (float)uiConfig.normal_text_color.g / 255.0f, (float)uiConfig.normal_text_color.b / 255.0f};
+    float textColor[3] = {(float)uiConfig.text_color.r / 255.0f, (float)uiConfig.text_color.g / 255.0f, (float)uiConfig.text_color.b / 255.0f};
     if (igColorEdit3("Text Color", textColor, 0)) {
-        uiConfig.normal_text_color.r = (uint8_t)(textColor[0] * 255.0f);
-        uiConfig.normal_text_color.g = (uint8_t)(textColor[1] * 255.0f);
-        uiConfig.normal_text_color.b = (uint8_t)(textColor[2] * 255.0f);
+        uiConfig.text_color.r = (uint8_t)(textColor[0] * 255.0f);
+        uiConfig.text_color.g = (uint8_t)(textColor[1] * 255.0f);
+        uiConfig.text_color.b = (uint8_t)(textColor[2] * 255.0f);
         previewNeedsUpdate = true;
     }
 
@@ -429,23 +428,18 @@ static void renderViewPage(void) {
         previewNeedsUpdate = true;
     }
 
-    //Display Mod Selecting
-    static int displayModeSelection = 0;
-    const char *modeNames[modeNums] = { "Plain Text", "Confidence Colors", "Confidence Opacity" };
+    int displayModeSelection = uiConfig.display_mode;
+    const char *displayModeNames[displayModeNums] = {"Plain Text", "Confidence-Based Opacity"};
 
-    if(igBeginCombo("Display Model",modeNames[displayModeSelection],0))
-    {
-        for(int i = 0;i < modeNums;++ i)
-        {
-            if(igSelectable_Bool(modeNames[i], (i == displayModeSelection), 0, (ImVec2_c){0,0}))
-            {
+    if (igBeginCombo("Display Mode", displayModeNames[displayModeSelection], 0)) {
+        for (int i = 0; i < displayModeNums; ++i) {
+            if (igSelectable_Bool(displayModeNames[i], (i == displayModeSelection), 0, (ImVec2_c){0, 0})) {
                 displayModeSelection = i;
                 uiConfig.display_mode = i;
                 previewNeedsUpdate = true;
             }
         }
         igEndCombo();
-            // printf("mode:%d",uiConfig.display_mode);
     }
 
     igSpacing();
@@ -882,11 +876,12 @@ ControlPanelStatus updateAndRenderControlPanel(SDL_Renderer *overlayRenderer) {
     // Check dirty state
     bool isDirty = whisperStatusError;
     if (strcmp(uiConfig.font, savedConfig.font) != 0 || uiConfig.font_size != savedConfig.font_size ||
-        uiConfig.outline_thickness != savedConfig.outline_thickness || uiConfig.normal_text_color.r != savedConfig.normal_text_color.r ||
-        uiConfig.normal_text_color.g != savedConfig.normal_text_color.g || uiConfig.normal_text_color.b != savedConfig.normal_text_color.b ||
+        uiConfig.outline_thickness != savedConfig.outline_thickness || uiConfig.text_color.r != savedConfig.text_color.r ||
+        uiConfig.text_color.g != savedConfig.text_color.g || uiConfig.text_color.b != savedConfig.text_color.b ||
         uiConfig.text_outline_color.r != savedConfig.text_outline_color.r || uiConfig.text_outline_color.g != savedConfig.text_outline_color.g ||
         uiConfig.text_outline_color.b != savedConfig.text_outline_color.b || strcmp(uiConfig.modelPath, savedConfig.modelPath) != 0 ||
-        uiConfig.use_gpu != savedConfig.use_gpu || uiConfig.display_mode != savedConfig.display_mode) {
+        uiConfig.use_gpu != savedConfig.use_gpu || uiConfig.cpu_threads != savedConfig.cpu_threads ||
+        uiConfig.display_mode != savedConfig.display_mode) {
         isDirty = true;
     }
 
