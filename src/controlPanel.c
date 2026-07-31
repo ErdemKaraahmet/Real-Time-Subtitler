@@ -352,6 +352,7 @@ static void renderHeaderAndSidebar(SDL_Renderer *overlayRenderer) {
     igSetColumnWidth(0, 130.0f); // Sidebar width
 
     // --- Column 0: Sidebar Navigation ---
+    igSetCursorPosY(igGetCursorPosY() + 1.0f);
     igPushStyleVar_Vec2(ImGuiStyleVar_SelectableTextAlign, (ImVec2_c){0.0f, 0.5f});
     if (igSelectable_Bool("View", cpActivePage == 0, 0, (ImVec2_c){0, 24.0f})) {
         cpActivePage = 0;
@@ -370,13 +371,18 @@ static void renderHeaderAndSidebar(SDL_Renderer *overlayRenderer) {
 }
 
 static void renderSystemPage(void) {
+    igAlignTextToFramePadding();
     igText("Version: %s", RTS_VERSION);
 }
 
 static void renderViewPage(void) {
     // Font Selection
     const char *fontDisplayName = getFilenameFromPath(uiConfig.font);
-    if (igBeginCombo("Font", fontDisplayName, 0)) {
+    igAlignTextToFramePadding();
+    igText("Font");
+    igSameLine(180.0f, 0.0f);
+    igSetNextItemWidth(-1.0f);
+    if (igBeginCombo("##Font", fontDisplayName, 0)) {
         if (scannedFontCount == 0) {
             igSelectable_Bool("No item found in folder##empty_font", false, ImGuiSelectableFlags_Disabled, (ImVec2_c){0, 0});
         } else {
@@ -398,21 +404,33 @@ static void renderViewPage(void) {
 
     // Font Size
     int tempFontSize = uiConfig.font_size;
-    if (igDragInt("Font Size", &tempFontSize, 1.0f, 8, 72, "%d", 0)) {
+    igAlignTextToFramePadding();
+    igText("Font Size");
+    igSameLine(180.0f, 0.0f);
+    igSetNextItemWidth(-1.0f);
+    if (igDragInt("##Font Size", &tempFontSize, 1.0f, 8, 72, "%d", 0)) {
         uiConfig.font_size = tempFontSize;
         previewNeedsUpdate = true;
     }
 
     // Outline Thickness
     int tempOutline = uiConfig.outline_thickness;
-    if (igDragInt("Outline Thickness", &tempOutline, 0.5f, 0, 20, "%d", 0)) {
+    igAlignTextToFramePadding();
+    igText("Outline Thickness");
+    igSameLine(180.0f, 0.0f);
+    igSetNextItemWidth(-1.0f);
+    if (igDragInt("##Outline Thickness", &tempOutline, 0.5f, 0, 20, "%d", 0)) {
         uiConfig.outline_thickness = tempOutline;
         previewNeedsUpdate = true;
     }
 
     // Color Picking
     float textColor[3] = {(float)uiConfig.text_color.r / 255.0f, (float)uiConfig.text_color.g / 255.0f, (float)uiConfig.text_color.b / 255.0f};
-    if (igColorEdit3("Text Color", textColor, 0)) {
+    igAlignTextToFramePadding();
+    igText("Text Color");
+    igSameLine(180.0f, 0.0f);
+    igSetNextItemWidth(-1.0f);
+    if (igColorEdit3("##Text Color", textColor, 0)) {
         uiConfig.text_color.r = (uint8_t)(textColor[0] * 255.0f);
         uiConfig.text_color.g = (uint8_t)(textColor[1] * 255.0f);
         uiConfig.text_color.b = (uint8_t)(textColor[2] * 255.0f);
@@ -421,7 +439,11 @@ static void renderViewPage(void) {
 
     float outlineColor[3] = {(float)uiConfig.text_outline_color.r / 255.0f, (float)uiConfig.text_outline_color.g / 255.0f,
                              (float)uiConfig.text_outline_color.b / 255.0f};
-    if (igColorEdit3("Outline Color", outlineColor, 0)) {
+    igAlignTextToFramePadding();
+    igText("Outline Color");
+    igSameLine(180.0f, 0.0f);
+    igSetNextItemWidth(-1.0f);
+    if (igColorEdit3("##Outline Color", outlineColor, 0)) {
         uiConfig.text_outline_color.r = (uint8_t)(outlineColor[0] * 255.0f);
         uiConfig.text_outline_color.g = (uint8_t)(outlineColor[1] * 255.0f);
         uiConfig.text_outline_color.b = (uint8_t)(outlineColor[2] * 255.0f);
@@ -431,7 +453,11 @@ static void renderViewPage(void) {
     int displayModeSelection = uiConfig.display_mode;
     const char *displayModeNames[displayModeNums] = {"Plain Text", "Confidence-Based Opacity"};
 
-    if (igBeginCombo("Display Mode", displayModeNames[displayModeSelection], 0)) {
+    igAlignTextToFramePadding();
+    igText("Display Mode");
+    igSameLine(180.0f, 0.0f);
+    igSetNextItemWidth(-1.0f);
+    if (igBeginCombo("##Display Mode", displayModeNames[displayModeSelection], 0)) {
         for (int i = 0; i < displayModeNums; ++i) {
             if (igSelectable_Bool(displayModeNames[i], (i == displayModeSelection), 0, (ImVec2_c){0, 0})) {
                 displayModeSelection = i;
@@ -543,7 +569,7 @@ static void renderTranscriptionPage(const char *activeModelFilename, bool *trigg
 
     igAlignTextToFramePadding();
     igText("Model");
-    igSameLine(0.0f, 8.0f);
+    igSameLine(180.0f, 0.0f);
 
     igSetNextItemWidth(-34.0f);
     if (igBeginCombo("##Model", comboLabel, 0)) {
@@ -679,27 +705,43 @@ static void renderTranscriptionPage(const char *activeModelFilename, bool *trigg
 
     SDL_UnlockMutex(mm->lock);
 
-    igSpacing();
-    // GPU Toggle
-    igCheckbox("Use GPU (Vulkan)", &uiConfig.use_gpu);
-
-    // CPU Thread Count (only relevant when running on CPU)
-    if (!uiConfig.use_gpu) {
-        int maxThreads = SDL_GetNumLogicalCPUCores();
-        if (maxThreads < 1) {
-            maxThreads = 1;
-        }
-        int tempThreads = uiConfig.cpu_threads;
-
-        igSetNextItemWidth(120.0f);
-        igPushStyleColor_Vec4(ImGuiCol_SliderGrab, (ImVec4_c){0.85f, 0.15f, 0.15f, 1.00f});
-        igPushStyleColor_Vec4(ImGuiCol_SliderGrabActive, (ImVec4_c){1.00f, 0.25f, 0.25f, 1.00f});
-        igPushStyleColor_Vec4(ImGuiCol_FrameBgActive, (ImVec4_c){0.30f, 0.05f, 0.05f, 1.00f});
-        if (igSliderInt("CPU Threads", &tempThreads, 1, maxThreads, "%d", 0)) {
-            uiConfig.cpu_threads = tempThreads;
-        }
-        igPopStyleColor(3);
+    // GPU Toggle & CPU Thread Count
+    bool hasGpu = whisperHasGpu();
+    if (!hasGpu) {
+        uiConfig.use_gpu = false;
     }
+
+    igBeginDisabled(!hasGpu);
+    igAlignTextToFramePadding();
+    igText("Use GPU (Vulkan)");
+    igSameLine(180.0f, 0.0f);
+    igCheckbox("##use_gpu", &uiConfig.use_gpu);
+    igEndDisabled();
+    if (!hasGpu && igIsItemHovered(0)) {
+        igSetTooltip("No compatible Vulkan GPU found on this system");
+    }
+
+    // CPU Thread Count (faded out when running on GPU)
+    int maxThreads = SDL_GetNumLogicalCPUCores();
+    if (maxThreads < 1) {
+        maxThreads = 1;
+    }
+    int tempThreads = uiConfig.cpu_threads;
+
+    igSameLine(230.0f, 0.0f);
+    igBeginDisabled(uiConfig.use_gpu);
+    igAlignTextToFramePadding();
+    igText("CPU Threads");
+    igSameLine(340.0f, 0.0f);
+    igSetNextItemWidth(-1.0f);
+    igPushStyleColor_Vec4(ImGuiCol_SliderGrab, (ImVec4_c){0.85f, 0.15f, 0.15f, 1.00f});
+    igPushStyleColor_Vec4(ImGuiCol_SliderGrabActive, (ImVec4_c){1.00f, 0.25f, 0.25f, 1.00f});
+    igPushStyleColor_Vec4(ImGuiCol_FrameBgActive, (ImVec4_c){0.30f, 0.05f, 0.05f, 1.00f});
+    if (igSliderInt("##cpu_threads", &tempThreads, 1, maxThreads, "%d", 0)) {
+        uiConfig.cpu_threads = tempThreads;
+    }
+    igPopStyleColor(3);
+    igEndDisabled();
 }
 
 static void renderFooter(ControlPanelStatus *status, bool isDirty) {

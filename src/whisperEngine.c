@@ -5,6 +5,18 @@
 #include <stdio.h>
 #include <string.h>
 
+#ifdef GGML_USE_VULKAN
+#include "ggml-vulkan.h"
+#endif
+
+bool whisperHasGpu(void) {
+#ifdef GGML_USE_VULKAN
+    return (ggml_backend_vk_get_device_count() > 0);
+#else
+    return false;
+#endif
+}
+
 static struct whisper_context *ctx = NULL;
 
 #ifdef RTS_BENCH
@@ -92,7 +104,7 @@ bool whisperProcess(float *pcmf32, int n_samples, char *outputText, size_t outpu
 
     for (int i = 0; i < n_segments; ++i) {
         const char *text = whisper_full_get_segment_text(ctx, i);
-        if (text && strlen(text) > 0) {
+        if (text && strlen(text) > 0 && strstr(text, "[BLANK_AUDIO]") == NULL) {
             SDL_strlcat(outputText, text, outputLength);
 
             char tokenLogBuffer[4096] = {0};
@@ -108,6 +120,9 @@ bool whisperProcess(float *pcmf32, int n_samples, char *outputText, size_t outpu
                 const char *tokenText = whisper_full_get_token_text(ctx, i, j);
                 if (tokenText == NULL || tokenText[0] == '\0' || strcmp(tokenText, "<|endoftext|>") == 0 || strcmp(tokenText, "[_EOT_]") == 0) {
                     break;
+                }
+                if (strstr(tokenText, "[BLANK_AUDIO]") != NULL) {
+                    continue;
                 }
 
                 float tokenProbability = whisper_full_get_token_data(ctx, i, j).p;

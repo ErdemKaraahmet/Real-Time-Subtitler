@@ -176,6 +176,7 @@ int main(void) {
         if (texture != NULL && lastTextUpdateTime > 0 && SDL_GetTicks() - lastTextUpdateTime > (Uint64)(CHUNK_LENGTH_SECONDS + 1) * 1000) {
             SDL_LockMutex(textMutex);
             subtitleText[0] = '\0';
+            tokenNum = 0;
             SDL_UnlockMutex(textMutex);
 
             SDL_DestroyTexture(texture);
@@ -218,9 +219,11 @@ int main(void) {
                         config->font_size = prevFontSize;
                     }
                 }
-                // Trigger subtitle redraw
+                // Trigger subtitle redraw only if a subtitle is currently active
                 SDL_LockMutex(textMutex);
-                textUpdated = true;
+                if (subtitleText[0] != '\0' && texture != NULL) {
+                    textUpdated = true;
+                }
                 SDL_UnlockMutex(textMutex);
             }
             if (cpStatus.modelChanged) {
@@ -298,6 +301,7 @@ void handleEvents(SDL_Window *window, bool *pDone, bool *needsRedraw, int timeou
                     // Immediately clear the on-screen text
                     SDL_LockMutex(textMutex);
                     subtitleText[0] = '\0';
+                    tokenNum = 0;
                     SDL_UnlockMutex(textMutex);
                     if (texture) {
                         SDL_DestroyTexture(texture);

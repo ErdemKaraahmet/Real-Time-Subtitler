@@ -1,4 +1,5 @@
 #include "configManager.h"
+#include "whisperEngine.h"
 #include <SDL3/SDL.h>
 #include "utils.h"
 #include "cJSON.h"
@@ -184,7 +185,7 @@ AppConfig loadDefaultConfig(void) {
         .display_mode = 0,
         .text_color = {255, 255, 255, 255},
         .text_outline_color = {0, 0, 0, 255},
-        .use_gpu = true,
+        .use_gpu = whisperHasGpu(),
         .cpu_threads = SDL_GetNumLogicalCPUCores() / 2,
     };
 
