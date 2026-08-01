@@ -17,6 +17,7 @@ typedef struct {
     char language[8];
     int window_x;
     int window_y;
+    bool open_control_panel_on_startup;
 } AppConfig;
 
 AppConfig loadDefaultConfig(void);

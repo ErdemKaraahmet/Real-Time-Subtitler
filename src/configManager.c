@@ -154,6 +154,7 @@ ConfigLoadStatus loadConfig(AppConfig *conf) {
     getJsonString(root, "language", conf->language, sizeof(conf->language));
     getJsonIntClamped(root, "window_x", &conf->window_x, -32768, 32767);
     getJsonIntClamped(root, "window_y", &conf->window_y, -32768, 32767);
+    getJsonBool(root, "open_control_panel_on_startup", &conf->open_control_panel_on_startup);
 
     cJSON_Delete(root);
     return CONFIG_LOAD_OK;
@@ -179,6 +180,7 @@ bool saveConfig(const AppConfig *conf) {
     cJSON_AddStringToObject(root, "language", conf->language);
     cJSON_AddNumberToObject(root, "window_x", conf->window_x);
     cJSON_AddNumberToObject(root, "window_y", conf->window_y);
+    cJSON_AddBoolToObject(root, "open_control_panel_on_startup", conf->open_control_panel_on_startup);
 
     char *jsonStr = cJSON_Print(root);
     cJSON_Delete(root);
@@ -214,6 +216,7 @@ AppConfig loadDefaultConfig(void) {
         .language = "auto",
         .window_x = -1,
         .window_y = -1,
+        .open_control_panel_on_startup = true,
     };
 
     if (conf.cpu_threads < 1) {

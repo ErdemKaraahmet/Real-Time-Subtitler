@@ -104,6 +104,10 @@ int main(void) {
     SDL_Log("Initializing system tray...");
     initTray();
 
+    if (config->open_control_panel_on_startup && !isControlPanelOpen()) {
+        openControlPanel(config);
+    }
+
     // Load a font
     TTF_Font *font = TTF_OpenFont(config->font, (float)config->font_size);
     if (!font) {

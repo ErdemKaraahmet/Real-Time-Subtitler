@@ -1,32 +1,32 @@
 #include "controlPanel_internal.h"
 
-static const char *getActiveDownloadETA(ModelEntry *entry) {
-    static char etaStr[32] = "";
-
-    if (!entry || entry->state != MODEL_STATE_DOWNLOADING) {
-        etaStr[0] = '\0';
-        return "";
+static void formatEtaString(int etaSeconds, char *dest, size_t destSize) {
+    if (etaSeconds < 0) {
+        SDL_strlcpy(dest, "?", destSize);
+        return;
     }
-
-    int eta = SDL_GetAtomicInt(&entry->etaSeconds);
-    if (eta >= 0) {
-        if (eta < 60) {
-            (void)snprintf(etaStr, sizeof(etaStr), "[%ds]", eta);
-        } else if (eta < 600) {
-            (void)snprintf(etaStr, sizeof(etaStr), "[%.1fm]", (double)eta / 60.0);
-        } else if (eta < 3600) {
-            (void)snprintf(etaStr, sizeof(etaStr), "[%dm]", eta / 60);
-        } else if (eta < 36000) {
-            (void)snprintf(etaStr, sizeof(etaStr), "[%.1fh]", (double)eta / 3600.0);
-        } else if (eta < 360000) {
-            (void)snprintf(etaStr, sizeof(etaStr), "[%dh]", eta / 3600);
+    if (etaSeconds < 60) {
+        (void)snprintf(dest, destSize, "%ds", etaSeconds);
+    } else if (etaSeconds < 3600) {
+        int m = etaSeconds / 60;
+        int s = etaSeconds % 60;
+        if (s > 0) {
+            (void)snprintf(dest, destSize, "%dm %ds", m, s);
         } else {
-            SDL_strlcpy(etaStr, "[?h]", sizeof(etaStr));
+            (void)snprintf(dest, destSize, "%dm", m);
         }
     } else {
-        SDL_strlcpy(etaStr, "[?h]", sizeof(etaStr));
+        int h = etaSeconds / 3600;
+        int m = (etaSeconds % 3600) / 60;
+        int s = etaSeconds % 60;
+        if (s > 0) {
+            (void)snprintf(dest, destSize, "%dh %dm %ds", h, m, s);
+        } else if (m > 0) {
+            (void)snprintf(dest, destSize, "%dh %dm", h, m);
+        } else {
+            (void)snprintf(dest, destSize, "%dh", h);
+        }
     }
-    return etaStr;
 }
 
 static int compareLangIds(const void *a, const void *b) {
@@ -74,22 +74,12 @@ void renderTranscriptionPage(const char *activeModelFilename, bool *triggerDelet
     const char *modelDisplayName = getFilenameFromPath(uiConfig.modelPath);
     char comboLabel[256];
     SDL_strlcpy(comboLabel, modelDisplayName, sizeof(comboLabel));
+    ModelEntry *selectedEntry = NULL;
 
     for (int i = 0; i < mm->count; i++) {
         if (strcmp(mm->models[i].filename, modelDisplayName) == 0) {
-            if (mm->models[i].state == MODEL_STATE_DOWNLOADING) {
-                int pct = SDL_GetAtomicInt(&mm->models[i].progressPercent);
-                const char *eta = getActiveDownloadETA(&mm->models[i]);
-                if (eta[0] != '\0') {
-                    (void)snprintf(comboLabel, sizeof(comboLabel), "Downloading %s (%d%%) %s", mm->models[i].name, pct, eta);
-                } else {
-                    (void)snprintf(comboLabel, sizeof(comboLabel), "Downloading %s (%d%%)", mm->models[i].name, pct);
-                }
-            } else if (mm->models[i].state == MODEL_STATE_VERIFYING) {
-                (void)snprintf(comboLabel, sizeof(comboLabel), "Verifying %s...", mm->models[i].name);
-            } else {
-                SDL_strlcpy(comboLabel, mm->models[i].name, sizeof(comboLabel));
-            }
+            selectedEntry = &mm->models[i];
+            (void)snprintf(comboLabel, sizeof(comboLabel), "%s (%.1f MB)", mm->models[i].name, (double)mm->models[i].remoteSize / (1024.0 * 1024.0));
             break;
         }
     }
@@ -99,7 +89,15 @@ void renderTranscriptionPage(const char *activeModelFilename, bool *triggerDelet
     igSameLine(180.0f, 0.0f);
 
     igSetNextItemWidth(-34.0f);
-    if (igBeginCombo("##Model", comboLabel, 0)) {
+    bool comboOpen = igBeginCombo("##Model", comboLabel, 0);
+    if (igIsItemHovered(0) && selectedEntry && selectedEntry->state == MODEL_STATE_DOWNLOADING) {
+        int pct = SDL_GetAtomicInt(&selectedEntry->progressPercent);
+        int etaSec = SDL_GetAtomicInt(&selectedEntry->etaSeconds);
+        char etaBuf[64];
+        formatEtaString(etaSec, etaBuf, sizeof(etaBuf));
+        igSetTooltip("Downloading (%02d%%)\nETA: %s", pct, etaBuf);
+    }
+    if (comboOpen) {
         if (mm->count == 0) {
             if (mm->fetchInProgress) {
                 igSelectable_Bool("Loading catalog...##empty", false, ImGuiSelectableFlags_Disabled, (ImVec2_c){0, 0});
@@ -122,6 +120,13 @@ void renderTranscriptionPage(const char *activeModelFilename, bool *triggerDelet
                 igPushID_Int(i);
 
                 bool rowClicked = igSelectable_Bool(itemDisplay, isSelected, ImGuiSelectableFlags_NoAutoClosePopups, (ImVec2_c){0.0f, 24.0f});
+                if (igIsItemHovered(0) && entry->state == MODEL_STATE_DOWNLOADING) {
+                    int pct = SDL_GetAtomicInt(&entry->progressPercent);
+                    int etaSec = SDL_GetAtomicInt(&entry->etaSeconds);
+                    char etaBuf[64];
+                    formatEtaString(etaSec, etaBuf, sizeof(etaBuf));
+                    igSetTooltip("Downloading (%2d%%)\nETA: %s", pct, etaBuf);
+                }
 
                 ImVec2_c minVal = igGetItemRectMin();
                 ImVec2_c maxVal = igGetItemRectMax();
@@ -140,23 +145,6 @@ void renderTranscriptionPage(const char *activeModelFilename, bool *triggerDelet
                     ImVec2_c progressMax = {minVal.x + rowWidth * pct, maxVal.y};
                     ImU32 barCol = igGetColorU32_Col(ImGuiCol_Header, 0.4f);
                     ImDrawList_AddRectFilled(drawList, minVal, progressMax, barCol, 0.0f, 0);
-
-                    char overlayText[128];
-                    if (entry->state == MODEL_STATE_DOWNLOADING) {
-                        const char *eta = getActiveDownloadETA(entry);
-                        const char *prefix = (strlen(entry->name) > 17) ? "Down..." : "Downloading";
-                        (void)snprintf(overlayText, sizeof(overlayText), "[%s %d%%]%s", prefix, (int)(pct * 100), eta);
-                    } else {
-                        SDL_strlcpy(overlayText, "[Verifying]", sizeof(overlayText));
-                    }
-
-                    float rightTextX = maxVal.x - 36.0f - igCalcTextSize(overlayText, NULL, false, -1.0f).x - igGetStyle()->ItemSpacing.x;
-                    if (rightTextX < minVal.x)
-                        rightTextX = minVal.x;
-
-                    ImVec2_c textPos = {rightTextX, minVal.y + 7.0f};
-                    ImU32 textCol = igGetColorU32_Vec4((ImVec4_c){1.0f, 1.0f, 1.0f, 0.8f});
-                    ImDrawList_AddText_Vec2(drawList, textPos, textCol, overlayText, NULL);
                 }
 
                 // Align action text icon on the far right of the selectable row container

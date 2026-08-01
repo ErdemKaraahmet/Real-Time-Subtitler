@@ -309,7 +309,8 @@ ControlPanelStatus updateAndRenderControlPanel(bool isPaused) {
         uiConfig.text_outline_color.r != savedConfig.text_outline_color.r || uiConfig.text_outline_color.g != savedConfig.text_outline_color.g ||
         uiConfig.text_outline_color.b != savedConfig.text_outline_color.b || strcmp(uiConfig.modelPath, savedConfig.modelPath) != 0 ||
         uiConfig.use_gpu != savedConfig.use_gpu || uiConfig.cpu_threads != savedConfig.cpu_threads ||
-        uiConfig.display_mode != savedConfig.display_mode || strcmp(uiConfig.language, savedConfig.language) != 0) {
+        uiConfig.display_mode != savedConfig.display_mode || strcmp(uiConfig.language, savedConfig.language) != 0 ||
+        uiConfig.open_control_panel_on_startup != savedConfig.open_control_panel_on_startup) {
         isDirty = true;
     }
 
