@@ -52,12 +52,20 @@ if [ "$RUN_CPPCHECK" = "ON" ]; then
                  --check-level=exhaustive \
                  --inline-suppr \
                  --error-exitcode=1 \
+                 -i deps/ \
+                 --suppress=*:deps/* \
                  -I include/ -I src/ \
                  src/ include/
     else
         echo "Warning: cppcheck is not installed."
     fi
 fi
+
+# Configure runtime sanitizer suppressions for third-party dependencies
+export TSAN_OPTIONS="suppressions=$(pwd)/sanitizers/tsan_suppressions.txt:second_deadlock_stack=1"
+export UBSAN_OPTIONS="suppressions=$(pwd)/sanitizers/ubsan_suppressions.txt:print_stacktrace=1"
+export LSAN_OPTIONS="suppressions=$(pwd)/sanitizers/lsan_suppressions.txt"
+export ASAN_OPTIONS="detect_leaks=1:symbolize=1"
 
 # Dynamically reconfigure CMake based on active combinations
 if [ "$USE_SANITIZERS" = "ON" ] || [ "$USE_TSAN" = "ON" ] || [ "$USE_TIDY" = "ON" ]; then

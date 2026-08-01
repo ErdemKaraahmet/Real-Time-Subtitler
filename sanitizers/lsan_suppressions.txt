@@ -1,0 +1,4 @@
+# Suppress memory leaks originating in system shared libraries (DBus, GLib) initialized by SDL3/Linux backends
+leak:libdbus-1.so
+leak:libglib-2.0.so
+leak:libgobject-2.0.so

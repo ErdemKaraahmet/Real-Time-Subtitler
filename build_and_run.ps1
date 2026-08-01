@@ -40,11 +40,17 @@ if (Get-Command clang-format -ErrorAction SilentlyContinue) {
 if ($Cppcheck) {
     if (Get-Command cppcheck -ErrorAction SilentlyContinue) {
         Write-Host "Running Cppcheck analysis..."
-        cppcheck --enable=warning,style,performance,portability --check-level=exhaustive --inline-suppr --error-exitcode=1 -I include/ -I src/ src/ include/
+        cppcheck --enable=warning,style,performance,portability --check-level=exhaustive --inline-suppr --error-exitcode=1 -i deps/ --suppress=*:deps/* -I include/ -I src/ src/ include/
     } else {
         Write-Host "Warning: cppcheck is not installed."
     }
 }
+
+# Configure runtime sanitizer suppressions for third-party dependencies
+$env:TSAN_OPTIONS = "suppressions=$(Get-Location)/sanitizers/tsan_suppressions.txt:second_deadlock_stack=1"
+$env:UBSAN_OPTIONS = "suppressions=$(Get-Location)/sanitizers/ubsan_suppressions.txt:print_stacktrace=1"
+$env:LSAN_OPTIONS = "suppressions=$(Get-Location)/sanitizers/lsan_suppressions.txt"
+$env:ASAN_OPTIONS = "detect_leaks=1:symbolize=1"
 
 # Dynamically reconfigure CMake based on active combinations
 if ($Sanitizers -or $TSan -or $Tidy) {

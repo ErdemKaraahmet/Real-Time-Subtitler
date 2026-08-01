@@ -1,0 +1,7 @@
+# Suppress data races originating in third-party dependencies and system libraries
+race:^deps/
+race:SDL_*
+race:ma_*
+race:libvulkan*
+race:libSDL3*
+race:ggml_*

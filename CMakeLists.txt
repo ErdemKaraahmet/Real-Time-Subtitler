@@ -131,6 +131,26 @@ target_include_directories(cimgui PRIVATE
     "${CMAKE_SOURCE_DIR}/deps/SDL/include"
 )
 
+add_library(rts_deps STATIC
+    deps/cJSON/cJSON.c
+    deps/sha256/sha256.c
+    deps/cimgui/imgui/backends/imgui_impl_sdl3.cpp
+    deps/cimgui/imgui/backends/imgui_impl_sdlrenderer3.cpp
+)
+
+target_include_directories(rts_deps SYSTEM PRIVATE
+    "${CMAKE_SOURCE_DIR}/deps/SDL/include"
+    deps/cimgui
+    deps/cimgui/imgui
+    deps/cimgui/imgui/backends
+    deps/cJSON
+    deps/sha256
+)
+
+target_link_libraries(rts_deps PUBLIC cimgui SDL3::SDL3)
+
+set_target_properties(rts_deps PROPERTIES COMPILE_FLAGS "-w")
+
 set(RTS_SOURCES
     src/main.c
     src/configManager.c
@@ -148,11 +168,6 @@ set(RTS_SOURCES
     src/modelManager.c
     src/utils.c
     src/imgui_impl_sdlrenderer3_c.cpp
-    deps/cJSON/cJSON.c
-    deps/sha256/sha256.c
-    # ImGui SDL3 + SDLRenderer3 backends (not compiled by cimgui target)
-    deps/cimgui/imgui/backends/imgui_impl_sdl3.cpp
-    deps/cimgui/imgui/backends/imgui_impl_sdlrenderer3.cpp
 )
 
 if(WIN32)
@@ -165,13 +180,13 @@ if(WIN32)
     target_link_libraries(Real-Time-Subtitler RTS_Icon)
 endif()
 
-# Disable warnings on third-party source files compiled into RTS executable
-set_source_files_properties(
-    deps/cJSON/cJSON.c
-    deps/sha256/sha256.c
-    deps/cimgui/imgui/backends/imgui_impl_sdl3.cpp
-    deps/cimgui/imgui/backends/imgui_impl_sdlrenderer3.cpp
-    PROPERTIES COMPILE_FLAGS "-w"
+target_link_libraries(Real-Time-Subtitler 
+    rts_deps
+    SDL3::SDL3
+    SDL3_ttf::SDL3_ttf
+    whisper
+    cimgui
+    CURL::libcurl
 )
 
 target_include_directories(Real-Time-Subtitler PRIVATE
@@ -255,13 +270,7 @@ target_compile_definitions(Real-Time-Subtitler PRIVATE
     $<$<BOOL:${RTS_BENCH}>:RTS_BENCH>
 )
 
-target_link_libraries(Real-Time-Subtitler 
-    SDL3::SDL3
-    SDL3_ttf::SDL3_ttf
-    whisper
-    cimgui
-    CURL::libcurl
-)
+
 
 if(WIN32 AND MINGW)
     target_link_libraries(Real-Time-Subtitler

@@ -1,0 +1,6 @@
+# Suppress undefined behavior checks in third-party dependencies
+alignment:deps/*
+alignment:deps/SDL/*
+alignment:deps/whisper.cpp/*
+alignment:deps/cimgui/*
+vptr:deps/*
