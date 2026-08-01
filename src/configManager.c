@@ -42,6 +42,46 @@ static void resolveConfigPath(char *dest, size_t destSize) {
     utilsResolvePath(dest, destSize, "config.json");
 }
 
+static void getJsonString(const cJSON *root, const char *key, char *dest, size_t destSize) {
+    const cJSON *item = cJSON_GetObjectItemCaseSensitive(root, key);
+    if (cJSON_IsString(item) && item->valuestring && item->valuestring[0] != '\0') {
+        size_t len = strlen(item->valuestring);
+        if (len >= destSize) {
+            SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Config key '%s' string length exceeded limit (%zu >= %zu bytes); keeping default value", key,
+                        len, destSize);
+        } else {
+            SDL_strlcpy(dest, item->valuestring, destSize);
+        }
+    }
+}
+
+static void getJsonIntClamped(const cJSON *root, const char *key, int *val, int minVal, int maxVal) {
+    const cJSON *item = cJSON_GetObjectItemCaseSensitive(root, key);
+    if (cJSON_IsNumber(item)) {
+        int v = item->valueint;
+        if (v < minVal)
+            v = minVal;
+        if (v > maxVal)
+            v = maxVal;
+        *val = v;
+    }
+}
+
+static void getJsonBool(const cJSON *root, const char *key, bool *val) {
+    const cJSON *item = cJSON_GetObjectItemCaseSensitive(root, key);
+    if (cJSON_IsBool(item)) {
+        *val = cJSON_IsTrue(item);
+    }
+}
+
+static Uint8 clampUint8(int val) {
+    if (val < 0)
+        return 0;
+    if (val > 255)
+        return 255;
+    return (Uint8)val;
+}
+
 static SDL_Color parseColorObject(const cJSON *obj, SDL_Color fallback) {
     if (!cJSON_IsObject(obj))
         return fallback;
@@ -52,12 +92,19 @@ static SDL_Color parseColorObject(const cJSON *obj, SDL_Color fallback) {
     const cJSON *b = cJSON_GetObjectItemCaseSensitive(obj, "b");
 
     if (cJSON_IsNumber(r))
-        c.r = (Uint8)r->valueint;
+        c.r = clampUint8(r->valueint);
     if (cJSON_IsNumber(g))
-        c.g = (Uint8)g->valueint;
+        c.g = clampUint8(g->valueint);
     if (cJSON_IsNumber(b))
-        c.b = (Uint8)b->valueint;
+        c.b = clampUint8(b->valueint);
     return c;
+}
+
+static void getJsonColor(const cJSON *root, const char *key, SDL_Color *color) {
+    const cJSON *item = cJSON_GetObjectItemCaseSensitive(root, key);
+    if (item) {
+        *color = parseColorObject(item, *color);
+    }
 }
 
 static cJSON *colorToJson(SDL_Color c) {
@@ -81,7 +128,7 @@ ConfigLoadStatus loadConfig(AppConfig *conf) {
     cJSON *root = cJSON_Parse(contents);
     SDL_free(contents);
     if (!root) {
-        char backupPath[sizeof(configPath) + 4];
+        char backupPath[sizeof(configPath) + 5];
         int res = snprintf(backupPath, sizeof(backupPath), "%s.bak", configPath);
         if (res >= 0) {
             SDL_RenamePath(configPath, backupPath);
@@ -90,57 +137,21 @@ ConfigLoadStatus loadConfig(AppConfig *conf) {
         return CONFIG_LOAD_PARSE_ERROR;
     }
 
-    const cJSON *item;
-
-    item = cJSON_GetObjectItemCaseSensitive(root, "font");
-    if (cJSON_IsString(item) && item->valuestring) {
-        SDL_strlcpy(conf->font, item->valuestring, sizeof(conf->font));
+    int maxThreads = SDL_GetNumLogicalCPUCores();
+    if (maxThreads < 1) {
+        maxThreads = 1;
     }
 
-    item = cJSON_GetObjectItemCaseSensitive(root, "font_size");
-    if (cJSON_IsNumber(item)) {
-        conf->font_size = item->valueint;
-    }
-
-    item = cJSON_GetObjectItemCaseSensitive(root, "outline_thickness");
-    if (cJSON_IsNumber(item)) {
-        conf->outline_thickness = item->valueint;
-    }
-
-    item = cJSON_GetObjectItemCaseSensitive(root, "display_mode");
-    if (cJSON_IsNumber(item)) {
-        conf->display_mode = item->valueint;
-    }
-
-    item = cJSON_GetObjectItemCaseSensitive(root, "text_color");
-    if (cJSON_IsObject(item)) {
-        conf->text_color = parseColorObject(item, conf->text_color);
-    }
-
-    item = cJSON_GetObjectItemCaseSensitive(root, "text_outline_color");
-    if (cJSON_IsObject(item)) {
-        conf->text_outline_color = parseColorObject(item, conf->text_outline_color);
-    }
-
-    item = cJSON_GetObjectItemCaseSensitive(root, "modelPath");
-    if (cJSON_IsString(item) && item->valuestring) {
-        SDL_strlcpy(conf->modelPath, item->valuestring, sizeof(conf->modelPath));
-    }
-
-    item = cJSON_GetObjectItemCaseSensitive(root, "use_gpu");
-    if (cJSON_IsBool(item)) {
-        conf->use_gpu = cJSON_IsTrue(item);
-    }
-
-    item = cJSON_GetObjectItemCaseSensitive(root, "cpu_threads");
-    if (cJSON_IsNumber(item)) {
-        conf->cpu_threads = item->valueint;
-    }
-
-    item = cJSON_GetObjectItemCaseSensitive(root, "language");
-    if (cJSON_IsString(item) && item->valuestring) {
-        SDL_strlcpy(conf->language, item->valuestring, sizeof(conf->language));
-    }
+    getJsonString(root, "font", conf->font, sizeof(conf->font));
+    getJsonIntClamped(root, "font_size", &conf->font_size, 8, 72);
+    getJsonIntClamped(root, "outline_thickness", &conf->outline_thickness, 0, 20);
+    getJsonIntClamped(root, "display_mode", &conf->display_mode, 0, 1);
+    getJsonColor(root, "text_color", &conf->text_color);
+    getJsonColor(root, "text_outline_color", &conf->text_outline_color);
+    getJsonString(root, "modelPath", conf->modelPath, sizeof(conf->modelPath));
+    getJsonBool(root, "use_gpu", &conf->use_gpu);
+    getJsonIntClamped(root, "cpu_threads", &conf->cpu_threads, 1, maxThreads);
+    getJsonString(root, "language", conf->language, sizeof(conf->language));
 
     cJSON_Delete(root);
     return CONFIG_LOAD_OK;
@@ -170,17 +181,20 @@ bool saveConfig(const AppConfig *conf) {
     if (!jsonStr)
         return false;
 
-    FILE *file = fopen(configPath, "w");
-    if (!file) {
+    char tmpPath[sizeof(configPath) + 5];
+    if (snprintf(tmpPath, sizeof(tmpPath), "%s.tmp", configPath) < 0) {
         cJSON_free(jsonStr);
         return false;
     }
 
-    bool writeOk = (fputs(jsonStr, file) != EOF);
-    bool closeOk = (fclose(file) == 0);
+    size_t len = strlen(jsonStr);
+    bool saved = SDL_SaveFile(tmpPath, jsonStr, len);
     cJSON_free(jsonStr);
 
-    return writeOk && closeOk;
+    if (!saved)
+        return false;
+
+    return SDL_RenamePath(tmpPath, configPath);
 }
 
 AppConfig loadDefaultConfig(void) {
