@@ -6,11 +6,13 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
+#include <stdlib.h>
 #include "textTexture.h"
 #include "modelManager.h"
 #include "utils.h"
 #include "version.h"
 #include "appEvents.h"
+#include "whisper.h"
 
 #ifndef IM_COL32
 #define IM_COL32(R, G, B, A) (((ImU32)(A) << 24) | ((ImU32)(B) << 16) | ((ImU32)(G) << 8) | ((ImU32)(R) << 0))
@@ -514,6 +516,18 @@ static void renderViewPage(void) {
     igSetCursorScreenPos((ImVec2_c){previewPos.x, previewPos.y + UI_PREVIEW_BOX_HEIGHT + UI_SPACING});
 }
 
+static int compareLangIds(const void *a, const void *b) {
+    int idA = *(const int *)a;
+    int idB = *(const int *)b;
+    const char *nameA = whisper_lang_str_full(idA);
+    const char *nameB = whisper_lang_str_full(idB);
+    if (!nameA)
+        return -1;
+    if (!nameB)
+        return 1;
+    return strcasecmp(nameA, nameB);
+}
+
 static void renderTranscriptionPage(const char *activeModelFilename, bool *triggerDeletePopup) {
     // Model Selection
     ModelManager *mm = getModelManager();
@@ -580,8 +594,12 @@ static void renderTranscriptionPage(const char *activeModelFilename, bool *trigg
                 igSelectable_Bool("Catalog empty / Offline##empty", false, ImGuiSelectableFlags_Disabled, (ImVec2_c){0, 0});
             }
         } else {
+            bool isNonEnglish = (strcmp(uiConfig.language, "auto") != 0 && strcmp(uiConfig.language, "en") != 0);
             for (int i = 0; i < mm->count; i++) {
                 ModelEntry *entry = &mm->models[i];
+                if (isNonEnglish && strstr(entry->filename, ".en") != NULL) {
+                    continue;
+                }
                 bool isSelected = (strcmp(modelDisplayName, entry->filename) == 0);
                 bool isActive = (strcmp(activeModelFilename, entry->filename) == 0);
 
@@ -742,6 +760,71 @@ static void renderTranscriptionPage(const char *activeModelFilename, bool *trigg
     }
     igPopStyleColor(3);
     igEndDisabled();
+
+    // Spoken Language Selection (sorted alphabetically)
+    igAlignTextToFramePadding();
+    igText("Spoken Language");
+    igSameLine(180.0f, 0.0f);
+
+    int maxLangId = whisper_lang_max_id();
+    int langIds[128] = {0};
+    int langCount = 0;
+
+    for (int i = 0; i < maxLangId && langCount < 128; i++) {
+        if (whisper_lang_str(i) && whisper_lang_str_full(i)) {
+            langIds[langCount++] = i;
+        }
+    }
+
+    qsort(langIds, (size_t)langCount, sizeof(int), compareLangIds);
+
+    char currentLangCap[64] = "Auto Detect";
+    if (uiConfig.language[0] != '\0' && strcmp(uiConfig.language, "auto") != 0) {
+        for (int k = 0; k < langCount; k++) {
+            const char *code = whisper_lang_str(langIds[k]);
+            if (code && strcmp(uiConfig.language, code) == 0) {
+                const char *full = whisper_lang_str_full(langIds[k]);
+                if (full) {
+                    SDL_strlcpy(currentLangCap, full, sizeof(currentLangCap));
+                    if (currentLangCap[0] >= 'a' && currentLangCap[0] <= 'z') {
+                        currentLangCap[0] -= 32;
+                    }
+                }
+                break;
+            }
+        }
+    }
+
+    igSetNextItemWidth(-1.0f);
+    if (igBeginCombo("##SpokenLanguage", currentLangCap, 0)) {
+        if (igSelectable_Bool("Auto Detect", strcmp(uiConfig.language, "auto") == 0, 0, (ImVec2_c){0, 0})) {
+            SDL_strlcpy(uiConfig.language, "auto", sizeof(uiConfig.language));
+        }
+
+        for (int k = 0; k < langCount; k++) {
+            const char *code = whisper_lang_str(langIds[k]);
+            const char *full = whisper_lang_str_full(langIds[k]);
+            if (!code || !full)
+                continue;
+
+            char capFull[64];
+            SDL_strlcpy(capFull, full, sizeof(capFull));
+            if (capFull[0] >= 'a' && capFull[0] <= 'z') {
+                capFull[0] -= 32;
+            }
+            char displayLabel[128];
+            (void)snprintf(displayLabel, sizeof(displayLabel), "%s (%s)", capFull, code);
+
+            bool isSaved = (strcmp(uiConfig.language, code) == 0);
+            if (igSelectable_Bool(displayLabel, isSaved, 0, (ImVec2_c){0, 0})) {
+                SDL_strlcpy(uiConfig.language, code, sizeof(uiConfig.language));
+            }
+            if (isSaved) {
+                igSetItemDefaultFocus();
+            }
+        }
+        igEndCombo();
+    }
 }
 
 static void renderFooter(ControlPanelStatus *status, bool isDirty) {
@@ -923,7 +1006,7 @@ ControlPanelStatus updateAndRenderControlPanel(SDL_Renderer *overlayRenderer) {
         uiConfig.text_outline_color.r != savedConfig.text_outline_color.r || uiConfig.text_outline_color.g != savedConfig.text_outline_color.g ||
         uiConfig.text_outline_color.b != savedConfig.text_outline_color.b || strcmp(uiConfig.modelPath, savedConfig.modelPath) != 0 ||
         uiConfig.use_gpu != savedConfig.use_gpu || uiConfig.cpu_threads != savedConfig.cpu_threads ||
-        uiConfig.display_mode != savedConfig.display_mode) {
+        uiConfig.display_mode != savedConfig.display_mode || strcmp(uiConfig.language, savedConfig.language) != 0) {
         isDirty = true;
     }
 
@@ -932,7 +1015,7 @@ ControlPanelStatus updateAndRenderControlPanel(SDL_Renderer *overlayRenderer) {
     igSetNextWindowPos((ImVec2_c){0, 0}, ImGuiCond_Always, (ImVec2_c){0, 0});
     igSetNextWindowSize((ImVec2_c){(float)w, (float)h}, ImGuiCond_Always);
 
-    igBegin("Preferences", NULL, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse);
+    igBegin("Control Panel", NULL, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse);
 
     renderHeaderAndSidebar(overlayRenderer);
 

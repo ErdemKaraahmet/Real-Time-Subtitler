@@ -8,7 +8,7 @@ typedef struct {
 } SubtitleToken;
 
 bool whisperInit(const char *modelPath, bool *use_gpu);
-bool whisperProcess(float *pcmf32, int n_samples, char *outputText, size_t outputLength, int n_threads, SubtitleToken *outputTokens,
-                    int *outputTokenNums);
+bool whisperProcess(float *pcmf32, int n_samples, char *outputText, size_t outputLength, int n_threads, const char *language,
+                    SubtitleToken *outputTokens, int *outputTokenNums);
 void whisperFree(void);
 bool whisperHasGpu(void);

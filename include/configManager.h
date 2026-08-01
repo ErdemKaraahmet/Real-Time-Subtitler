@@ -14,6 +14,7 @@ typedef struct {
     char modelPath[512];
     bool use_gpu;
     int cpu_threads;
+    char language[8];
 } AppConfig;
 
 AppConfig loadDefaultConfig(void);

@@ -128,6 +128,14 @@ From the Control Panel you can:
 - **Font & Style Customization:** Select fonts from `fonts/`, adjust Font Size and Outline Thickness, and pick custom Text & Outline colors with a live preview.
 - **Window Controls:** Toggle **Move Window** mode to position the subtitle overlay anywhere on screen, or **Pause/Resume** live audio processing.
 
+### Keyboard Navigation
+
+The Control Panel supports full mouse-free keyboard navigation:
+- **`Tab` / `Shift+Tab`**: Move focus forward or backward between settings controls, buttons, and inputs.
+- **`Up` / `Down` / `Left` / `Right`**: Navigate dropdown items, lists, and adjust slider values.
+- **`Space` / `Enter`**: Toggle checkboxes, activate buttons, open dropdown menus, and confirm selections.
+- **`Escape`**: Close active dropdown menus and popups.
+
 *Settings are persisted to `bin/config.json` with automatic fallback defaults and corrupted-file backup (`.bak`).*
 
 ## Dependencies

@@ -337,7 +337,8 @@ int whisperThread(void *data) {
         if (chunkReady && !paused) {
             SDL_LockMutex(textMutex);
             subtitleText[0] = '\0';
-            whisperProcess(audioChunk, SAMPLE_SIZE, subtitleText, sizeof(subtitleText), config->cpu_threads, outputTokens, &tokenNum);
+            whisperProcess(audioChunk, SAMPLE_SIZE, subtitleText, sizeof(subtitleText), config->cpu_threads, config->language, outputTokens,
+                           &tokenNum);
             textUpdated = true;
             SDL_UnlockMutex(textMutex);
             chunkReady = false;
