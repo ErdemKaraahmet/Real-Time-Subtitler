@@ -1,24 +1,4 @@
-#include "controlPanel.h"
-#include <cimgui.h>
-#include <cimgui_impl.h>
-#include <SDL3/SDL.h>
-#include <SDL3_ttf/SDL_ttf.h>
-#include <stdio.h>
-#include <string.h>
-#include <stdarg.h>
-#include <stdlib.h>
-#include "textTexture.h"
-#include "modelManager.h"
-#include "utils.h"
-#include "version.h"
-#include "appEvents.h"
-#include "whisper.h"
-
-#ifndef IM_COL32
-#define IM_COL32(R, G, B, A) (((ImU32)(A) << 24) | ((ImU32)(B) << 16) | ((ImU32)(G) << 8) | ((ImU32)(R) << 0))
-#endif
-
-#define displayModeNums 2
+#include "controlPanel_internal.h"
 
 // External getter for pause state from main.c
 extern bool isAppPaused(void);
@@ -30,44 +10,46 @@ extern void ImGui_ImplSDLRenderer3_NewFrame_C(void);
 extern void ImGui_ImplSDLRenderer3_RenderDrawData_C(ImDrawData *draw_data, SDL_Renderer *renderer);
 
 // UI Styling Constants
-static const float UI_WINDOW_WIDTH = 710.0f;
-static const float UI_PADDING = 12.0f;
-static const float UI_SPACING = 8.0f;
-static const float UI_BUTTON_WIDTH = 120.0f;
-static const float UI_PREVIEW_BOX_WIDTH = 556.0f; // 580 - 24
-static const float UI_PREVIEW_BOX_HEIGHT = 70.0f;
-static const float UI_WINDOW_HEIGHT = 450.0f;
+const float UI_WINDOW_WIDTH = 710.0f;
+const float UI_PADDING = 12.0f;
+const float UI_SPACING = 8.0f;
+const float UI_BUTTON_WIDTH = 120.0f;
+const float UI_PREVIEW_BOX_WIDTH = 556.0f; // 580 - 24
+const float UI_PREVIEW_BOX_HEIGHT = 70.0f;
+const float UI_WINDOW_HEIGHT = 450.0f;
 
-static int g_DeleteTargetIndex = -1;
+int g_DeleteTargetIndex = -1;
 
 // Window and Renderer state
-static SDL_Window *cpWindow = NULL;
-static SDL_Renderer *cpRenderer = NULL;
-static bool cpOpen = false;
+SDL_Window *cpWindow = NULL;
+SDL_Renderer *cpRenderer = NULL;
+bool cpOpen = false;
 
 // Scanned items
-#define MAX_ITEMS 64
-static char scannedFonts[MAX_ITEMS][256];
-static int scannedFontCount = 0;
+char scannedFonts[MAX_ITEMS][256];
+int scannedFontCount = 0;
 
 // UI configuration state
-static AppConfig *pLiveConfig = NULL;
-static AppConfig uiConfig;
-static AppConfig savedConfig; // to track dirty state
-static bool modelChanged = false;
-static char whisperStatusMessage[256] = "Status: Active";
-static bool whisperStatusError = false;
-static int cpActivePage = 0; // 0 = View, 1 = Transcription
+AppConfig *pLiveConfig = NULL;
+AppConfig uiConfig;
+AppConfig savedConfig; // to track dirty state
+bool modelChanged = false;
+char whisperStatusMessage[256] = "Status: Active";
+bool whisperStatusError = false;
+int cpActivePage = 0; // 0 = View, 1 = Transcription
 
 // Global error popup state
-static char globalUiErrorMessage[512] = "";
-static bool showGlobalUiErrorPopup = false;
+char globalUiErrorMessage[512] = "";
+bool showGlobalUiErrorPopup = false;
 
-#if defined(__GNUC__) || defined(__clang__)
-__attribute__((format(printf, 1, 2)))
-#endif
-static void
-triggerGlobalError(const char *fmt, ...) {
+// Preview state
+SDL_Texture *previewTexture = NULL;
+float previewWidth = 0.0f;
+float previewHeight = 0.0f;
+bool previewNeedsUpdate = true;
+bool previewFontLoadFailed = false;
+
+void triggerGlobalError(const char *fmt, ...) {
     if (fmt) {
         va_list args;
         va_start(args, fmt);
@@ -77,15 +59,7 @@ triggerGlobalError(const char *fmt, ...) {
     }
 }
 
-// Preview state
-static SDL_Texture *previewTexture = NULL;
-static float previewWidth = 0.0f;
-static float previewHeight = 0.0f;
-static bool previewNeedsUpdate = true;
-static bool previewFontLoadFailed = false;
-
-// Helper to get filename from path
-static const char *getFilenameFromPath(const char *path) {
+const char *getFilenameFromPath(const char *path) {
     const char *lastSlash = strrchr(path, '/');
     const char *lastBackslash = strrchr(path, '\\');
     const char *filename = path;
@@ -96,7 +70,6 @@ static const char *getFilenameFromPath(const char *path) {
     return filename;
 }
 
-// Directory enumeration callbacks
 static SDL_EnumerationResult SDLCALL scanFontsCallback(void *userdata, const char *dirname, const char *fname) {
     (void)userdata;
     (void)dirname;
@@ -236,67 +209,6 @@ void handleControlPanelEvent(const SDL_Event *event) {
     }
 }
 
-static void updatePreviewTexture(void) {
-    SubtitleToken sample[3];
-    strcpy(sample[0].text, "Sample");
-    strcpy(sample[1].text, " Text");
-    strcpy(sample[2].text, " Preview");
-    sample[0].probability = 0.9f;
-    sample[1].probability = 0.7f;
-    sample[2].probability = 0.1f;
-
-    if (previewTexture) {
-        SDL_DestroyTexture(previewTexture);
-        previewTexture = NULL;
-    }
-
-    previewFontLoadFailed = false;
-
-    // Try to load the selected font
-    TTF_Font *font = TTF_OpenFont(uiConfig.font, (float)uiConfig.font_size);
-    if (!font) {
-        // Fallback to default font
-        font = TTF_OpenFont("fonts/cascadia.mono.ttf", (float)uiConfig.font_size);
-        if (!font) {
-            previewFontLoadFailed = true;
-            return;
-        }
-    }
-
-    // Render preview texture
-    previewTexture = createTextTexture(cpRenderer, font, sample, 3, &uiConfig, &previewWidth, &previewHeight);
-    TTF_CloseFont(font);
-}
-
-static const char *getActiveDownloadETA(ModelEntry *entry) {
-    static char etaStr[32] = "";
-
-    if (!entry || entry->state != MODEL_STATE_DOWNLOADING) {
-        etaStr[0] = '\0';
-        return "";
-    }
-
-    int eta = SDL_GetAtomicInt(&entry->etaSeconds);
-    if (eta >= 0) {
-        if (eta < 60) {
-            (void)snprintf(etaStr, sizeof(etaStr), "[%ds]", eta);
-        } else if (eta < 600) {
-            (void)snprintf(etaStr, sizeof(etaStr), "[%.1fm]", (double)eta / 60.0);
-        } else if (eta < 3600) {
-            (void)snprintf(etaStr, sizeof(etaStr), "[%dm]", eta / 60);
-        } else if (eta < 36000) {
-            (void)snprintf(etaStr, sizeof(etaStr), "[%.1fh]", (double)eta / 3600.0);
-        } else if (eta < 360000) {
-            (void)snprintf(etaStr, sizeof(etaStr), "[%dh]", eta / 3600);
-        } else {
-            SDL_strlcpy(etaStr, "[?h]", sizeof(etaStr));
-        }
-    } else {
-        SDL_strlcpy(etaStr, "[?h]", sizeof(etaStr));
-    }
-    return etaStr;
-}
-
 static void renderHeaderAndSidebar(SDL_Renderer *overlayRenderer) {
     (void)overlayRenderer;
     // Status Message & Control Buttons (Centered vertically)
@@ -370,610 +282,6 @@ static void renderHeaderAndSidebar(SDL_Renderer *overlayRenderer) {
     igPopStyleVar(1);
 
     igNextColumn();
-}
-
-static void renderSystemPage(void) {
-    igAlignTextToFramePadding();
-    igText("Version: %s", RTS_VERSION);
-}
-
-static void renderViewPage(void) {
-    // Font Selection
-    const char *fontDisplayName = getFilenameFromPath(uiConfig.font);
-    igAlignTextToFramePadding();
-    igText("Font");
-    igSameLine(180.0f, 0.0f);
-    igSetNextItemWidth(-1.0f);
-    if (igBeginCombo("##Font", fontDisplayName, 0)) {
-        if (scannedFontCount == 0) {
-            igSelectable_Bool("No item found in folder##empty_font", false, ImGuiSelectableFlags_Disabled, (ImVec2_c){0, 0});
-        } else {
-            for (int i = 0; i < scannedFontCount; i++) {
-                bool isSelected = (strcmp(fontDisplayName, scannedFonts[i]) == 0);
-                char itemDisplay[128];
-                (void)snprintf(itemDisplay, sizeof(itemDisplay), "%s##font%d", scannedFonts[i], i);
-                if (igSelectable_Bool(itemDisplay, isSelected, 0, (ImVec2_c){0, 0})) {
-                    (void)snprintf(uiConfig.font, sizeof(uiConfig.font), "fonts/%s", scannedFonts[i]);
-                    previewNeedsUpdate = true;
-                }
-                if (isSelected) {
-                    igSetItemDefaultFocus();
-                }
-            }
-        }
-        igEndCombo();
-    }
-
-    // Font Size
-    int tempFontSize = uiConfig.font_size;
-    igAlignTextToFramePadding();
-    igText("Font Size");
-    igSameLine(180.0f, 0.0f);
-    igSetNextItemWidth(-1.0f);
-    if (igDragInt("##Font Size", &tempFontSize, 1.0f, 8, 72, "%d", 0)) {
-        uiConfig.font_size = tempFontSize;
-        previewNeedsUpdate = true;
-    }
-
-    // Outline Thickness
-    int tempOutline = uiConfig.outline_thickness;
-    igAlignTextToFramePadding();
-    igText("Outline Thickness");
-    igSameLine(180.0f, 0.0f);
-    igSetNextItemWidth(-1.0f);
-    if (igDragInt("##Outline Thickness", &tempOutline, 0.5f, 0, 20, "%d", 0)) {
-        uiConfig.outline_thickness = tempOutline;
-        previewNeedsUpdate = true;
-    }
-
-    // Color Picking
-    float textColor[3] = {(float)uiConfig.text_color.r / 255.0f, (float)uiConfig.text_color.g / 255.0f, (float)uiConfig.text_color.b / 255.0f};
-    igAlignTextToFramePadding();
-    igText("Text Color");
-    igSameLine(180.0f, 0.0f);
-    igSetNextItemWidth(-1.0f);
-    if (igColorEdit3("##Text Color", textColor, 0)) {
-        uiConfig.text_color.r = (uint8_t)(textColor[0] * 255.0f);
-        uiConfig.text_color.g = (uint8_t)(textColor[1] * 255.0f);
-        uiConfig.text_color.b = (uint8_t)(textColor[2] * 255.0f);
-        previewNeedsUpdate = true;
-    }
-
-    float outlineColor[3] = {(float)uiConfig.text_outline_color.r / 255.0f, (float)uiConfig.text_outline_color.g / 255.0f,
-                             (float)uiConfig.text_outline_color.b / 255.0f};
-    igAlignTextToFramePadding();
-    igText("Outline Color");
-    igSameLine(180.0f, 0.0f);
-    igSetNextItemWidth(-1.0f);
-    if (igColorEdit3("##Outline Color", outlineColor, 0)) {
-        uiConfig.text_outline_color.r = (uint8_t)(outlineColor[0] * 255.0f);
-        uiConfig.text_outline_color.g = (uint8_t)(outlineColor[1] * 255.0f);
-        uiConfig.text_outline_color.b = (uint8_t)(outlineColor[2] * 255.0f);
-        previewNeedsUpdate = true;
-    }
-
-    int displayModeSelection = uiConfig.display_mode;
-    const char *displayModeNames[displayModeNums] = {"Plain Text", "Confidence-Based Opacity"};
-
-    igAlignTextToFramePadding();
-    igText("Display Mode");
-    igSameLine(180.0f, 0.0f);
-    igSetNextItemWidth(-1.0f);
-    if (igBeginCombo("##Display Mode", displayModeNames[displayModeSelection], 0)) {
-        for (int i = 0; i < displayModeNums; ++i) {
-            if (igSelectable_Bool(displayModeNames[i], (i == displayModeSelection), 0, (ImVec2_c){0, 0})) {
-                displayModeSelection = i;
-                uiConfig.display_mode = i;
-                previewNeedsUpdate = true;
-            }
-        }
-        igEndCombo();
-    }
-
-    igSpacing();
-
-    // Live Preview
-    igText("Live Preview:");
-    ImVec2_c previewPos = igGetCursorScreenPos();
-
-    // Draw a dark background rectangle for the preview (no rounding)
-    ImDrawList *drawList = igGetWindowDrawList();
-    ImDrawList_AddRectFilled(drawList, previewPos, (ImVec2_c){previewPos.x + UI_PREVIEW_BOX_WIDTH, previewPos.y + UI_PREVIEW_BOX_HEIGHT},
-                             IM_COL32(15, 15, 15, 255), 0.0f, 0);
-
-    ImDrawList_AddRect(drawList, previewPos, (ImVec2_c){previewPos.x + UI_PREVIEW_BOX_WIDTH, previewPos.y + UI_PREVIEW_BOX_HEIGHT},
-                       IM_COL32(80, 80, 80, 255), 0.0f, 1.0f, 0);
-
-    // Render the texture inside the box
-    if (previewFontLoadFailed) {
-        igSetCursorScreenPos((ImVec2_c){previewPos.x + 10.0f, previewPos.y + 10.0f});
-        igTextColored((ImVec4_c){1.0f, 0.3f, 0.3f, 1.0f}, "Preview unavailable (No valid fonts found)");
-    } else if (previewTexture) {
-        // Clamp and scale preview if it exceeds bounds to prevent overflow
-        float maxPreviewW = UI_PREVIEW_BOX_WIDTH - 20.0f;
-        float maxPreviewH = UI_PREVIEW_BOX_HEIGHT - 20.0f;
-        float displayW = previewWidth;
-        float displayH = previewHeight;
-
-        if (displayW > maxPreviewW || displayH > maxPreviewH) {
-            float scaleX = maxPreviewW / displayW;
-            float scaleY = maxPreviewH / displayH;
-            float scale = (scaleX < scaleY) ? scaleX : scaleY;
-            displayW *= scale;
-            displayH *= scale;
-        }
-
-        // Center the scaled preview texture inside the box
-        float startX = previewPos.x + (UI_PREVIEW_BOX_WIDTH - displayW) / 2.0f;
-        float startY = previewPos.y + (UI_PREVIEW_BOX_HEIGHT - displayH) / 2.0f;
-
-        igSetCursorScreenPos((ImVec2_c){startX, startY});
-        ImTextureRef_c texRef = {NULL, (ImTextureID)(intptr_t)previewTexture};
-        igImage(texRef, (ImVec2_c){displayW, displayH}, (ImVec2_c){0, 0}, (ImVec2_c){1, 1});
-    }
-
-    // Dummy element to advance the cursor past the preview box
-    igSetCursorScreenPos((ImVec2_c){previewPos.x, previewPos.y + UI_PREVIEW_BOX_HEIGHT + UI_SPACING});
-}
-
-static int compareLangIds(const void *a, const void *b) {
-    int idA = *(const int *)a;
-    int idB = *(const int *)b;
-    const char *nameA = whisper_lang_str_full(idA);
-    const char *nameB = whisper_lang_str_full(idB);
-    if (!nameA)
-        return -1;
-    if (!nameB)
-        return 1;
-    return strcasecmp(nameA, nameB);
-}
-
-static void renderTranscriptionPage(const char *activeModelFilename, bool *triggerDeletePopup) {
-    // Model Selection
-    ModelManager *mm = getModelManager();
-    SDL_LockMutex(mm->lock);
-
-    // Check for download errors to show automatic popups
-    for (int i = 0; i < mm->count; i++) {
-        if (mm->models[i].state == MODEL_STATE_DOWNLOAD_ERROR) {
-            triggerGlobalError("Download failed for %s:\n%s", mm->models[i].name, mm->models[i].errorMessage);
-            mm->models[i].state = MODEL_STATE_NOT_DOWNLOADED;
-            mm->models[i].errorMessage[0] = '\0';
-        }
-    }
-
-    // Check for catalog fetch errors to show automatic popups
-    if (mm->catalogErrorMessage[0] != '\0') {
-        const char *tip = "";
-
-        // Detect common offline/network errors to append inline tips
-        if (SDL_strstr(mm->catalogErrorMessage, "resolve") != NULL || SDL_strstr(mm->catalogErrorMessage, "connect") != NULL ||
-            SDL_strstr(mm->catalogErrorMessage, "timeout") != NULL) {
-            tip = "\n\nTip: Please check your Wi-Fi or internet connection.";
-        } else if (SDL_strstr(mm->catalogErrorMessage, "parse") != NULL) {
-            tip = "\n\nTip: This can happen if your network requires a login portal (e.g. public Wi-Fi). Please check your browser.";
-        }
-
-        triggerGlobalError("Failed to fetch model catalog:\n%s%s", mm->catalogErrorMessage, tip);
-        mm->catalogErrorMessage[0] = '\0';
-    }
-
-    const char *modelDisplayName = getFilenameFromPath(uiConfig.modelPath);
-    char comboLabel[256];
-    SDL_strlcpy(comboLabel, modelDisplayName, sizeof(comboLabel));
-
-    for (int i = 0; i < mm->count; i++) {
-        if (strcmp(mm->models[i].filename, modelDisplayName) == 0) {
-            if (mm->models[i].state == MODEL_STATE_DOWNLOADING) {
-                int pct = SDL_GetAtomicInt(&mm->models[i].progressPercent);
-                const char *eta = getActiveDownloadETA(&mm->models[i]);
-                if (eta[0] != '\0') {
-                    (void)snprintf(comboLabel, sizeof(comboLabel), "Downloading %s (%d%%) %s", mm->models[i].name, pct, eta);
-                } else {
-                    (void)snprintf(comboLabel, sizeof(comboLabel), "Downloading %s (%d%%)", mm->models[i].name, pct);
-                }
-            } else if (mm->models[i].state == MODEL_STATE_VERIFYING) {
-                (void)snprintf(comboLabel, sizeof(comboLabel), "Verifying %s...", mm->models[i].name);
-            } else {
-                SDL_strlcpy(comboLabel, mm->models[i].name, sizeof(comboLabel));
-            }
-            break;
-        }
-    }
-
-    igAlignTextToFramePadding();
-    igText("Model");
-    igSameLine(180.0f, 0.0f);
-
-    igSetNextItemWidth(-34.0f);
-    if (igBeginCombo("##Model", comboLabel, 0)) {
-        if (mm->count == 0) {
-            if (mm->fetchInProgress) {
-                igSelectable_Bool("Loading catalog...##empty", false, ImGuiSelectableFlags_Disabled, (ImVec2_c){0, 0});
-            } else {
-                igSelectable_Bool("Catalog empty / Offline##empty", false, ImGuiSelectableFlags_Disabled, (ImVec2_c){0, 0});
-            }
-        } else {
-            bool isNonEnglish = (strcmp(uiConfig.language, "auto") != 0 && strcmp(uiConfig.language, "en") != 0);
-            for (int i = 0; i < mm->count; i++) {
-                ModelEntry *entry = &mm->models[i];
-                if (isNonEnglish && strstr(entry->filename, ".en") != NULL) {
-                    continue;
-                }
-                bool isSelected = (strcmp(modelDisplayName, entry->filename) == 0);
-                bool isActive = (strcmp(activeModelFilename, entry->filename) == 0);
-
-                char itemDisplay[256];
-                (void)snprintf(itemDisplay, sizeof(itemDisplay), "%s (%.1f MB)", entry->name, (double)entry->remoteSize / (1024.0 * 1024.0));
-
-                igPushID_Int(i);
-
-                bool rowClicked = igSelectable_Bool(itemDisplay, isSelected, ImGuiSelectableFlags_NoAutoClosePopups, (ImVec2_c){0.0f, 24.0f});
-
-                ImVec2_c minVal = igGetItemRectMin();
-                ImVec2_c maxVal = igGetItemRectMax();
-                ImDrawList *drawList = igGetWindowDrawList();
-
-                // Draw border around the entire row for all on-disk models
-                if (entry->state == MODEL_STATE_DOWNLOADED) {
-                    ImU32 borderCol = igGetColorU32_Col(ImGuiCol_Border, 1.0f);
-                    ImDrawList_AddRect(drawList, minVal, maxVal, borderCol, 0.0f, 1.0f, 0);
-                }
-
-                // Progress bar background for active download/verify state
-                if (entry->state == MODEL_STATE_DOWNLOADING || entry->state == MODEL_STATE_VERIFYING) {
-                    float pct = (entry->state == MODEL_STATE_DOWNLOADING) ? (float)SDL_GetAtomicInt(&entry->progressPercent) / 100.0f : 1.0f;
-                    float rowWidth = maxVal.x - minVal.x;
-                    ImVec2_c progressMax = {minVal.x + rowWidth * pct, maxVal.y};
-                    ImU32 barCol = igGetColorU32_Col(ImGuiCol_Header, 0.4f);
-                    ImDrawList_AddRectFilled(drawList, minVal, progressMax, barCol, 0.0f, 0);
-
-                    char overlayText[128];
-                    if (entry->state == MODEL_STATE_DOWNLOADING) {
-                        const char *eta = getActiveDownloadETA(entry);
-                        const char *prefix = (strlen(entry->name) > 17) ? "Down..." : "Downloading";
-                        (void)snprintf(overlayText, sizeof(overlayText), "[%s %d%%]%s", prefix, (int)(pct * 100), eta);
-                    } else {
-                        SDL_strlcpy(overlayText, "[Verifying]", sizeof(overlayText));
-                    }
-
-                    float rightTextX = maxVal.x - 36.0f - igCalcTextSize(overlayText, NULL, false, -1.0f).x - igGetStyle()->ItemSpacing.x;
-                    if (rightTextX < minVal.x)
-                        rightTextX = minVal.x;
-
-                    ImVec2_c textPos = {rightTextX, minVal.y + 7.0f};
-                    ImU32 textCol = igGetColorU32_Vec4((ImVec4_c){1.0f, 1.0f, 1.0f, 0.8f});
-                    ImDrawList_AddText_Vec2(drawList, textPos, textCol, overlayText, NULL);
-                }
-
-                // Align action text icon on the far right of the selectable row container
-                const char *iconStr = "";
-                ImU32 iconCol = 0xFFFFFFFF;
-
-                if (entry->state == MODEL_STATE_DOWNLOADED) {
-                    if (isActive) {
-                        iconCol = igGetColorU32_Vec4((ImVec4_c){0.3f, 1.0f, 0.3f, 1.0f});
-                        iconStr = "[A]";
-                    } else {
-                        iconCol = igGetColorU32_Vec4((ImVec4_c){1.0f, 0.3f, 0.3f, 1.0f});
-                        iconStr = "[D]";
-                    }
-                } else if (entry->state == MODEL_STATE_DOWNLOADING) {
-                    iconCol = igGetColorU32_Vec4((ImVec4_c){1.0f, 1.00f, 1.00f, 1.00f});
-                    iconStr = "[X]";
-                } else if (entry->state == MODEL_STATE_NOT_DOWNLOADED) {
-                    iconCol = igGetColorU32_Vec4((ImVec4_c){0.6f, 0.6f, 0.6f, 1.00f});
-                    iconStr = "[+]";
-                }
-
-                if (iconStr[0] != '\0') {
-                    float iconWidth = igCalcTextSize(iconStr, NULL, false, -1.0f).x;
-                    float iconX = maxVal.x - iconWidth - 8.0f;
-                    ImVec2_c iconPos = {iconX, minVal.y + 7.0f};
-                    ImDrawList_AddText_Vec2(drawList, iconPos, iconCol, iconStr, NULL);
-                }
-
-                if (rowClicked) {
-                    ImVec2_c mousePos = igGetMousePos();
-                    bool clickedIcon = (mousePos.x >= maxVal.x - 36.0f);
-                    if (clickedIcon) {
-                        // Action Triggered
-                        if (entry->state == MODEL_STATE_DOWNLOADED) {
-                            if (!isActive) {
-                                g_DeleteTargetIndex = i;
-                                *triggerDeletePopup = true;
-                            }
-                        } else if (entry->state == MODEL_STATE_DOWNLOADING) {
-                            modelManagerCancelDownload();
-                        } else if (entry->state == MODEL_STATE_NOT_DOWNLOADED) {
-                            modelManagerStartDownload(i);
-                        }
-                    } else {
-                        // Selection Triggered - ONLY if already downloaded
-                        if (entry->state == MODEL_STATE_DOWNLOADED) {
-                            (void)snprintf(uiConfig.modelPath, sizeof(uiConfig.modelPath), "models/%s", entry->filename);
-                            igCloseCurrentPopup();
-                        }
-                    }
-                }
-
-                if (isSelected) {
-                    igSetItemDefaultFocus();
-                }
-
-                igPopID();
-            }
-        }
-        igEndCombo();
-    }
-    igSameLine(0.0f, 4.0f);
-    bool isBusy = mm->fetchInProgress || modelManagerIsDownloading();
-    igBeginDisabled(isBusy);
-    if (igButton("R", (ImVec2_c){30.0f, 0.0f})) {
-        modelManagerRescanLocal();
-        modelManagerStartFetchCatalog();
-    }
-    igEndDisabled();
-    if (igIsItemHovered(0)) {
-        igSetTooltip("Reload model list");
-    }
-    if (*triggerDeletePopup) {
-        igOpenPopup_Str("Confirm Deletion##Modal", 0);
-    }
-
-    SDL_UnlockMutex(mm->lock);
-
-    // GPU Toggle & CPU Thread Count
-    bool hasGpu = whisperHasGpu();
-    if (!hasGpu) {
-        uiConfig.use_gpu = false;
-    }
-
-    igBeginDisabled(!hasGpu);
-    igAlignTextToFramePadding();
-    igText("Use GPU (Vulkan)");
-    igSameLine(180.0f, 0.0f);
-    igCheckbox("##use_gpu", &uiConfig.use_gpu);
-    igEndDisabled();
-    if (!hasGpu && igIsItemHovered(0)) {
-        igSetTooltip("No compatible Vulkan GPU found on this system");
-    }
-
-    // CPU Thread Count (faded out when running on GPU)
-    int maxThreads = SDL_GetNumLogicalCPUCores();
-    if (maxThreads < 1) {
-        maxThreads = 1;
-    }
-    int tempThreads = uiConfig.cpu_threads;
-
-    igSameLine(230.0f, 0.0f);
-    igBeginDisabled(uiConfig.use_gpu);
-    igAlignTextToFramePadding();
-    igText("CPU Threads");
-    igSameLine(340.0f, 0.0f);
-    igSetNextItemWidth(-1.0f);
-    igPushStyleColor_Vec4(ImGuiCol_SliderGrab, (ImVec4_c){0.85f, 0.15f, 0.15f, 1.00f});
-    igPushStyleColor_Vec4(ImGuiCol_SliderGrabActive, (ImVec4_c){1.00f, 0.25f, 0.25f, 1.00f});
-    igPushStyleColor_Vec4(ImGuiCol_FrameBgActive, (ImVec4_c){0.30f, 0.05f, 0.05f, 1.00f});
-    if (igSliderInt("##cpu_threads", &tempThreads, 1, maxThreads, "%d", 0)) {
-        uiConfig.cpu_threads = tempThreads;
-    }
-    igPopStyleColor(3);
-    igEndDisabled();
-
-    // Spoken Language Selection (sorted alphabetically)
-    igAlignTextToFramePadding();
-    igText("Spoken Language");
-    igSameLine(180.0f, 0.0f);
-
-    int maxLangId = whisper_lang_max_id();
-    int langIds[128] = {0};
-    int langCount = 0;
-
-    for (int i = 0; i < maxLangId && langCount < 128; i++) {
-        if (whisper_lang_str(i) && whisper_lang_str_full(i)) {
-            langIds[langCount++] = i;
-        }
-    }
-
-    qsort(langIds, (size_t)langCount, sizeof(int), compareLangIds);
-
-    char currentLangCap[64] = "Auto Detect";
-    if (uiConfig.language[0] != '\0' && strcmp(uiConfig.language, "auto") != 0) {
-        for (int k = 0; k < langCount; k++) {
-            const char *code = whisper_lang_str(langIds[k]);
-            if (code && strcmp(uiConfig.language, code) == 0) {
-                const char *full = whisper_lang_str_full(langIds[k]);
-                if (full) {
-                    SDL_strlcpy(currentLangCap, full, sizeof(currentLangCap));
-                    if (currentLangCap[0] >= 'a' && currentLangCap[0] <= 'z') {
-                        currentLangCap[0] -= 32;
-                    }
-                }
-                break;
-            }
-        }
-    }
-
-    igSetNextItemWidth(-1.0f);
-    if (igBeginCombo("##SpokenLanguage", currentLangCap, 0)) {
-        if (igSelectable_Bool("Auto Detect", strcmp(uiConfig.language, "auto") == 0, 0, (ImVec2_c){0, 0})) {
-            SDL_strlcpy(uiConfig.language, "auto", sizeof(uiConfig.language));
-        }
-
-        for (int k = 0; k < langCount; k++) {
-            const char *code = whisper_lang_str(langIds[k]);
-            const char *full = whisper_lang_str_full(langIds[k]);
-            if (!code || !full)
-                continue;
-
-            char capFull[64];
-            SDL_strlcpy(capFull, full, sizeof(capFull));
-            if (capFull[0] >= 'a' && capFull[0] <= 'z') {
-                capFull[0] -= 32;
-            }
-            char displayLabel[128];
-            (void)snprintf(displayLabel, sizeof(displayLabel), "%s (%s)", capFull, code);
-
-            bool isSaved = (strcmp(uiConfig.language, code) == 0);
-            if (igSelectable_Bool(displayLabel, isSaved, 0, (ImVec2_c){0, 0})) {
-                SDL_strlcpy(uiConfig.language, code, sizeof(uiConfig.language));
-            }
-            if (isSaved) {
-                igSetItemDefaultFocus();
-            }
-        }
-        igEndCombo();
-    }
-}
-
-static void renderFooter(ControlPanelStatus *status, bool isDirty) {
-    float windowHeight = igGetWindowHeight();
-    float paddingY = igGetStyle()->WindowPadding.y;
-    float footerStartY = windowHeight - paddingY - 30.0f - 20.0f; // 30px button height + 20px margin
-
-    igSetCursorPosY(footerStartY);
-    igSeparator();
-    igSpacing();
-
-    // Buttons (Save & Load Defaults - right-aligned, Load Defaults on Left)
-    float btnStartX = igGetWindowWidth() - (UI_BUTTON_WIDTH * 2.0f) - UI_SPACING - igGetStyle()->WindowPadding.x;
-    if (btnStartX < 0.0f)
-        btnStartX = 0.0f;
-
-    igSetCursorPosX(btnStartX);
-
-    // Load Defaults Button
-    if (igButton("Load Defaults", (ImVec2_c){UI_BUTTON_WIDTH, 0.0f})) {
-        uiConfig = loadDefaultConfig();
-        previewNeedsUpdate = true;
-    }
-
-    igSameLine(0.0f, UI_SPACING);
-
-    // Save Button
-    if (!isDirty) {
-        igBeginDisabled(true);
-        igButton("Saved", (ImVec2_c){UI_BUTTON_WIDTH, 0.0f});
-        igEndDisabled();
-    } else {
-        if (igButton("Save", (ImVec2_c){UI_BUTTON_WIDTH, 0.0f})) {
-            char fontError[128] = "";
-            char modelError[128] = "";
-            bool fontOk = utilsIsFileReadable(uiConfig.font);
-            bool modelOk = utilsIsFileReadable(uiConfig.modelPath);
-
-            if (!fontOk) {
-                SDL_strlcpy(fontError, "Font unreadable, using fallback", sizeof(fontError));
-            }
-            if (!modelOk) {
-                SDL_strlcpy(modelError, "Model unreadable, make sure you select one", sizeof(modelError));
-            }
-
-            if (!fontOk || !modelOk) {
-                if (!fontOk && !modelOk) {
-                    triggerGlobalError("%s\n%s", fontError, modelError);
-                } else if (!fontOk) {
-                    triggerGlobalError("%s", fontError);
-                } else {
-                    triggerGlobalError("%s", modelError);
-                }
-            } else if (saveConfig(&uiConfig)) {
-                if (pLiveConfig) {
-                    *pLiveConfig = uiConfig;
-                }
-                status->configSaved = true;
-                if (strcmp(uiConfig.modelPath, savedConfig.modelPath) != 0 || uiConfig.use_gpu != savedConfig.use_gpu || whisperStatusError) {
-                    status->modelChanged = true;
-                }
-                savedConfig = uiConfig;
-                SDL_strlcpy(whisperStatusMessage, "Status: Active (Config Saved)", sizeof(whisperStatusMessage));
-                whisperStatusError = false;
-            } else {
-                triggerGlobalError("Failed to write config");
-            }
-        }
-    }
-}
-
-static void renderModals(const char *activeModelFilename) {
-    // Render Global Error Popup Modal
-    if (showGlobalUiErrorPopup) {
-        ImVec2_c parentPos = igGetWindowPos();
-        ImVec2_c parentSize = igGetWindowSize();
-        ImVec2_c centerPos = {parentPos.x + parentSize.x * 0.5f, parentPos.y + parentSize.y * 0.5f};
-        igSetNextWindowPos(centerPos, ImGuiCond_Appearing, (ImVec2_c){0.5f, 0.5f});
-
-        igOpenPopup_Str("Error##GlobalErrorPopup", 0);
-        showGlobalUiErrorPopup = false; // Reset trigger flag immediately to avoid resets
-    }
-
-    igSetNextWindowSize((ImVec2_c){360.0f, 0.0f}, ImGuiCond_Always);
-
-    if (igBeginPopupModal("Error##GlobalErrorPopup", NULL, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_AlwaysAutoResize)) {
-        igPushTextWrapPos(igGetCursorPosX() + 328.0f); // 360px - margins
-        igTextWrapped("%s", globalUiErrorMessage);
-        igPopTextWrapPos();
-
-        igSpacing();
-        igSeparator();
-        igSpacing();
-
-        float okButtonPosX = igGetWindowWidth() - 120.0f - igGetStyle()->WindowPadding.x;
-        if (okButtonPosX < 0.0f)
-            okButtonPosX = 0.0f;
-        igSetCursorPosX(okButtonPosX);
-        if (igButton("OK", (ImVec2_c){120.0f, 30.0f})) {
-            igCloseCurrentPopup();
-        }
-        igEndPopup();
-    }
-
-    // Deletion Confirmation Modal
-    if (g_DeleteTargetIndex != -1) {
-        ImVec2_c centerPos;
-        centerPos.x = igGetIO_Nil()->DisplaySize.x * 0.5f;
-        centerPos.y = igGetIO_Nil()->DisplaySize.y * 0.5f;
-        igSetNextWindowPos(centerPos, ImGuiCond_Appearing, (ImVec2_c){0.5f, 0.5f});
-        igSetNextWindowSize((ImVec2_c){380.0f, 0.0f}, ImGuiCond_Always);
-
-        if (igBeginPopupModal("Confirm Deletion##Modal", NULL, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_AlwaysAutoResize)) {
-            char modelName[256] = "";
-            ModelManager *mm = getModelManager();
-            SDL_LockMutex(mm->lock);
-            if (g_DeleteTargetIndex < mm->count) {
-                SDL_strlcpy(modelName, mm->models[g_DeleteTargetIndex].name, sizeof(modelName));
-            }
-            SDL_UnlockMutex(mm->lock);
-
-            igTextWrapped("Are you sure you want to delete the model '%s'?", modelName);
-
-            igSpacing();
-            igSeparator();
-            igSpacing();
-
-            float buttonWidth = 120.0f;
-            float spacing = 8.0f;
-            float startX = igGetWindowWidth() - (buttonWidth * 2.0f) - spacing - igGetStyle()->WindowPadding.x;
-            if (startX < 0.0f)
-                startX = 0.0f;
-
-            igSetCursorPosX(startX);
-            if (igButton("Delete", (ImVec2_c){buttonWidth, 30.0f})) {
-                if (g_DeleteTargetIndex != -1) {
-                    modelManagerDeleteModel(g_DeleteTargetIndex, activeModelFilename);
-                    g_DeleteTargetIndex = -1;
-                }
-                igCloseCurrentPopup();
-            }
-            igSameLine(0.0f, spacing);
-            if (igButton("Cancel", (ImVec2_c){buttonWidth, 30.0f})) {
-                g_DeleteTargetIndex = -1;
-                igCloseCurrentPopup();
-            }
-            igEndPopup();
-        }
-    }
 }
 
 ControlPanelStatus updateAndRenderControlPanel(SDL_Renderer *overlayRenderer) {

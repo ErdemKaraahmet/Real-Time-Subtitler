@@ -17,7 +17,12 @@ Thank you for your interest in contributing to **Real-Time Subtitler (RTS)**! Th
 - **`src/whisperEngine.c`**: Manages whisper.cpp context, model loading, and Vulkan GPU-accelerated inference runs.
 - **`src/windowManager.c`**: Handles transparent borderless window creation, positioning, and mouse passthrough.
 - **`src/textTexture.c`**: Generates SDL text textures with custom fonts, colors, and outline styles using SDL3_ttf.
-- **`src/controlPanel.c`**: Graphical settings overlay built with Dear ImGui (`cimgui`).
+- **`src/controlPanel.c`**: Main shell for the Dear ImGui control panel window lifecycle, renderer init, and layout orchestration.
+- **`src/cpPageView.c`**: Subtitle styling preference controls (font, size, colors, display mode) and live preview texture rendering.
+- **`src/cpPageTranscription.c`**: Transcription settings (model catalog downloader, GPU acceleration toggle, CPU threads, spoken language selection).
+- **`src/cpPageSystem.c`**: System page view rendering application version and build diagnostics.
+- **`src/cpFooter.c`**: Control panel footer bar (Load Defaults / Save & Apply controls).
+- **`src/cpModals.c`**: Control panel modal dialogs (error notifications and model deletion confirmations).
 - **`src/modelManager.c`**: Handles model catalog fetching, multi-threaded downloading, ETA calculation, and SHA-256 verification.
 - **`src/configManager.c`**: Handles `config.json` parsing and persistence via cJSON, with automatic fallback defaults and corrupted-file backup (`.bak`).
 - **`src/trayManager.c`**: Manages the cross-platform system tray icon and context menus.

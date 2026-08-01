@@ -140,6 +140,11 @@ set(RTS_SOURCES
     src/audioCapture.c
     src/trayManager.c
     src/controlPanel.c
+    src/cpPageView.c
+    src/cpPageTranscription.c
+    src/cpPageSystem.c
+    src/cpFooter.c
+    src/cpModals.c
     src/modelManager.c
     src/utils.c
     src/imgui_impl_sdlrenderer3_c.cpp
