@@ -101,6 +101,12 @@ int main(void) {
     }
     SDL_Log("Window created.");
 
+    if (config->window_x != -1 && config->window_y != -1) {
+        int initX = config->window_x - (width / 2);
+        int initY = config->window_y - (height / 2);
+        SDL_SetWindowPosition(window, initX, initY);
+    }
+
     SDL_Log("Initializing system tray...");
     initTray();
 
@@ -252,6 +258,16 @@ int main(void) {
         }
 
         SDL_Delay(1000 / 60); // Limit to 60 FPS
+    }
+
+    // Save window center position on app shutdown
+    if (window) {
+        int winX, winY, winW, winH;
+        SDL_GetWindowPosition(window, &winX, &winY);
+        SDL_GetWindowSize(window, &winW, &winH);
+        config->window_x = winX + (winW / 2);
+        config->window_y = winY + (winH / 2);
+        saveConfig(config);
     }
 
     // Close and destroy the window

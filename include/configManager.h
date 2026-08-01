@@ -15,6 +15,8 @@ typedef struct {
     bool use_gpu;
     int cpu_threads;
     char language[8];
+    int window_x;
+    int window_y;
 } AppConfig;
 
 AppConfig loadDefaultConfig(void);

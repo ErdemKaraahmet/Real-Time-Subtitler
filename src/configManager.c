@@ -152,6 +152,8 @@ ConfigLoadStatus loadConfig(AppConfig *conf) {
     getJsonBool(root, "use_gpu", &conf->use_gpu);
     getJsonIntClamped(root, "cpu_threads", &conf->cpu_threads, 1, maxThreads);
     getJsonString(root, "language", conf->language, sizeof(conf->language));
+    getJsonIntClamped(root, "window_x", &conf->window_x, -32768, 32767);
+    getJsonIntClamped(root, "window_y", &conf->window_y, -32768, 32767);
 
     cJSON_Delete(root);
     return CONFIG_LOAD_OK;
@@ -175,6 +177,8 @@ bool saveConfig(const AppConfig *conf) {
     cJSON_AddBoolToObject(root, "use_gpu", conf->use_gpu);
     cJSON_AddNumberToObject(root, "cpu_threads", conf->cpu_threads);
     cJSON_AddStringToObject(root, "language", conf->language);
+    cJSON_AddNumberToObject(root, "window_x", conf->window_x);
+    cJSON_AddNumberToObject(root, "window_y", conf->window_y);
 
     char *jsonStr = cJSON_Print(root);
     cJSON_Delete(root);
@@ -208,6 +212,8 @@ AppConfig loadDefaultConfig(void) {
         .use_gpu = whisperHasGpu(),
         .cpu_threads = SDL_GetNumLogicalCPUCores() / 2,
         .language = "auto",
+        .window_x = -1,
+        .window_y = -1,
     };
 
     if (conf.cpu_threads < 1) {
