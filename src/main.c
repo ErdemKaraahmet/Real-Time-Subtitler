@@ -27,7 +27,6 @@ static bool chunkReady = false;
 static bool textUpdated = false;
 static bool paused = false;
 static SDL_Mutex *textMutex;
-static SDL_Texture *texture = NULL;   // promoted so pause handler can clear it
 static Uint64 lastTextUpdateTime = 0; // timestamp of the last whisper text update (ms)
 static bool done = false;
 
@@ -36,7 +35,9 @@ static int tokenNum;
 
 int whisperThread(void *data);
 
-void handleEvents(SDL_Window *window, bool *done, bool *needsRedraw, int timeout, AppConfig *config);
+void handleEvents(bool *done, bool *needsRedraw, int timeout, AppConfig *config);
+
+static void handleModelReload(AppConfig *config);
 
 int main(void) {
 #ifdef _WIN32
@@ -92,20 +93,11 @@ int main(void) {
 
     // Create a transparent window
     SDL_Log("Creating window...");
-    SDL_Window *window;
-    SDL_Renderer *renderer;
-    int width = 240, height = 80;
-    if (!createWindow(&window, &renderer, width, height)) {
+    if (!initWindow(240, 80)) {
         SDL_Log("Couldn't create window: %s", SDL_GetError());
         return 1;
     }
-    SDL_Log("Window created.");
-
-    if (config->window_x != -1 && config->window_y != -1) {
-        int initX = config->window_x - (width / 2);
-        int initY = config->window_y - (height / 2);
-        SDL_SetWindowPosition(window, initX, initY);
-    }
+    setWindowCenter(config->window_x, config->window_y);
 
     SDL_Log("Initializing system tray...");
     initTray();
@@ -121,9 +113,6 @@ int main(void) {
             return 1;
         }
     }
-
-    // Create the text surface and texture
-    float text_width, text_height;
 
     textMutex = SDL_CreateMutex();
     SDL_Thread *wThread = SDL_CreateThread(whisperThread, "whisper", config);
@@ -142,28 +131,9 @@ int main(void) {
 
         if (textUpdated) {
             SDL_LockMutex(textMutex);
-            if (texture != NULL)
-                SDL_DestroyTexture(texture);
             if (!strcmp(subtitleText, " [BLANK_AUDIO]"))
                 subtitleText[0] = '\0'; // whisper outputs " [BLANK_AUDIO]" on empty audio, to not print it exactly
-            texture = createTextTexture(renderer, font, outputTokens, tokenNum, config, &text_width, &text_height);
-
-            SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
-
-            // Resize the window to fit snugly to the text
-            if (texture != NULL) {
-
-                int currentX, currentY;
-                SDL_GetWindowPosition(window, &currentX, &currentY);
-                int offsetX = (int)(((float)width - text_width) * 0.5f);
-                int offsetY = (int)(((float)height - text_height) * 0.5f);
-                SDL_SetWindowPosition(window, currentX + offsetX, currentY + offsetY);
-
-                width = (int)text_width; // update
-                height = (int)text_height;
-
-                SDL_SetWindowSize(window, width, height);
-            }
+            updateSubtitleText(font, outputTokens, tokenNum, config);
 
             textUpdated = false;
             needsRedraw = true;
@@ -176,29 +146,21 @@ int main(void) {
 
         // Wait for events. Timeout is 16ms when Control Panel is open, 100ms when idle/stationary.
         int timeout = (cpOpen) ? 16 : 100;
-        handleEvents(window, &done, &needsRedraw, timeout, config);
+        handleEvents(&done, &needsRedraw, timeout, config);
 
         // Clear the subtitle overlay if no new text has arrived within the timeout
-        if (texture != NULL && lastTextUpdateTime > 0 && SDL_GetTicks() - lastTextUpdateTime > (Uint64)(CHUNK_LENGTH_SECONDS + 1) * 1000) {
+        if (hasSubtitleText() && lastTextUpdateTime > 0 && SDL_GetTicks() - lastTextUpdateTime > (Uint64)(CHUNK_LENGTH_SECONDS + 1) * 1000) {
             SDL_LockMutex(textMutex);
             subtitleText[0] = '\0';
             tokenNum = 0;
             SDL_UnlockMutex(textMutex);
 
-            SDL_DestroyTexture(texture);
-            texture = NULL;
+            clearSubtitleText();
             needsRedraw = true;
         }
 
         if (needsRedraw) {
-            SDL_RenderClear(renderer);
-
-            // Draw the text in the center
-            if (texture != NULL) {
-                SDL_FRect dstRect = {((float)width - text_width) / 2.0f, ((float)height - text_height) / 2.0f, text_width, text_height};
-                SDL_RenderTexture(renderer, texture, NULL, &dstRect);
-            }
-            SDL_RenderPresent(renderer);
+            renderSubtitleWindow();
             needsRedraw = false;
         }
 
@@ -209,7 +171,7 @@ int main(void) {
             int prevFontSize = config->font_size;
             SDL_strlcpy(prevFont, config->font, sizeof(prevFont));
 
-            ControlPanelStatus cpStatus = updateAndRenderControlPanel(renderer);
+            ControlPanelStatus cpStatus = updateAndRenderControlPanel(paused);
             if (cpStatus.configSaved) {
                 // Only reload font if the font path or size actually changed
                 if (strcmp(config->font, prevFont) != 0 || config->font_size != prevFontSize) {
@@ -227,33 +189,13 @@ int main(void) {
                 }
                 // Trigger subtitle redraw only if a subtitle is currently active
                 SDL_LockMutex(textMutex);
-                if (subtitleText[0] != '\0' && texture != NULL) {
+                if (subtitleText[0] != '\0' && hasSubtitleText()) {
                     textUpdated = true;
                 }
                 SDL_UnlockMutex(textMutex);
             }
             if (cpStatus.modelChanged) {
-                // Reload the Whisper model
-                whisperFree();
-                bool prevGpu = config->use_gpu;
-                if (whisperInit(config->modelPath, &config->use_gpu)) {
-                    SDL_Log("Whisper model reloaded: %s (GPU: %s)", config->modelPath, config->use_gpu ? "yes" : "no");
-                    if (prevGpu != config->use_gpu) {
-                        saveConfig(config);
-                    }
-                    if (config->use_gpu) {
-                        setControlPanelWhisperError(false, "Status: Active (GPU Enabled)");
-                    } else if (prevGpu && !config->use_gpu) {
-                        setControlPanelWhisperError(true, "Status: Active (Vulkan Failed - CPU Fallback)");
-                    } else {
-                        setControlPanelWhisperError(false, "Status: Active (CPU Only)");
-                    }
-                } else {
-                    SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to reload Whisper model: %s", config->modelPath);
-                    setControlPanelWhisperError(true, "Status: Whisper Offline (Model Load Failed)");
-                    openControlPanelToTranscriptionWithError(config,
-                                                             "Failed to reload the Whisper model.\n\nPlease select or download another model.");
-                }
+                handleModelReload(config);
             }
         }
 
@@ -261,17 +203,11 @@ int main(void) {
     }
 
     // Save window center position on app shutdown
-    if (window) {
-        int winX, winY, winW, winH;
-        SDL_GetWindowPosition(window, &winX, &winY);
-        SDL_GetWindowSize(window, &winW, &winH);
-        config->window_x = winX + (winW / 2);
-        config->window_y = winY + (winH / 2);
-        saveConfig(config);
-    }
+    getWindowCenter(&config->window_x, &config->window_y);
+    saveConfig(config);
 
     // Close and destroy the window
-    SDL_DestroyWindow(window);
+    destroyWindow();
 
     // Clean up
     closeControlPanel();
@@ -281,8 +217,6 @@ int main(void) {
     }
     whisperFree();
     cleanupAudio();
-    if (texture)
-        SDL_DestroyTexture(texture);
     destroyTray();
     if (textMutex) {
         SDL_DestroyMutex(textMutex);
@@ -294,11 +228,7 @@ int main(void) {
     return 0;
 }
 
-bool isAppPaused(void) {
-    return paused;
-}
-
-void handleEvents(SDL_Window *window, bool *pDone, bool *needsRedraw, int timeout, AppConfig *config) {
+void handleEvents(bool *pDone, bool *needsRedraw, int timeout, AppConfig *config) {
     SDL_Event event;
     if (SDL_WaitEventTimeout(&event, timeout)) {
         do {
@@ -319,25 +249,20 @@ void handleEvents(SDL_Window *window, bool *pDone, bool *needsRedraw, int timeou
                     subtitleText[0] = '\0';
                     tokenNum = 0;
                     SDL_UnlockMutex(textMutex);
-                    if (texture) {
-                        SDL_DestroyTexture(texture);
-                        texture = NULL;
-                    }
+                    clearSubtitleText();
                 } else if (event.user.code == APP_EVENT_RESUME) {
                     paused = false;
                     resumeAudio();
                     setTrayPauseState(false);
                 } else if (event.user.code == APP_EVENT_MOVE_WINDOW) {
-                    SDL_SetWindowMousePassthrough(window, false);
-                    SDL_SetWindowBordered(window, true);
+                    setWindowMoveMode(true);
                 } else if (event.user.code == APP_EVENT_OPEN_CONTROL) {
                     openControlPanel(config);
                 }
                 *needsRedraw = true;
             }
-            if (event.type == SDL_EVENT_WINDOW_FOCUS_LOST && event.window.windowID == SDL_GetWindowID(window)) {
-                SDL_SetWindowMousePassthrough(window, true);
-                SDL_SetWindowBordered(window, false);
+            if (event.type == SDL_EVENT_WINDOW_FOCUS_LOST && isWindowID(event.window.windowID)) {
+                setWindowMoveMode(false);
                 *needsRedraw = true;
             }
             if (event.type >= SDL_EVENT_WINDOW_FIRST && event.type <= SDL_EVENT_WINDOW_LAST) {
@@ -371,4 +296,26 @@ int whisperThread(void *data) {
         SDL_Delay(10);
     }
     return 0;
+}
+
+static void handleModelReload(AppConfig *config) {
+    whisperFree();
+    bool prevGpu = config->use_gpu;
+    if (whisperInit(config->modelPath, &config->use_gpu)) {
+        SDL_Log("Whisper model reloaded: %s (GPU: %s)", config->modelPath, config->use_gpu ? "yes" : "no");
+        if (prevGpu != config->use_gpu) {
+            saveConfig(config);
+        }
+        if (config->use_gpu) {
+            setControlPanelWhisperError(false, "Status: Active (GPU Enabled)");
+        } else if (prevGpu && !config->use_gpu) {
+            setControlPanelWhisperError(true, "Status: Active (Vulkan Failed - CPU Fallback)");
+        } else {
+            setControlPanelWhisperError(false, "Status: Active (CPU Only)");
+        }
+    } else {
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to reload Whisper model: %s", config->modelPath);
+        setControlPanelWhisperError(true, "Status: Whisper Offline (Model Load Failed)");
+        openControlPanelToTranscriptionWithError(config, "Failed to reload the Whisper model.\n\nPlease select or download another model.");
+    }
 }

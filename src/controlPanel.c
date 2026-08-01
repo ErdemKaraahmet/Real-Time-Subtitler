@@ -1,8 +1,5 @@
 #include "controlPanel_internal.h"
 
-// External getter for pause state from main.c
-extern bool isAppPaused(void);
-
 // External C++ declarations from our bridge
 extern bool ImGui_ImplSDLRenderer3_Init_C(SDL_Renderer *renderer);
 extern void ImGui_ImplSDLRenderer3_Shutdown_C(void);
@@ -209,8 +206,7 @@ void handleControlPanelEvent(const SDL_Event *event) {
     }
 }
 
-static void renderHeaderAndSidebar(SDL_Renderer *overlayRenderer) {
-    (void)overlayRenderer;
+static void renderHeaderAndSidebar(const bool isPaused) {
     // Status Message & Control Buttons (Centered vertically)
     igAlignTextToFramePadding();
     if (whisperStatusError) {
@@ -228,12 +224,11 @@ static void renderHeaderAndSidebar(SDL_Renderer *overlayRenderer) {
     }
 
     // Pause/Resume button
-    bool currentlyPaused = isAppPaused();
-    if (igButton(currentlyPaused ? "Resume" : "Pause", (ImVec2_c){70.0f, 0.0f})) {
+    if (igButton(isPaused ? "Resume" : "Pause", (ImVec2_c){70.0f, 0.0f})) {
         SDL_Event e;
         SDL_zero(e);
         e.type = SDL_EVENT_USER;
-        e.user.code = currentlyPaused ? 0 : 1; // 0 = resume, 1 = pause
+        e.user.code = isPaused ? APP_EVENT_RESUME : APP_EVENT_PAUSE;
         SDL_PushEvent(&e);
     }
 
@@ -284,7 +279,7 @@ static void renderHeaderAndSidebar(SDL_Renderer *overlayRenderer) {
     igNextColumn();
 }
 
-ControlPanelStatus updateAndRenderControlPanel(SDL_Renderer *overlayRenderer) {
+ControlPanelStatus updateAndRenderControlPanel(bool isPaused) {
     ControlPanelStatus status = {0};
     const char *activeModelFilename = getFilenameFromPath(savedConfig.modelPath);
     bool triggerDeletePopup = false;
@@ -325,7 +320,7 @@ ControlPanelStatus updateAndRenderControlPanel(SDL_Renderer *overlayRenderer) {
 
     igBegin("Control Panel", NULL, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoCollapse);
 
-    renderHeaderAndSidebar(overlayRenderer);
+    renderHeaderAndSidebar(isPaused);
 
     if (cpActivePage == 0) {
         renderViewPage();
