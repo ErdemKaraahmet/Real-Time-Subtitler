@@ -1,5 +1,7 @@
 #include <SDL3/SDL.h>
 #include <SDL3_ttf/SDL_ttf.h>
+#include <math.h>
+#include <stdlib.h>
 #include <string.h>
 
 #ifdef _WIN32
@@ -93,7 +95,7 @@ int main(void) {
 
     // Create a transparent window
     SDL_Log("Creating window...");
-    if (!initWindow(240, 80)) {
+    if (!initWindow()) {
         SDL_Log("Couldn't create window: %s", SDL_GetError());
         return 1;
     }
@@ -143,9 +145,11 @@ int main(void) {
 
         modelManagerPoll();
         bool cpOpen = isControlPanelOpen();
+        bool snapBusy = updateWindowSnap();
 
-        // Wait for events. Timeout is 16ms when Control Panel is open, 100ms when idle/stationary.
-        int timeout = (cpOpen) ? 16 : 100;
+        // Wait for events. Timeout is 16ms when Control Panel is open or a snap drag/animation
+        // is in progress, 100ms when idle/stationary.
+        int timeout = (cpOpen || snapBusy) ? 16 : 100;
         handleEvents(&done, &needsRedraw, timeout, config);
 
         // Clear the subtitle overlay if no new text has arrived within the timeout
@@ -259,6 +263,10 @@ void handleEvents(bool *pDone, bool *needsRedraw, int timeout, AppConfig *config
                 } else if (event.user.code == APP_EVENT_OPEN_CONTROL) {
                     openControlPanel(config);
                 }
+                *needsRedraw = true;
+            }
+            if (event.type == SDL_EVENT_WINDOW_MOVED && isWindowID(event.window.windowID)) {
+                handleWindowMovedEvent();
                 *needsRedraw = true;
             }
             if (event.type == SDL_EVENT_WINDOW_FOCUS_LOST && isWindowID(event.window.windowID)) {

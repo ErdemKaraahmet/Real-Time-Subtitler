@@ -4,7 +4,7 @@
 #include "configManager.h"
 #include "whisperEngine.h"
 
-bool initWindow(int width, int height);
+bool initWindow(void);
 void destroyWindow(void);
 void setWindowCenter(int centerX, int centerY);
 void getWindowCenter(int *centerX, int *centerY);
@@ -15,3 +15,5 @@ bool updateSubtitleText(TTF_Font *font, SubtitleToken *outputTokens, int tokenNu
 void clearSubtitleText(void);
 bool hasSubtitleText(void);
 void renderSubtitleWindow(void);
+bool updateWindowSnap(void);
+void handleWindowMovedEvent(void);
