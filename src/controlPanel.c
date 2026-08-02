@@ -362,7 +362,7 @@ ControlPanelStatus updateAndRenderControlPanel(bool isPaused) {
     }
 
     // Check dirty state
-    bool isDirty = whisperStatusError || memcmp(&uiConfig, &savedConfig, sizeof(AppConfig)) != 0;
+    bool isDirty = whisperStatusError || !areConfigsEqual(&uiConfig, &savedConfig);
 
     int w, h;
     SDL_GetWindowSize(cpWindow, &w, &h);

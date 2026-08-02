@@ -4,9 +4,9 @@ static void formatEtaString(int etaSeconds, char *dest, size_t destSize) {
     if (etaSeconds < 0) {
         SDL_strlcpy(dest, "?", destSize);
     } else if (etaSeconds < 3600) {
-        SDL_snprintf(dest, destSize, "%dm %02ds", etaSeconds / 60, etaSeconds % 60);
+        (void)SDL_snprintf(dest, destSize, "%dm %02ds", etaSeconds / 60, etaSeconds % 60);
     } else {
-        SDL_snprintf(dest, destSize, "%dh %02dm %02ds", etaSeconds / 3600, (etaSeconds % 3600) / 60, etaSeconds % 60);
+        (void)SDL_snprintf(dest, destSize, "%dh %02dm %02ds", etaSeconds / 3600, (etaSeconds % 3600) / 60, etaSeconds % 60);
     }
 }
 

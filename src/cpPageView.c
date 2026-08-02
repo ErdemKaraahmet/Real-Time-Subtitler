@@ -93,7 +93,7 @@ void renderViewPage(void) {
                 bool isSelected = (strcmp(fontDisplayName, scannedFonts[i]) == 0);
                 bool isActive = (strcmp(activeFontFilename, scannedFonts[i]) == 0);
                 char itemDisplay[384];
-                SDL_snprintf(itemDisplay, sizeof(itemDisplay), "%s##font%d", scannedFonts[i], i);
+                (void)SDL_snprintf(itemDisplay, sizeof(itemDisplay), "%s##font%d", scannedFonts[i], i);
 
                 igPushID_Int(i);
                 bool rowClicked = igSelectable_Bool(itemDisplay, isSelected, ImGuiSelectableFlags_NoAutoClosePopups, (ImVec2_c){0.0f, 24.0f});
@@ -118,7 +118,7 @@ void renderViewPage(void) {
                     if (clickedIcon && !isActive) {
                         SDL_strlcpy(g_DeleteTargetFontFilename, scannedFonts[i], sizeof(g_DeleteTargetFontFilename));
                     } else if (!clickedIcon) {
-                        SDL_snprintf(uiConfig.font, sizeof(uiConfig.font), "fonts/%s", scannedFonts[i]);
+                        (void)SDL_snprintf(uiConfig.font, sizeof(uiConfig.font), "fonts/%s", scannedFonts[i]);
                         previewNeedsUpdate = true;
                         igCloseCurrentPopup();
                     }

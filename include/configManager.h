@@ -23,3 +23,4 @@ typedef struct {
 AppConfig loadDefaultConfig(void);
 ConfigLoadStatus loadConfig(AppConfig *conf);
 bool saveConfig(const AppConfig *conf);
+bool areConfigsEqual(const AppConfig *a, const AppConfig *b);

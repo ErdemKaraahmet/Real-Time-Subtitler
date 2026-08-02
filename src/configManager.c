@@ -237,3 +237,16 @@ AppConfig loadDefaultConfig(void) {
 
     return conf;
 }
+
+bool areConfigsEqual(const AppConfig *a, const AppConfig *b) {
+    if (!a || !b) {
+        return a == b;
+    }
+    return strcmp(a->font, b->font) == 0 && a->font_size == b->font_size && a->outline_thickness == b->outline_thickness &&
+           a->display_mode == b->display_mode && a->text_color.r == b->text_color.r && a->text_color.g == b->text_color.g &&
+           a->text_color.b == b->text_color.b && a->text_color.a == b->text_color.a && a->text_outline_color.r == b->text_outline_color.r &&
+           a->text_outline_color.g == b->text_outline_color.g && a->text_outline_color.b == b->text_outline_color.b &&
+           a->text_outline_color.a == b->text_outline_color.a && strcmp(a->modelPath, b->modelPath) == 0 && a->use_gpu == b->use_gpu &&
+           a->cpu_threads == b->cpu_threads && strcmp(a->language, b->language) == 0 && a->window_x == b->window_x && a->window_y == b->window_y &&
+           a->open_control_panel_on_startup == b->open_control_panel_on_startup;
+}
