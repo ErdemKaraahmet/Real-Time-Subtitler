@@ -16,6 +16,7 @@ const float UI_PREVIEW_BOX_HEIGHT = 70.0f;
 const float UI_WINDOW_HEIGHT = 450.0f;
 
 int g_DeleteTargetIndex = -1;
+char g_DeleteTargetFontFilename[256] = "";
 
 // Window and Renderer state
 SDL_Window *cpWindow = NULL;
@@ -33,7 +34,7 @@ AppConfig savedConfig; // to track dirty state
 bool modelChanged = false;
 char whisperStatusMessage[256] = "Status: Active";
 bool whisperStatusError = false;
-int cpActivePage = 0; // 0 = View, 1 = Transcription
+ControlPanelPage cpActivePage = CP_PAGE_VIEW;
 
 // Global error popup state
 char globalUiErrorMessage[512] = "";
@@ -72,7 +73,7 @@ static SDL_EnumerationResult SDLCALL scanFontsCallback(void *userdata, const cha
     (void)dirname;
     if (scannedFontCount < MAX_ITEMS) {
         size_t len = strlen(fname);
-        if (len > 4 && SDL_strcasecmp(fname + len - 4, ".ttf") == 0) {
+        if (len > 4 && (SDL_strcasecmp(fname + len - 4, ".ttf") == 0 || SDL_strcasecmp(fname + len - 4, ".otf") == 0)) {
             SDL_strlcpy(scannedFonts[scannedFontCount], fname, sizeof(scannedFonts[scannedFontCount]));
             scannedFontCount++;
         }
@@ -80,9 +81,67 @@ static SDL_EnumerationResult SDLCALL scanFontsCallback(void *userdata, const cha
     return SDL_ENUM_CONTINUE;
 }
 
+void rescanFonts(void) {
+    scannedFontCount = 0;
+    char path[512];
+    utilsResolvePath(path, sizeof(path), "fonts");
+    SDL_EnumerateDirectory(path, scanFontsCallback, NULL);
+}
+
+bool importFontFile(const char *filePath, char *errBuf, size_t errBufSize) {
+    if (!filePath || filePath[0] == '\0') {
+        if (errBuf && errBufSize > 0) {
+            SDL_strlcpy(errBuf, "Invalid file path.", errBufSize);
+        }
+        return false;
+    }
+
+    size_t len = strlen(filePath);
+    if (len < 4 || (SDL_strcasecmp(filePath + len - 4, ".ttf") != 0 && SDL_strcasecmp(filePath + len - 4, ".otf") != 0)) {
+        if (errBuf && errBufSize > 0) {
+            SDL_strlcpy(errBuf, "Invalid font file extension. Only .ttf and .otf files are supported.", errBufSize);
+        }
+        return false;
+    }
+
+    TTF_Font *testFont = TTF_OpenFont(filePath, 16.0f);
+    if (!testFont) {
+        if (errBuf && errBufSize > 0) {
+            (void)snprintf(errBuf, errBufSize, "Failed to load font file: Invalid or corrupted font data.");
+        }
+        return false;
+    }
+    TTF_CloseFont(testFont);
+
+    const char *filename = getFilenameFromPath(filePath);
+    char destDir[512];
+    utilsResolvePath(destDir, sizeof(destDir), "fonts");
+    char destFilePath[1024];
+    (void)snprintf(destFilePath, sizeof(destFilePath), "%s/%s", destDir, filename);
+
+    if (SDL_strcasecmp(filePath, destFilePath) != 0) {
+        if (!SDL_CopyFile(filePath, destFilePath)) {
+            if (errBuf && errBufSize > 0) {
+                (void)snprintf(errBuf, errBufSize, "Failed to copy font file: %s", SDL_GetError());
+            }
+            return false;
+        }
+    }
+
+    (void)snprintf(uiConfig.font, sizeof(uiConfig.font), "fonts/%s", filename);
+    previewNeedsUpdate = true;
+    rescanFonts();
+
+    if (errBuf && errBufSize > 0) {
+        errBuf[0] = '\0';
+    }
+    return true;
+}
+
 void openControlPanelToTranscriptionWithError(AppConfig *liveConfig, const char *errorMessage) {
-    cpActivePage = 1;
+    cpActivePage = CP_PAGE_TRANSCRIPTION;
     openControlPanel(liveConfig);
+
     if (errorMessage) {
         triggerGlobalError("%s", errorMessage);
     }
@@ -102,11 +161,7 @@ void openControlPanel(AppConfig *liveConfig) {
     modelChanged = false;
 
     // Scan directories
-    scannedFontCount = 0;
-
-    char path[512];
-    utilsResolvePath(path, sizeof(path), "fonts");
-    SDL_EnumerateDirectory(path, scanFontsCallback, NULL);
+    rescanFonts();
 
     // Create window & renderer
     cpWindow = SDL_CreateWindow("RTS Control Panel", (int)UI_WINDOW_WIDTH, (int)UI_WINDOW_HEIGHT, SDL_WINDOW_HIGH_PIXEL_DENSITY);
@@ -137,10 +192,15 @@ void openControlPanel(AppConfig *liveConfig) {
     ImGuiIO *io = igGetIO_Nil();
     io->ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
 
-    // Load Cascadia Font for UI
+    // Load Cascadia font for Control Panel UI (falling back to ImGui default font)
     char uiFontPath[512];
     utilsResolvePath(uiFontPath, sizeof(uiFontPath), "fonts/cascadia.mono.ttf");
-    ImFontAtlas_AddFontFromFileTTF(io->Fonts, uiFontPath, 16.0f, NULL, NULL);
+    SDL_PathInfo pathInfo;
+    if (SDL_GetPathInfo(uiFontPath, &pathInfo)) {
+        ImFontAtlas_AddFontFromFileTTF(io->Fonts, uiFontPath, 16.0f, NULL, NULL);
+    } else {
+        ImFontAtlas_AddFontDefault(io->Fonts, NULL);
+    }
 
     // Setup style
     igStyleColorsDark(NULL);
@@ -263,16 +323,16 @@ static void renderHeaderAndSidebar(const bool isPaused) {
     // --- Column 0: Sidebar Navigation ---
     igSetCursorPosY(igGetCursorPosY() + 1.0f);
     igPushStyleVar_Vec2(ImGuiStyleVar_SelectableTextAlign, (ImVec2_c){0.0f, 0.5f});
-    if (igSelectable_Bool("View", cpActivePage == 0, 0, (ImVec2_c){0, 24.0f})) {
-        cpActivePage = 0;
+    if (igSelectable_Bool("View", cpActivePage == CP_PAGE_VIEW, 0, (ImVec2_c){0, 24.0f})) {
+        cpActivePage = CP_PAGE_VIEW;
     }
     igSpacing();
-    if (igSelectable_Bool("Transcription", cpActivePage == 1, 0, (ImVec2_c){0, 24.0f})) {
-        cpActivePage = 1;
+    if (igSelectable_Bool("Transcription", cpActivePage == CP_PAGE_TRANSCRIPTION, 0, (ImVec2_c){0, 24.0f})) {
+        cpActivePage = CP_PAGE_TRANSCRIPTION;
     }
     igSpacing();
-    if (igSelectable_Bool("System", cpActivePage == 2, 0, (ImVec2_c){0, 24.0f})) {
-        cpActivePage = 2;
+    if (igSelectable_Bool("System", cpActivePage == CP_PAGE_SYSTEM, 0, (ImVec2_c){0, 24.0f})) {
+        cpActivePage = CP_PAGE_SYSTEM;
     }
     igPopStyleVar(1);
 
@@ -302,17 +362,7 @@ ControlPanelStatus updateAndRenderControlPanel(bool isPaused) {
     }
 
     // Check dirty state
-    bool isDirty = whisperStatusError;
-    if (strcmp(uiConfig.font, savedConfig.font) != 0 || uiConfig.font_size != savedConfig.font_size ||
-        uiConfig.outline_thickness != savedConfig.outline_thickness || uiConfig.text_color.r != savedConfig.text_color.r ||
-        uiConfig.text_color.g != savedConfig.text_color.g || uiConfig.text_color.b != savedConfig.text_color.b ||
-        uiConfig.text_outline_color.r != savedConfig.text_outline_color.r || uiConfig.text_outline_color.g != savedConfig.text_outline_color.g ||
-        uiConfig.text_outline_color.b != savedConfig.text_outline_color.b || strcmp(uiConfig.modelPath, savedConfig.modelPath) != 0 ||
-        uiConfig.use_gpu != savedConfig.use_gpu || uiConfig.cpu_threads != savedConfig.cpu_threads ||
-        uiConfig.display_mode != savedConfig.display_mode || strcmp(uiConfig.language, savedConfig.language) != 0 ||
-        uiConfig.open_control_panel_on_startup != savedConfig.open_control_panel_on_startup) {
-        isDirty = true;
-    }
+    bool isDirty = whisperStatusError || memcmp(&uiConfig, &savedConfig, sizeof(AppConfig)) != 0;
 
     int w, h;
     SDL_GetWindowSize(cpWindow, &w, &h);
@@ -323,11 +373,11 @@ ControlPanelStatus updateAndRenderControlPanel(bool isPaused) {
 
     renderHeaderAndSidebar(isPaused);
 
-    if (cpActivePage == 0) {
+    if (cpActivePage == CP_PAGE_VIEW) {
         renderViewPage();
-    } else if (cpActivePage == 1) {
+    } else if (cpActivePage == CP_PAGE_TRANSCRIPTION) {
         renderTranscriptionPage(activeModelFilename, &triggerDeletePopup);
-    } else if (cpActivePage == 2) {
+    } else if (cpActivePage == CP_PAGE_SYSTEM) {
         renderSystemPage();
     }
 

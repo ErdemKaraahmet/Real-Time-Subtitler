@@ -6,36 +6,52 @@
 #include <stdio.h>
 #include <string.h>
 
+// Context payload passed to SDL_EnumerateDirectory callback to find the first file matching specific extensions.
 typedef struct {
-    char firstModel[256];
-} ScanFirstModelData;
+    const char *subDir; // Relative folder path (e.g. "models" or "fonts")
+    const char *ext1;   // Primary file extension to match (e.g. ".bin" or ".ttf")
+    const char *ext2;   // Secondary file extension to match (e.g. ".otf", or NULL)
+    char *dest;         // Buffer to write the discovered relative path into
+    size_t destSize;    // Size of destination buffer
+} ScanFirstFileConfig;
 
-static SDL_EnumerationResult SDLCALL scanFirstModelCallback(void *userdata, const char *dirname, const char *fname) {
+static SDL_EnumerationResult SDLCALL scanFirstFileCallback(void *userdata, const char *dirname, const char *fname) {
     (void)dirname;
-
     size_t len = strlen(fname);
-    if (len > 4 && strcmp(fname + len - 4, ".bin") == 0) {
-        ScanFirstModelData *data = userdata;
-        int res = snprintf(data->firstModel, sizeof(data->firstModel), "models/%s", fname);
-        if (res >= 0 && (size_t)res < sizeof(data->firstModel)) {
-            return SDL_ENUM_SUCCESS;
+    if (len > 4) {
+        ScanFirstFileConfig *cfg = userdata;
+        const char *ext = fname + len - 4;
+        if ((cfg->ext1 && SDL_strcasecmp(ext, cfg->ext1) == 0) || (cfg->ext2 && SDL_strcasecmp(ext, cfg->ext2) == 0)) {
+            int res = snprintf(cfg->dest, cfg->destSize, "%s/%s", cfg->subDir, fname);
+            if (res >= 0 && (size_t)res < cfg->destSize) {
+                return SDL_ENUM_SUCCESS;
+            }
         }
     }
     return SDL_ENUM_CONTINUE;
 }
 
+static void getFirstMatchingFile(const char *subDir, const char *ext1, const char *ext2, char *dest, size_t destSize) {
+    char fullPath[512];
+    utilsResolvePath(fullPath, sizeof(fullPath), subDir);
+    dest[0] = '\0';
+
+    ScanFirstFileConfig cfg = {
+        .subDir = subDir,
+        .ext1 = ext1,
+        .ext2 = ext2,
+        .dest = dest,
+        .destSize = destSize,
+    };
+    SDL_EnumerateDirectory(fullPath, scanFirstFileCallback, &cfg);
+}
+
 static void getFirstLocalModelPath(char *dest, size_t destSize) {
-    char modelsPath[512];
-    utilsResolvePath(modelsPath, sizeof(modelsPath), "models");
+    getFirstMatchingFile("models", ".bin", NULL, dest, destSize);
+}
 
-    ScanFirstModelData data = {0};
-    SDL_EnumerateDirectory(modelsPath, scanFirstModelCallback, &data);
-
-    if (data.firstModel[0] != '\0') {
-        SDL_strlcpy(dest, data.firstModel, destSize);
-    } else {
-        dest[0] = '\0';
-    }
+static void getFirstLocalFontPath(char *dest, size_t destSize) {
+    getFirstMatchingFile("fonts", ".ttf", ".otf", dest, destSize);
 }
 
 static void resolveConfigPath(char *dest, size_t destSize) {
@@ -74,14 +90,6 @@ static void getJsonBool(const cJSON *root, const char *key, bool *val) {
     }
 }
 
-static Uint8 clampUint8(int val) {
-    if (val < 0)
-        return 0;
-    if (val > 255)
-        return 255;
-    return (Uint8)val;
-}
-
 static SDL_Color parseColorObject(const cJSON *obj, SDL_Color fallback) {
     if (!cJSON_IsObject(obj))
         return fallback;
@@ -92,11 +100,11 @@ static SDL_Color parseColorObject(const cJSON *obj, SDL_Color fallback) {
     const cJSON *b = cJSON_GetObjectItemCaseSensitive(obj, "b");
 
     if (cJSON_IsNumber(r))
-        c.r = clampUint8(r->valueint);
+        c.r = (Uint8)SDL_clamp(r->valueint, 0, 255);
     if (cJSON_IsNumber(g))
-        c.g = clampUint8(g->valueint);
+        c.g = (Uint8)SDL_clamp(g->valueint, 0, 255);
     if (cJSON_IsNumber(b))
-        c.b = clampUint8(b->valueint);
+        c.b = (Uint8)SDL_clamp(b->valueint, 0, 255);
     return c;
 }
 
@@ -205,12 +213,13 @@ bool saveConfig(const AppConfig *conf) {
 
 AppConfig loadDefaultConfig(void) {
     AppConfig conf = {
-        .font = "fonts/cascadia.mono.ttf",
+        .font = "",
         .font_size = 24,
         .outline_thickness = 4,
         .display_mode = 0,
         .text_color = {255, 255, 255, 255},
         .text_outline_color = {0, 0, 0, 255},
+        .modelPath = "",
         .use_gpu = whisperHasGpu(),
         .cpu_threads = SDL_GetNumLogicalCPUCores() / 2,
         .language = "auto",
@@ -223,6 +232,7 @@ AppConfig loadDefaultConfig(void) {
         conf.cpu_threads = 1;
     }
 
+    getFirstLocalFontPath(conf.font, sizeof(conf.font));
     getFirstLocalModelPath(conf.modelPath, sizeof(conf.modelPath));
 
     return conf;

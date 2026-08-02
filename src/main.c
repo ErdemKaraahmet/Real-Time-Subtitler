@@ -17,6 +17,7 @@
 #include "controlPanel.h"
 #include "modelManager.h"
 #include "appEvents.h"
+#include "utils.h"
 
 #define CHUNK_LENGTH_SECONDS 2
 #define SAMPLE_RATE 16000                                // 16Khz
@@ -109,15 +110,12 @@ int main(void) {
     }
 
     // Load a font
-    TTF_Font *font = TTF_OpenFont(config->font, (float)config->font_size);
+    char initialFontPath[512];
+    utilsResolvePath(initialFontPath, sizeof(initialFontPath), config->font);
+    TTF_Font *font = TTF_OpenFont(initialFontPath, (float)config->font_size);
     if (!font) {
-        SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Couldn't load configured font: %s. Trying fallback default font.", SDL_GetError());
-        SDL_strlcpy(config->font, "fonts/cascadia.mono.ttf", sizeof(config->font));
-        font = TTF_OpenFont(config->font, (float)config->font_size);
-        if (!font) {
-            SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Couldn't load fallback font: %s", SDL_GetError());
-            return 1;
-        }
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Couldn't load font %s: %s", config->font, SDL_GetError());
+        return 1;
     }
 
     textMutex = SDL_CreateMutex();
@@ -183,13 +181,16 @@ int main(void) {
             if (cpStatus.configSaved) {
                 // Only reload font if the font path or size actually changed
                 if (strcmp(config->font, prevFont) != 0 || config->font_size != prevFontSize) {
-                    TTF_Font *new_font = TTF_OpenFont(config->font, (float)config->font_size);
+                    char reloadedFontPath[512];
+                    utilsResolvePath(reloadedFontPath, sizeof(reloadedFontPath), config->font);
+                    TTF_Font *new_font = TTF_OpenFont(reloadedFontPath, (float)config->font_size);
                     if (new_font) {
                         if (font)
                             TTF_CloseFont(font);
                         font = new_font;
                     } else {
-                        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to reload font: %s", SDL_GetError());
+                        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to reload font %s: %s. Reverting to previous font.", config->font,
+                                     SDL_GetError());
                         // Revert config to previous working font settings
                         SDL_strlcpy(config->font, prevFont, sizeof(config->font));
                         config->font_size = prevFontSize;
@@ -269,6 +270,7 @@ void handleEvents(bool *pDone, bool *needsRedraw, int timeout, AppConfig *config
                 }
                 *needsRedraw = true;
             }
+
             if (event.type == SDL_EVENT_WINDOW_MOVED && isWindowID(event.window.windowID)) {
                 handleWindowMovedEvent();
                 *needsRedraw = true;

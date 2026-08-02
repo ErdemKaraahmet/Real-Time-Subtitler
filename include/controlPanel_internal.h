@@ -31,6 +31,7 @@ extern const float UI_PREVIEW_BOX_HEIGHT;
 extern const float UI_WINDOW_HEIGHT;
 
 extern int g_DeleteTargetIndex;
+extern char g_DeleteTargetFontFilename[256];
 
 extern SDL_Window *cpWindow;
 extern SDL_Renderer *cpRenderer;
@@ -39,13 +40,15 @@ extern bool cpOpen;
 extern char scannedFonts[MAX_ITEMS][256];
 extern int scannedFontCount;
 
+typedef enum { CP_PAGE_VIEW = 0, CP_PAGE_TRANSCRIPTION = 1, CP_PAGE_SYSTEM = 2 } ControlPanelPage;
+
 extern AppConfig *pLiveConfig;
 extern AppConfig uiConfig;
 extern AppConfig savedConfig;
 extern bool modelChanged;
 extern char whisperStatusMessage[256];
 extern bool whisperStatusError;
-extern int cpActivePage;
+extern ControlPanelPage cpActivePage;
 
 extern char globalUiErrorMessage[512];
 extern bool showGlobalUiErrorPopup;
@@ -55,6 +58,9 @@ extern float previewWidth;
 extern float previewHeight;
 extern bool previewNeedsUpdate;
 extern bool previewFontLoadFailed;
+
+void rescanFonts(void);
+bool importFontFile(const char *filePath, char *errBuf, size_t errBufSize);
 
 #if defined(__GNUC__) || defined(__clang__)
 __attribute__((format(printf, 1, 2)))

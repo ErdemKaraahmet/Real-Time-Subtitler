@@ -17,11 +17,5 @@ bool utilsResolvePath(char *dest, size_t destSize, const char *relativePath) {
 bool utilsIsFileReadable(const char *relativePath) {
     char fullPath[512];
     utilsResolvePath(fullPath, sizeof(fullPath), relativePath);
-
-    SDL_IOStream *io = SDL_IOFromFile(fullPath, "rb");
-    if (io) {
-        SDL_CloseIO(io);
-        return true;
-    }
-    return false;
+    return SDL_GetPathInfo(fullPath, NULL);
 }

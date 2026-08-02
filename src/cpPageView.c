@@ -1,5 +1,33 @@
 #include "controlPanel_internal.h"
 
+static void SDLCALL openFontDialogCallback(void *userdata, const char *const *filelist, int filter) {
+    (void)userdata;
+    (void)filter;
+    if (filelist && filelist[0] && filelist[0][0] != '\0') {
+        char errBuf[256] = "";
+        if (importFontFile(filelist[0], errBuf, sizeof(errBuf))) {
+            previewNeedsUpdate = true;
+        } else {
+            triggerGlobalError("Failed to import font: %s", errBuf);
+        }
+    } else if (!filelist) {
+        const char *sdlErr = SDL_GetError();
+        if (sdlErr && sdlErr[0] != '\0') {
+            triggerGlobalError("File dialog error: %s", sdlErr);
+        }
+    }
+}
+
+static void sdlColorToFloats(SDL_Color c, float out[3]) {
+    out[0] = (float)c.r / 255.0f;
+    out[1] = (float)c.g / 255.0f;
+    out[2] = (float)c.b / 255.0f;
+}
+
+static SDL_Color floatsToSdlColor(const float in[3]) {
+    return (SDL_Color){(uint8_t)(in[0] * 255.0f), (uint8_t)(in[1] * 255.0f), (uint8_t)(in[2] * 255.0f), 255};
+}
+
 void updatePreviewTexture(void) {
     SubtitleToken sample[3];
     strcpy(sample[0].text, "Sample");
@@ -17,10 +45,20 @@ void updatePreviewTexture(void) {
     previewFontLoadFailed = false;
 
     // Try to load the selected font
-    TTF_Font *font = TTF_OpenFont(uiConfig.font, (float)uiConfig.font_size);
+    char fontPath[512];
+    utilsResolvePath(fontPath, sizeof(fontPath), uiConfig.font);
+    TTF_Font *font = TTF_OpenFont(fontPath, (float)uiConfig.font_size);
     if (!font) {
-        // Fallback to default font
-        font = TTF_OpenFont("fonts/cascadia.mono.ttf", (float)uiConfig.font_size);
+        if (scannedFontCount > 0) {
+            char fallbackFont[512];
+            (void)snprintf(fallbackFont, sizeof(fallbackFont), "fonts/%s", scannedFonts[0]);
+            char fallbackPath[512];
+            utilsResolvePath(fallbackPath, sizeof(fallbackPath), fallbackFont);
+            font = TTF_OpenFont(fallbackPath, (float)uiConfig.font_size);
+            if (font) {
+                SDL_strlcpy(uiConfig.font, fallbackFont, sizeof(uiConfig.font));
+            }
+        }
         if (!font) {
             previewFontLoadFailed = true;
             return;
@@ -35,25 +73,60 @@ void updatePreviewTexture(void) {
 void renderViewPage(void) {
     // Font Selection
     const char *fontDisplayName = getFilenameFromPath(uiConfig.font);
+    const char *activeFontFilename = getFilenameFromPath(savedConfig.font);
     igAlignTextToFramePadding();
     igText("Font");
     igSameLine(180.0f, 0.0f);
     igSetNextItemWidth(-1.0f);
     if (igBeginCombo("##Font", fontDisplayName, 0)) {
+        if (igSelectable_Bool("Add Font", false, 0, (ImVec2_c){0.0f, 24.0f})) {
+            static const SDL_DialogFileFilter filters[] = {{"Font Files (*.ttf, *.otf)", "ttf;otf"}, {"All Files (*)", "*"}};
+            SDL_ShowOpenFileDialog(openFontDialogCallback, NULL, cpWindow, filters, 2, NULL, false);
+        }
+
+        igSeparator();
+
         if (scannedFontCount == 0) {
             igSelectable_Bool("No item found in folder##empty_font", false, ImGuiSelectableFlags_Disabled, (ImVec2_c){0, 0});
         } else {
             for (int i = 0; i < scannedFontCount; i++) {
                 bool isSelected = (strcmp(fontDisplayName, scannedFonts[i]) == 0);
-                char itemDisplay[128];
-                (void)snprintf(itemDisplay, sizeof(itemDisplay), "%s##font%d", scannedFonts[i], i);
-                if (igSelectable_Bool(itemDisplay, isSelected, 0, (ImVec2_c){0, 0})) {
-                    (void)snprintf(uiConfig.font, sizeof(uiConfig.font), "fonts/%s", scannedFonts[i]);
-                    previewNeedsUpdate = true;
+                bool isActive = (strcmp(activeFontFilename, scannedFonts[i]) == 0);
+                char itemDisplay[384];
+                SDL_snprintf(itemDisplay, sizeof(itemDisplay), "%s##font%d", scannedFonts[i], i);
+
+                igPushID_Int(i);
+                bool rowClicked = igSelectable_Bool(itemDisplay, isSelected, ImGuiSelectableFlags_NoAutoClosePopups, (ImVec2_c){0.0f, 24.0f});
+
+                ImVec2_c minVal = igGetItemRectMin();
+                ImVec2_c maxVal = igGetItemRectMax();
+                ImDrawList *drawList = igGetWindowDrawList();
+
+                const char *iconStr = isActive ? "[A]" : "[D]";
+                ImU32 iconCol =
+                    isActive ? igGetColorU32_Vec4((ImVec4_c){0.3f, 1.0f, 0.3f, 1.0f}) : igGetColorU32_Vec4((ImVec4_c){1.0f, 0.3f, 0.3f, 1.0f});
+
+                float iconWidth = igCalcTextSize(iconStr, NULL, false, -1.0f).x;
+                float iconX = maxVal.x - iconWidth - 8.0f;
+                float iconY = minVal.y + 7.0f;
+                ImVec2_c iconPos = {iconX, iconY};
+                ImDrawList_AddText_Vec2(drawList, iconPos, iconCol, iconStr, NULL);
+
+                if (rowClicked) {
+                    ImVec2_c mousePos = igGetMousePos();
+                    bool clickedIcon = (mousePos.x >= maxVal.x - 36.0f);
+                    if (clickedIcon && !isActive) {
+                        SDL_strlcpy(g_DeleteTargetFontFilename, scannedFonts[i], sizeof(g_DeleteTargetFontFilename));
+                    } else if (!clickedIcon) {
+                        SDL_snprintf(uiConfig.font, sizeof(uiConfig.font), "fonts/%s", scannedFonts[i]);
+                        previewNeedsUpdate = true;
+                        igCloseCurrentPopup();
+                    }
                 }
                 if (isSelected) {
                     igSetItemDefaultFocus();
                 }
+                igPopID();
             }
         }
         igEndCombo();
@@ -82,28 +155,25 @@ void renderViewPage(void) {
     }
 
     // Color Picking
-    float textColor[3] = {(float)uiConfig.text_color.r / 255.0f, (float)uiConfig.text_color.g / 255.0f, (float)uiConfig.text_color.b / 255.0f};
+    float textColor[3];
+    sdlColorToFloats(uiConfig.text_color, textColor);
     igAlignTextToFramePadding();
     igText("Text Color");
     igSameLine(180.0f, 0.0f);
     igSetNextItemWidth(-1.0f);
     if (igColorEdit3("##Text Color", textColor, 0)) {
-        uiConfig.text_color.r = (uint8_t)(textColor[0] * 255.0f);
-        uiConfig.text_color.g = (uint8_t)(textColor[1] * 255.0f);
-        uiConfig.text_color.b = (uint8_t)(textColor[2] * 255.0f);
+        uiConfig.text_color = floatsToSdlColor(textColor);
         previewNeedsUpdate = true;
     }
 
-    float outlineColor[3] = {(float)uiConfig.text_outline_color.r / 255.0f, (float)uiConfig.text_outline_color.g / 255.0f,
-                             (float)uiConfig.text_outline_color.b / 255.0f};
+    float outlineColor[3];
+    sdlColorToFloats(uiConfig.text_outline_color, outlineColor);
     igAlignTextToFramePadding();
     igText("Outline Color");
     igSameLine(180.0f, 0.0f);
     igSetNextItemWidth(-1.0f);
     if (igColorEdit3("##Outline Color", outlineColor, 0)) {
-        uiConfig.text_outline_color.r = (uint8_t)(outlineColor[0] * 255.0f);
-        uiConfig.text_outline_color.g = (uint8_t)(outlineColor[1] * 255.0f);
-        uiConfig.text_outline_color.b = (uint8_t)(outlineColor[2] * 255.0f);
+        uiConfig.text_outline_color = floatsToSdlColor(outlineColor);
         previewNeedsUpdate = true;
     }
 

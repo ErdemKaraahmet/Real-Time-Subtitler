@@ -3,29 +3,10 @@
 static void formatEtaString(int etaSeconds, char *dest, size_t destSize) {
     if (etaSeconds < 0) {
         SDL_strlcpy(dest, "?", destSize);
-        return;
-    }
-    if (etaSeconds < 60) {
-        (void)snprintf(dest, destSize, "%ds", etaSeconds);
     } else if (etaSeconds < 3600) {
-        int m = etaSeconds / 60;
-        int s = etaSeconds % 60;
-        if (s > 0) {
-            (void)snprintf(dest, destSize, "%dm %ds", m, s);
-        } else {
-            (void)snprintf(dest, destSize, "%dm", m);
-        }
+        SDL_snprintf(dest, destSize, "%dm %02ds", etaSeconds / 60, etaSeconds % 60);
     } else {
-        int h = etaSeconds / 3600;
-        int m = (etaSeconds % 3600) / 60;
-        int s = etaSeconds % 60;
-        if (s > 0) {
-            (void)snprintf(dest, destSize, "%dh %dm %ds", h, m, s);
-        } else if (m > 0) {
-            (void)snprintf(dest, destSize, "%dh %dm", h, m);
-        } else {
-            (void)snprintf(dest, destSize, "%dh", h);
-        }
+        SDL_snprintf(dest, destSize, "%dh %02dm %02ds", etaSeconds / 3600, (etaSeconds % 3600) / 60, etaSeconds % 60);
     }
 }
 

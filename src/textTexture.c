@@ -83,11 +83,7 @@ static SDL_Surface *renderOpacityTokensSurface(TTF_Font *font, SubtitleToken *te
         SDL_Color tokenBgColor = config->text_outline_color;
         SDL_Color tokenFgColor = config->text_color;
 
-        float prob = textToken[i].probability;
-        if (prob < 0.0f)
-            prob = 0.0f;
-        if (prob > 1.0f)
-            prob = 1.0f;
+        float prob = SDL_clamp(textToken[i].probability, 0.0f, 1.0f);
 
         // Map probability [0.0, 1.0] to opacity range [0.40, 1.0]
         float alphaFactor = 0.40f + (0.60f * prob);
