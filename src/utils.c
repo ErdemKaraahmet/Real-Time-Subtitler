@@ -77,7 +77,7 @@ bool utilsIsMonkeyModeEnabled(void) {
 }
 
 int utilsRunMonkeyEventLoop(void *data) {
-    volatile bool *pDone = (volatile bool *)data;
+    const volatile bool *pDone = (volatile bool *)data;
     unsigned int monkeySeed = g_monkeySeed;
     SDL_Log("[MONKEY] Event monkey testing thread started with seed: %u", monkeySeed);
     unsigned int state = monkeySeed;
@@ -118,12 +118,9 @@ void utilsMonkeyDelay(void) {
     // Each thread gets its own private copy of this variable (_Thread_local),
     // so main/whisper/audio threads never touch the same PRNG state at once.
     // That avoids needing a mutex.
-    static _Thread_local unsigned int lockPrngState = 0;
-    if (lockPrngState == 0) {
-        lockPrngState = g_monkeySeed ^ 0x9E3779B9U;
-        if (lockPrngState == 0) {
-            lockPrngState = 1;
-        }
+    static _Thread_local unsigned int lockPrngState;
+    if (!lockPrngState) {
+        lockPrngState = (g_monkeySeed ^ 0x9E3779B9U) | 1U;
     }
     lockPrngState = lockPrngState * 1103515245U + 12345U;
     Uint32 delayMs = 1 + ((lockPrngState / 65536U) % 5U); // 1ms - 5ms delay
