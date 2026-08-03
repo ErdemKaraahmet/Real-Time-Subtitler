@@ -44,11 +44,11 @@ void renderModals(const char *activeModelFilename) {
         if (igBeginPopupModal("Confirm Deletion##Modal", NULL, ImGuiWindowFlags_NoMove | ImGuiWindowFlags_AlwaysAutoResize)) {
             char modelName[256] = "";
             ModelManager *mm = getModelManager();
-            SDL_LockMutex(mm->lock);
+            RTS_LockMutex(mm->lock);
             if (g_DeleteTargetIndex < mm->count) {
                 SDL_strlcpy(modelName, mm->models[g_DeleteTargetIndex].name, sizeof(modelName));
             }
-            SDL_UnlockMutex(mm->lock);
+            RTS_UnlockMutex(mm->lock);
 
             igTextWrapped("Are you sure you want to delete the model '%s'?", modelName);
 

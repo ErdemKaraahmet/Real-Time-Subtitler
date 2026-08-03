@@ -110,6 +110,7 @@ For convenience during development, helper scripts are provided that auto-format
 Supported developer flags:
 - `-s` / `--sanitizers`: AddressSanitizer + UndefinedBehaviorSanitizer (ASan + UBSan)
 - `-t` / `--tsan`: ThreadSanitizer (TSan)
+- `-m` / `--monkey` [seed]: Event monkey testing harness
 - `-c` / `--cppcheck`: Cppcheck static analysis
 - `-l` / `--tidy`: Clang-Tidy static analysis
 

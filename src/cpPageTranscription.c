@@ -25,7 +25,7 @@ static int compareLangIds(const void *a, const void *b) {
 void renderTranscriptionPage(const char *activeModelFilename, bool *triggerDeletePopup) {
     // Model Selection
     ModelManager *mm = getModelManager();
-    SDL_LockMutex(mm->lock);
+    RTS_LockMutex(mm->lock);
 
     // Check for download errors to show automatic popups
     for (int i = 0; i < mm->count; i++) {
@@ -203,7 +203,7 @@ void renderTranscriptionPage(const char *activeModelFilename, bool *triggerDelet
         igOpenPopup_Str("Confirm Deletion##Modal", 0);
     }
 
-    SDL_UnlockMutex(mm->lock);
+    RTS_UnlockMutex(mm->lock);
 
     // GPU Toggle & CPU Thread Count
     bool hasGpu = whisperHasGpu();

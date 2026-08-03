@@ -6,20 +6,34 @@
 #          -t / -TSan (TSan)
 #          -c / -Cppcheck
 #          -l / -Tidy (clang-tidy)
+#          -m / -Monkey [seed] (Event monkey testing harness)
 
-param(
-    [Alias("s", "-sanitizers")]
-    [switch]$Sanitizers,
+$Sanitizers = $false
+$TSan = $false
+$Cppcheck = $false
+$Tidy = $false
+$Monkey = $false
+$Seed = ""
 
-    [Alias("t", "-tsan")]
-    [switch]$TSan,
-
-    [Alias("c", "-cppcheck")]
-    [switch]$Cppcheck,
-
-    [Alias("l", "-tidy")]
-    [switch]$Tidy
-)
+$argIdx = 0
+while ($argIdx -lt $args.Count) {
+    $currArg = $args[$argIdx]
+    switch -Regex ($currArg) {
+        '^(-s|--sanitizers|-Sanitizers)$' { $Sanitizers = $true; break }
+        '^(-t|--tsan|-TSan)$' { $TSan = $true; break }
+        '^(-c|--cppcheck|-Cppcheck)$' { $Cppcheck = $true; break }
+        '^(-l|--tidy|-Tidy)$' { $Tidy = $true; break }
+        '^(-m|--monkey|-Monkey)$' {
+            $Monkey = $true
+            if ($argIdx + 1 -lt $args.Count -and $args[$argIdx + 1] -match '^\d+$') {
+                $argIdx++
+                $Seed = $args[$argIdx]
+            }
+            break
+        }
+    }
+    $argIdx++
+}
 
 if ($Sanitizers -and $TSan) {
     Write-Error "Cannot combine -Sanitizers (-s) and -TSan (-t). Choose one."
@@ -52,14 +66,21 @@ $env:UBSAN_OPTIONS = "suppressions=$(Get-Location)/sanitizers/ubsan_suppressions
 $env:LSAN_OPTIONS = "suppressions=$(Get-Location)/sanitizers/lsan_suppressions.txt"
 $env:ASAN_OPTIONS = "detect_leaks=1:symbolize=1"
 
+$currentMonkey = ""
+if (Test-Path "build/CMakeCache.txt") {
+    $match = Select-String -Path "build/CMakeCache.txt" -Pattern "RTS_MONKEY_TEST:BOOL=(.*)"
+    if ($match) { $currentMonkey = $match.Matches[0].Groups[1].Value }
+}
+
 # Dynamically reconfigure CMake based on active combinations
-if ($Sanitizers -or $TSan -or $Tidy) {
+if ($Sanitizers -or $TSan -or $Tidy -or $Monkey -or ($currentMonkey -eq "ON")) {
     $sanFlag = if ($Sanitizers) { "ON" } else { "OFF" }
     $tsanFlag = if ($TSan) { "ON" } else { "OFF" }
     $tidyFlag = if ($Tidy) { "ON" } else { "OFF" }
+    $monkeyFlag = if ($Monkey) { "ON" } else { "OFF" }
 
-    Write-Host "Reconfiguring build options (Sanitizers: $sanFlag, TSan: $tsanFlag, Clang-Tidy: $tidyFlag)..."
-    cmake -B build -S . -DRTS_ENABLE_SANITIZERS=$sanFlag -DRTS_ENABLE_TSAN=$tsanFlag -DRTS_CLANG_TIDY=$tidyFlag
+    Write-Host "Reconfiguring build options (Sanitizers: $sanFlag, TSan: $tsanFlag, Clang-Tidy: $tidyFlag, Monkey: $monkeyFlag)..."
+    cmake -B build -S . -DRTS_ENABLE_SANITIZERS=$sanFlag -DRTS_ENABLE_TSAN=$tsanFlag -DRTS_CLANG_TIDY=$tidyFlag -DRTS_MONKEY_TEST=$monkeyFlag
 }
 
 # Build the project using CMake
@@ -80,5 +101,12 @@ if ($mp3File) {
     Write-Host "No MP3 files found in bin/ to play."
 }
 
-# Run the executable
-.\bin\Real-Time-Subtitler.exe
+if ($Monkey) {
+    if ($Seed) {
+        .\bin\Real-Time-Subtitler.exe --monkey $Seed
+    } else {
+        .\bin\Real-Time-Subtitler.exe --monkey
+    }
+} else {
+    .\bin\Real-Time-Subtitler.exe
+}

@@ -1,6 +1,7 @@
 #define MINIAUDIO_IMPLEMENTATION
 #include "miniaudio.h"
 #include "audioCapture.h"
+#include "utils.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -111,6 +112,7 @@ Fetches available 16kHz float samples from the internal buffer.
 @param sampleSize used in Whisper also
  */
 bool getAudioChunk(float *outputBuffer, ma_uint32 sampleSize) {
+    MONKEY_DELAY();
     void *pRingBuffer;
     ma_uint32 framesToRead = sampleSize;
     ma_pcm_rb_acquire_read(&ringBuffer, &framesToRead, &pRingBuffer);
@@ -128,6 +130,7 @@ bool getAudioChunk(float *outputBuffer, ma_uint32 sampleSize) {
         float val = outputBuffer[i];
         sum += (val < 0.0f) ? -val : val;
     }
+    MONKEY_DELAY();
     return (sum / (float)sampleSize) > RMS_THRESHOLD;
 }
 
@@ -141,9 +144,13 @@ void cleanupAudio(void) {
 }
 
 void pauseAudio(void) {
+    MONKEY_DELAY();
     ma_device_stop(&device);
+    MONKEY_DELAY();
 }
 
 void resumeAudio(void) {
+    MONKEY_DELAY();
     ma_device_start(&device);
+    MONKEY_DELAY();
 }

@@ -8,25 +8,43 @@
 #          -t / --tsan (TSan)
 #          -c / --cppcheck
 #          -l / --tidy (clang-tidy)
+#          -m / --monkey <seed> (Event monkey testing harness)
 
 USE_SANITIZERS=OFF
 USE_TSAN=OFF
 RUN_CPPCHECK=OFF
 USE_TIDY=OFF
+USE_MONKEY=OFF
+MONKEY_SEED=""
 
-for arg in "$@"; do
-    case $arg in
+while [[ $# -gt 0 ]]; do
+    case $1 in
         --sanitizers|-s)
             USE_SANITIZERS=ON
+            shift
             ;;
         --tsan|-t)
             USE_TSAN=ON
+            shift
             ;;
         --cppcheck|-c)
             RUN_CPPCHECK=ON
+            shift
             ;;
         --tidy|-l)
             USE_TIDY=ON
+            shift
+            ;;
+        --monkey|-m)
+            USE_MONKEY=ON
+            if [[ -n "$2" && "$2" =~ ^[0-9]+$ ]]; then
+                MONKEY_SEED="$2"
+                shift
+            fi
+            shift
+            ;;
+        *)
+            shift
             ;;
     esac
 done
@@ -67,13 +85,19 @@ export UBSAN_OPTIONS="suppressions=$(pwd)/sanitizers/ubsan_suppressions.txt:prin
 export LSAN_OPTIONS="suppressions=$(pwd)/sanitizers/lsan_suppressions.txt"
 export ASAN_OPTIONS="detect_leaks=1:symbolize=1"
 
+CURRENT_MONKEY=""
+if [ -f "build/CMakeCache.txt" ]; then
+    CURRENT_MONKEY=$(grep "RTS_MONKEY_TEST:BOOL=" build/CMakeCache.txt 2>/dev/null | cut -d= -f2)
+fi
+
 # Dynamically reconfigure CMake based on active combinations
-if [ "$USE_SANITIZERS" = "ON" ] || [ "$USE_TSAN" = "ON" ] || [ "$USE_TIDY" = "ON" ]; then
-    echo "Reconfiguring build options (Sanitizers: $USE_SANITIZERS, TSan: $USE_TSAN, Clang-Tidy: $USE_TIDY)..."
+if [ "$USE_SANITIZERS" = "ON" ] || [ "$USE_TSAN" = "ON" ] || [ "$USE_TIDY" = "ON" ] || [ "$USE_MONKEY" = "ON" ] || [ "$CURRENT_MONKEY" = "ON" ]; then
+    echo "Reconfiguring build options (Sanitizers: $USE_SANITIZERS, TSan: $USE_TSAN, Clang-Tidy: $USE_TIDY, Monkey: $USE_MONKEY)..."
     cmake -B build -S . \
         -DRTS_ENABLE_SANITIZERS=$USE_SANITIZERS \
         -DRTS_ENABLE_TSAN=$USE_TSAN \
-        -DRTS_CLANG_TIDY=$USE_TIDY
+        -DRTS_CLANG_TIDY=$USE_TIDY \
+        -DRTS_MONKEY_TEST=$USE_MONKEY
 fi
 
 cmake --build build -j $(nproc)
@@ -89,4 +113,12 @@ else
     echo "No MP3 files found in bin/ to play."
 fi
 
-./bin/Real-Time-Subtitler
+if [ "$USE_MONKEY" = "ON" ]; then
+    if [ -n "$MONKEY_SEED" ]; then
+        ./bin/Real-Time-Subtitler --monkey "$MONKEY_SEED"
+    else
+        ./bin/Real-Time-Subtitler --monkey
+    fi
+else
+    ./bin/Real-Time-Subtitler
+fi

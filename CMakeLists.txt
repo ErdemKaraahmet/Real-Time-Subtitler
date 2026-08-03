@@ -209,9 +209,14 @@ target_include_directories(Real-Time-Subtitler SYSTEM PRIVATE
 )
 
 option(RTS_BENCH "Enable inference benchmark logging to rts_bench.csv" OFF)
+option(RTS_MONKEY_TEST "Enable application event monkey testing / stress harness" OFF)
 option(RTS_ENABLE_SANITIZERS "Enable AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
 option(RTS_ENABLE_TSAN "Enable ThreadSanitizer" OFF)
 option(RTS_CLANG_TIDY "Enable clang-tidy static analysis during compilation" OFF)
+
+if(RTS_MONKEY_TEST)
+    message(STATUS "Enabling application event monkey testing harness")
+endif()
 
 if(RTS_CLANG_TIDY)
     find_program(CLANG_TIDY_EXE NAMES clang-tidy)
@@ -268,6 +273,7 @@ target_compile_definitions(Real-Time-Subtitler PRIVATE
     CIMGUI_USE_SDLRENDERER3
     IMGUI_USER_CONFIG="../cimconfig.h"
     $<$<BOOL:${RTS_BENCH}>:RTS_BENCH>
+    $<$<BOOL:${RTS_MONKEY_TEST}>:RTS_MONKEY_TEST>
 )
 
 

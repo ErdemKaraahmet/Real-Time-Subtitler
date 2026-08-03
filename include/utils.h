@@ -18,3 +18,21 @@ bool utilsResolvePath(char *dest, size_t destSize, const char *relativePath);
  * @return true if the file exists and can be opened in binary read mode, false otherwise.
  */
 bool utilsIsFileReadable(const char *relativePath);
+
+#include <SDL3/SDL.h>
+
+void RTS_LockMutex(SDL_Mutex *mutex);
+void RTS_UnlockMutex(SDL_Mutex *mutex);
+
+#ifdef RTS_MONKEY_TEST
+#include <stdbool.h>
+
+void utilsParseMonkeyArgs(int argc, char *argv[]);
+bool utilsIsMonkeyModeEnabled(void);
+int utilsRunMonkeyEventLoop(void *data);
+void utilsMonkeyDelay(void);
+
+#define MONKEY_DELAY() utilsMonkeyDelay()
+#else
+#define MONKEY_DELAY() ((void)0)
+#endif

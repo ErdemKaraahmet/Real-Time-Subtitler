@@ -3,6 +3,7 @@
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -36,13 +37,23 @@ static bool done = false;
 static SubtitleToken outputTokens[1024];
 static int tokenNum;
 
+#ifdef RTS_MONKEY_TEST
+static SDL_Thread *monkeyThread = NULL;
+#endif
+
 int whisperThread(void *data);
 
 void handleEvents(bool *done, bool *needsRedraw, int timeout, AppConfig *config);
 
 static void handleModelReload(AppConfig *config);
 
-int main(void) {
+int main(int argc, char *argv[]) {
+#ifdef RTS_MONKEY_TEST
+    utilsParseMonkeyArgs(argc, argv);
+#else
+    (void)argc;
+    (void)argv;
+#endif
 #ifdef _WIN32
     // Hide the console when double-clicked from Explorer.
     // When launched from a terminal, other processes share the console so count > 1.
@@ -124,6 +135,12 @@ int main(void) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to create whisper thread: %s", SDL_GetError());
     }
 
+#ifdef RTS_MONKEY_TEST
+    if (utilsIsMonkeyModeEnabled()) {
+        monkeyThread = SDL_CreateThread(utilsRunMonkeyEventLoop, "MonkeyThread", (void *)&done);
+    }
+#endif
+
     done = false;
     bool needsRedraw = true;
     while (!done) {
@@ -134,7 +151,7 @@ int main(void) {
         }
 
         if (textUpdated) {
-            SDL_LockMutex(textMutex);
+            RTS_LockMutex(textMutex);
             if (!strcmp(subtitleText, " [BLANK_AUDIO]"))
                 subtitleText[0] = '\0'; // whisper outputs " [BLANK_AUDIO]" on empty audio, to not print it exactly
             updateSubtitleText(font, outputTokens, tokenNum, config);
@@ -142,7 +159,7 @@ int main(void) {
             textUpdated = false;
             needsRedraw = true;
             lastTextUpdateTime = SDL_GetTicks();
-            SDL_UnlockMutex(textMutex);
+            RTS_UnlockMutex(textMutex);
         }
 
         modelManagerPoll();
@@ -156,10 +173,10 @@ int main(void) {
 
         // Clear the subtitle overlay if no new text has arrived within the timeout
         if (hasSubtitleText() && lastTextUpdateTime > 0 && SDL_GetTicks() - lastTextUpdateTime > (Uint64)(CHUNK_LENGTH_SECONDS + 1) * 1000) {
-            SDL_LockMutex(textMutex);
+            RTS_LockMutex(textMutex);
             subtitleText[0] = '\0';
             tokenNum = 0;
-            SDL_UnlockMutex(textMutex);
+            RTS_UnlockMutex(textMutex);
 
             clearSubtitleText();
             needsRedraw = true;
@@ -197,11 +214,11 @@ int main(void) {
                     }
                 }
                 // Trigger subtitle redraw only if a subtitle is currently active
-                SDL_LockMutex(textMutex);
+                RTS_LockMutex(textMutex);
                 if (subtitleText[0] != '\0' && hasSubtitleText()) {
                     textUpdated = true;
                 }
-                SDL_UnlockMutex(textMutex);
+                RTS_UnlockMutex(textMutex);
             }
             if (cpStatus.modelChanged) {
                 handleModelReload(config);
@@ -221,6 +238,13 @@ int main(void) {
     // Clean up
     closeControlPanel();
     modelManagerShutdown();
+
+#ifdef RTS_MONKEY_TEST
+    if (monkeyThread) {
+        SDL_WaitThread(monkeyThread, NULL);
+    }
+#endif
+
     if (wThread) {
         SDL_WaitThread(wThread, NULL);
     }
@@ -254,10 +278,10 @@ void handleEvents(bool *pDone, bool *needsRedraw, int timeout, AppConfig *config
                     pauseAudio();
                     setTrayPauseState(true);
                     // Immediately clear the on-screen text
-                    SDL_LockMutex(textMutex);
+                    RTS_LockMutex(textMutex);
                     subtitleText[0] = '\0';
                     tokenNum = 0;
-                    SDL_UnlockMutex(textMutex);
+                    RTS_UnlockMutex(textMutex);
                     clearSubtitleText();
                 } else if (event.user.code == APP_EVENT_RESUME) {
                     paused = false;
@@ -290,12 +314,12 @@ int whisperThread(void *data) {
     const AppConfig *config = (AppConfig *)data;
     while (!done) {
         if (chunkReady && !paused) {
-            SDL_LockMutex(textMutex);
+            RTS_LockMutex(textMutex);
             subtitleText[0] = '\0';
             whisperProcess(audioChunk, SAMPLE_SIZE, subtitleText, sizeof(subtitleText), config->cpu_threads, config->language, outputTokens,
                            &tokenNum);
             textUpdated = true;
-            SDL_UnlockMutex(textMutex);
+            RTS_UnlockMutex(textMutex);
             chunkReady = false;
 
             // Wake up the main event loop immediately

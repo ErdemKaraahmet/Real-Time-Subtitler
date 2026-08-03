@@ -48,7 +48,7 @@ static SDL_EnumerationResult SDLCALL scanLocalModelsCallback(void *userdata, con
 
     // Check for "ggml-*.bin" pattern
     if (len > 4 && strncmp(fname, "ggml-", 5) == 0 && SDL_strcasecmp(fname + len - 4, ".bin") == 0) {
-        SDL_LockMutex(g_ModelManager.lock);
+        RTS_LockMutex(g_ModelManager.lock);
 
         // Avoid duplicate entry if scanned again
         bool exists = false;
@@ -86,7 +86,7 @@ static SDL_EnumerationResult SDLCALL scanLocalModelsCallback(void *userdata, con
             g_ModelManager.count++;
         }
 
-        SDL_UnlockMutex(g_ModelManager.lock);
+        RTS_UnlockMutex(g_ModelManager.lock);
     }
     return SDL_ENUM_CONTINUE;
 }
@@ -188,7 +188,7 @@ static int SDLCALL fetchCatalogThreadFunc(void *data) {
         cJSON *root = cJSON_Parse(chunk.memory);
         if (root && cJSON_IsArray(root)) {
             success = true;
-            SDL_LockMutex(g_ModelManager.lock);
+            RTS_LockMutex(g_ModelManager.lock);
 
             cJSON *element = NULL;
             cJSON_ArrayForEach(element, root) {
@@ -244,28 +244,28 @@ static int SDLCALL fetchCatalogThreadFunc(void *data) {
                     }
                 }
             }
-            SDL_UnlockMutex(g_ModelManager.lock);
+            RTS_UnlockMutex(g_ModelManager.lock);
             cJSON_Delete(root);
         } else {
-            SDL_LockMutex(g_ModelManager.lock);
+            RTS_LockMutex(g_ModelManager.lock);
             SDL_strlcpy(g_ModelManager.catalogErrorMessage, "Failed to parse catalog response JSON", sizeof(g_ModelManager.catalogErrorMessage));
-            SDL_UnlockMutex(g_ModelManager.lock);
+            RTS_UnlockMutex(g_ModelManager.lock);
             if (root)
                 cJSON_Delete(root);
         }
     } else {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to fetch HF catalog tree: %s", curl_easy_strerror(res));
-        SDL_LockMutex(g_ModelManager.lock);
+        RTS_LockMutex(g_ModelManager.lock);
         SDL_strlcpy(g_ModelManager.catalogErrorMessage, curl_easy_strerror(res), sizeof(g_ModelManager.catalogErrorMessage));
-        SDL_UnlockMutex(g_ModelManager.lock);
+        RTS_UnlockMutex(g_ModelManager.lock);
     }
 
     free(chunk.memory);
     curl_easy_cleanup(curl);
 
-    SDL_LockMutex(g_ModelManager.lock);
+    RTS_LockMutex(g_ModelManager.lock);
     g_ModelManager.catalogFetched = success;
-    SDL_UnlockMutex(g_ModelManager.lock);
+    RTS_UnlockMutex(g_ModelManager.lock);
 
     SDL_SetAtomicInt(&g_FetchFinished, 1);
     return 0;
@@ -306,10 +306,10 @@ static int downloadProgressCallback(void *clientp, curl_off_t dltotal, curl_off_
     }
     lastProgressTime = nowTicks;
 
-    SDL_LockMutex(g_ModelManager.lock);
+    RTS_LockMutex(g_ModelManager.lock);
     ModelEntry *entry = &g_ModelManager.models[data->index];
     int64_t remoteSize = entry->remoteSize;
-    SDL_UnlockMutex(g_ModelManager.lock);
+    RTS_UnlockMutex(g_ModelManager.lock);
 
     int64_t total = data->resumeOffset + dltotal;
     int64_t now = data->resumeOffset + dlnow;
@@ -377,20 +377,20 @@ static bool calculateFileSHA256(const char *filePath, char *destHex) {
 static int SDLCALL downloadThreadFunc(void *data) {
     int index = (int)(uintptr_t)data;
 
-    SDL_LockMutex(g_ModelManager.lock);
+    RTS_LockMutex(g_ModelManager.lock);
     ModelEntry *entry = &g_ModelManager.models[index];
     char filename[MODEL_NAME_MAX];
     SDL_strlcpy(filename, entry->filename, sizeof(filename));
-    SDL_UnlockMutex(g_ModelManager.lock);
+    RTS_UnlockMutex(g_ModelManager.lock);
 
     char partPath[512];
     char relPartPath[256];
     int resPart = snprintf(relPartPath, sizeof(relPartPath), "models/%s.part", filename);
     if (resPart < 0 || (size_t)resPart >= sizeof(relPartPath)) {
-        SDL_LockMutex(g_ModelManager.lock);
+        RTS_LockMutex(g_ModelManager.lock);
         entry->state = MODEL_STATE_DOWNLOAD_ERROR;
         SDL_strlcpy(entry->errorMessage, "Path formatting failed", sizeof(entry->errorMessage));
-        SDL_UnlockMutex(g_ModelManager.lock);
+        RTS_UnlockMutex(g_ModelManager.lock);
         return 1;
     }
     utilsResolvePath(partPath, sizeof(partPath), relPartPath);
@@ -404,10 +404,10 @@ static int SDLCALL downloadThreadFunc(void *data) {
 
     FILE *file = fopen(partPath, resumeOffset > 0 ? "ab" : "wb");
     if (!file) {
-        SDL_LockMutex(g_ModelManager.lock);
+        RTS_LockMutex(g_ModelManager.lock);
         entry->state = MODEL_STATE_DOWNLOAD_ERROR;
         SDL_strlcpy(entry->errorMessage, "Failed to open local destination file", sizeof(entry->errorMessage));
-        SDL_UnlockMutex(g_ModelManager.lock);
+        RTS_UnlockMutex(g_ModelManager.lock);
 
         SDL_SetAtomicInt(&g_DownloadFinished, 1);
         return -1;
@@ -416,10 +416,10 @@ static int SDLCALL downloadThreadFunc(void *data) {
     CURL *curl = curl_easy_init();
     if (!curl) {
         (void)fclose(file);
-        SDL_LockMutex(g_ModelManager.lock);
+        RTS_LockMutex(g_ModelManager.lock);
         entry->state = MODEL_STATE_DOWNLOAD_ERROR;
         SDL_strlcpy(entry->errorMessage, "Failed to initialize libcurl", sizeof(entry->errorMessage));
-        SDL_UnlockMutex(g_ModelManager.lock);
+        RTS_UnlockMutex(g_ModelManager.lock);
 
         SDL_SetAtomicInt(&g_DownloadFinished, 1);
         return -1;
@@ -430,10 +430,10 @@ static int SDLCALL downloadThreadFunc(void *data) {
     if (resUrl < 0) {
         (void)fclose(file);
         curl_easy_cleanup(curl);
-        SDL_LockMutex(g_ModelManager.lock);
+        RTS_LockMutex(g_ModelManager.lock);
         entry->state = MODEL_STATE_DOWNLOAD_ERROR;
         SDL_strlcpy(entry->errorMessage, "URL formatting failed", sizeof(entry->errorMessage));
-        SDL_UnlockMutex(g_ModelManager.lock);
+        RTS_UnlockMutex(g_ModelManager.lock);
 
         SDL_SetAtomicInt(&g_DownloadFinished, 1);
         return -1;
@@ -463,7 +463,7 @@ static int SDLCALL downloadThreadFunc(void *data) {
     bool closeOk = (fclose(file) == 0);
     curl_easy_cleanup(curl);
 
-    SDL_LockMutex(g_ModelManager.lock);
+    RTS_LockMutex(g_ModelManager.lock);
     bool cancelled = (SDL_GetAtomicInt(&g_DownloadCancelFlag) == 1);
 
     if (res == CURLE_OK && closeOk && !cancelled) {
@@ -471,23 +471,23 @@ static int SDLCALL downloadThreadFunc(void *data) {
 
         char expectedSha[65];
         SDL_strlcpy(expectedSha, entry->oid, sizeof(expectedSha));
-        SDL_UnlockMutex(g_ModelManager.lock);
+        RTS_UnlockMutex(g_ModelManager.lock);
 
         // Run SHA-256 integrity check
         char computedSha[65] = {0};
         bool shaSuccess = calculateFileSHA256(partPath, computedSha);
 
         if (!shaSuccess) {
-            SDL_LockMutex(g_ModelManager.lock);
+            RTS_LockMutex(g_ModelManager.lock);
             entry->state = MODEL_STATE_DOWNLOAD_ERROR;
             SDL_strlcpy(entry->errorMessage, "Failed to compute file integrity checksum", sizeof(entry->errorMessage));
-            SDL_UnlockMutex(g_ModelManager.lock);
+            RTS_UnlockMutex(g_ModelManager.lock);
             SDL_RemovePath(partPath);
         } else if (expectedSha[0] != '\0' && strcmp(computedSha, expectedSha) != 0) {
-            SDL_LockMutex(g_ModelManager.lock);
+            RTS_LockMutex(g_ModelManager.lock);
             entry->state = MODEL_STATE_DOWNLOAD_ERROR;
             (void)snprintf(entry->errorMessage, sizeof(entry->errorMessage), "Integrity mismatch! Expected: %s, got: %s", expectedSha, computedSha);
-            SDL_UnlockMutex(g_ModelManager.lock);
+            RTS_UnlockMutex(g_ModelManager.lock);
             SDL_RemovePath(partPath);
         } else {
             char relBinPath[256];
@@ -498,21 +498,21 @@ static int SDLCALL downloadThreadFunc(void *data) {
                 SDL_RemovePath(binPath);
 
                 if (SDL_RenamePath(partPath, binPath)) {
-                    SDL_LockMutex(g_ModelManager.lock);
+                    RTS_LockMutex(g_ModelManager.lock);
                     entry->state = MODEL_STATE_DOWNLOADED;
                     SDL_SetAtomicInt(&entry->progressPercent, 100);
-                    SDL_UnlockMutex(g_ModelManager.lock);
+                    RTS_UnlockMutex(g_ModelManager.lock);
                 } else {
-                    SDL_LockMutex(g_ModelManager.lock);
+                    RTS_LockMutex(g_ModelManager.lock);
                     entry->state = MODEL_STATE_DOWNLOAD_ERROR;
                     SDL_strlcpy(entry->errorMessage, "Failed to promote temp file to destination", sizeof(entry->errorMessage));
-                    SDL_UnlockMutex(g_ModelManager.lock);
+                    RTS_UnlockMutex(g_ModelManager.lock);
                 }
             } else {
-                SDL_LockMutex(g_ModelManager.lock);
+                RTS_LockMutex(g_ModelManager.lock);
                 entry->state = MODEL_STATE_DOWNLOAD_ERROR;
                 SDL_strlcpy(entry->errorMessage, "Destination path formatting failed", sizeof(entry->errorMessage));
-                SDL_UnlockMutex(g_ModelManager.lock);
+                RTS_UnlockMutex(g_ModelManager.lock);
             }
         }
     } else {
@@ -523,7 +523,7 @@ static int SDLCALL downloadThreadFunc(void *data) {
             entry->state = MODEL_STATE_DOWNLOAD_ERROR;
             (void)snprintf(entry->errorMessage, sizeof(entry->errorMessage), "Curl failed: %s", curl_easy_strerror(res));
         }
-        SDL_UnlockMutex(g_ModelManager.lock);
+        RTS_UnlockMutex(g_ModelManager.lock);
     }
 
     SDL_SetAtomicInt(&g_DownloadFinished, 1);
@@ -560,21 +560,21 @@ bool modelManagerStartDownload(int index) {
     SDL_SetAtomicInt(&g_DownloadFinished, 0);
     g_DownloadStartTime = 0;
 
-    SDL_LockMutex(g_ModelManager.lock);
+    RTS_LockMutex(g_ModelManager.lock);
     ModelEntry *entry = &g_ModelManager.models[index];
     entry->state = MODEL_STATE_DOWNLOADING;
     SDL_SetAtomicInt(&entry->progressPercent, 0);
     SDL_SetAtomicInt(&entry->etaSeconds, -1);
     entry->errorMessage[0] = '\0';
-    SDL_UnlockMutex(g_ModelManager.lock);
+    RTS_UnlockMutex(g_ModelManager.lock);
 
     g_DownloadThread = SDL_CreateThread(downloadThreadFunc, "ModelDownload", (void *)(uintptr_t)index); // NOLINT(performance-no-int-to-ptr)
     if (!g_DownloadThread) {
         g_ActiveDownloadIndex = -1;
-        SDL_LockMutex(g_ModelManager.lock);
+        RTS_LockMutex(g_ModelManager.lock);
         entry->state = MODEL_STATE_DOWNLOAD_ERROR;
         SDL_strlcpy(entry->errorMessage, "Failed to spawn download thread", sizeof(entry->errorMessage));
-        SDL_UnlockMutex(g_ModelManager.lock);
+        RTS_UnlockMutex(g_ModelManager.lock);
         return false;
     }
 
@@ -586,16 +586,16 @@ void modelManagerCancelDownload(void) {
 }
 
 bool modelManagerDeleteModel(int index, const char *activeModelFilename) {
-    SDL_LockMutex(g_ModelManager.lock);
+    RTS_LockMutex(g_ModelManager.lock);
     ModelEntry *entry = &g_ModelManager.models[index];
 
     if (entry->state != MODEL_STATE_DOWNLOADED) {
-        SDL_UnlockMutex(g_ModelManager.lock);
+        RTS_UnlockMutex(g_ModelManager.lock);
         return false;
     }
 
     if (activeModelFilename && strcmp(entry->filename, activeModelFilename) == 0) {
-        SDL_UnlockMutex(g_ModelManager.lock);
+        RTS_UnlockMutex(g_ModelManager.lock);
         return false; // Active model protection
     }
 
@@ -606,13 +606,13 @@ bool modelManagerDeleteModel(int index, const char *activeModelFilename) {
         utilsResolvePath(fullPath, sizeof(fullPath), relFullPath);
         SDL_RemovePath(fullPath);
     } else {
-        SDL_UnlockMutex(g_ModelManager.lock);
+        RTS_UnlockMutex(g_ModelManager.lock);
         return false;
     }
 
     entry->state = MODEL_STATE_NOT_DOWNLOADED;
     SDL_SetAtomicInt(&entry->progressPercent, 0);
-    SDL_UnlockMutex(g_ModelManager.lock);
+    RTS_UnlockMutex(g_ModelManager.lock);
     return true;
 }
 
@@ -621,7 +621,7 @@ bool modelManagerIsDownloading(void) {
 }
 
 void modelManagerRescanLocal(void) {
-    SDL_LockMutex(g_ModelManager.lock);
+    RTS_LockMutex(g_ModelManager.lock);
 
     // Only rebuild/clear the array if there is NO active download running
     if (g_ActiveDownloadIndex == -1) {
@@ -637,7 +637,7 @@ void modelManagerRescanLocal(void) {
         }
     }
 
-    SDL_UnlockMutex(g_ModelManager.lock);
+    RTS_UnlockMutex(g_ModelManager.lock);
 
     scanLocalModels();
 }

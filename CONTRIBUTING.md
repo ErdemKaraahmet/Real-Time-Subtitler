@@ -35,6 +35,7 @@ Thank you for your interest in contributing to **Real-Time Subtitler (RTS)**! Th
 |:---|:---|:---|
 | **`RTS_VERSION`** | `"0.0.0"` | Sets the application version string (e.g. `-DRTS_VERSION="1.2.3"`), used to dynamically set version on release |
 | **`RTS_BENCH`** | `OFF` | Enables per-inference latency, model confidence and token count logging to `bench/rts_bench.csv` |
+| **`RTS_MONKEY_TEST`** | `OFF` | Enables application event monkey testing / stress harness (`--monkey` [seed]) |
 | **`RTS_ENABLE_SANITIZERS`** | `OFF` | Enables AddressSanitizer (ASan) and UndefinedBehaviorSanitizer (UBSan) |
 | **`RTS_ENABLE_TSAN`** | `OFF` | Enables ThreadSanitizer (TSan) for data race detection |
 | **`RTS_CLANG_TIDY`** | `OFF` | Runs `clang-tidy` on project files during compilation |
@@ -60,6 +61,12 @@ These scripts:
 # Run with ThreadSanitizer (TSan):
 ./build_and_run.sh -t
 
+# Run event monkey testing harness (random event stream to trigger race conditions under TSan):
+./build_and_run.sh -t -m
+
+# Run monkey testing with a specific seed for crash replay (PRNG event & delay sequences are deterministic per seed; exact thread interleaving remains OS-scheduler dependent):
+./build_and_run.sh -t -m 1234567
+
 # Run with local Cppcheck static analysis:
 ./build_and_run.sh -c
 
@@ -70,9 +77,14 @@ These scripts:
 ./build_and_run.sh -s -c -l
 ```
 
+Traditional coverage-guided parser fuzzing is intentionally out of scope because RTS configuration files and local inputs are trusted inputs. Standalone `MONKEY_DELAY()` calls in `src/audioCapture.c` are an intentional design decision separate from `RTS_LockMutex`/`RTS_UnlockMutex`. They inject timing jitter around lock-free ring buffer access and audio device state transitions.
+
+> [!NOTE]
+> Compiling with `-DRTS_MONKEY_TEST=ON` builds the harness, but you must also pass `-m` or `--monkey <seed>` at runtime when executing `./bin/Real-Time-Subtitler` directly.
+
 On Windows (PowerShell):
 ```powershell
-./build_and_run.ps1 -s -c -l
+./build_and_run.ps1 -s -c -l -m
 ```
 
 ### Direct Manual Tool Execution
