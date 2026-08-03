@@ -24,7 +24,7 @@ typedef struct {
     ModelState state;
     SDL_AtomicInt progressPercent; // Progress percentage tracker (0 to 100, atomic)
     SDL_AtomicInt etaSeconds;      // Remaining download seconds tracker (atomic, -1 if unknown)
-    char errorMessage[128];        // Populated on MODEL_STATE_DOWNLOAD_ERROR
+    char errorMessage[168];        // Populated on MODEL_STATE_DOWNLOAD_ERROR
 } ModelEntry;
 
 typedef struct {
@@ -32,7 +32,7 @@ typedef struct {
     int count;
     bool catalogFetched;           // True after a successful API fetch
     bool fetchInProgress;          // True while the catalog fetch thread is running
-    char catalogErrorMessage[128]; // Error message populated on catalog fetch failure
+    char catalogErrorMessage[168]; // Error message populated on catalog fetch failure
     SDL_Mutex *lock;               // Synchronize access to models catalog
 } ModelManager;
 
