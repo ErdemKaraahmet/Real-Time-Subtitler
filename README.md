@@ -127,7 +127,7 @@ From the Control Panel you can:
 - **Download & Swap Whisper Models:** Download GGML models directly within the app (featuring live progress bars, download speed, ETA, and automatic SHA-256 checksum verification) or hot-swap local models stored in `models/`.
 - **GPU Acceleration Toggle:** Enable/disable GPU (Vulkan) inference on the fly.
 - **Font & Style Customization:** Select fonts from `fonts/`, adjust Font Size and Outline Thickness, and pick custom Text & Outline colors with a live preview.
-- **Window Controls:** Toggle **Move Window** mode to position the subtitle overlay anywhere on screen, or **Pause/Resume** live audio processing.
+- **Window Controls:** Toggle **Move Window** mode to position the subtitle overlay anywhere on screen (with automatic center snapping), or **Pause/Resume** live audio processing.
 
 ### Keyboard Navigation
 
@@ -153,17 +153,23 @@ The Control Panel supports full mouse-free keyboard navigation:
 
 ## To-Do
 
-- [x] Clickthrough transparent text overlay (might not work properly for macOS)
+- [x] Clickthrough transparent text overlay (note: mouse clickthrough may not work on macOS)
 - [x] Graphical Control Panel for UI customization
+- [x] System tray integration with pause/resume controls
 - [x] Configurable font, color, and outline
+- [x] Native font manager & custom font deletion
 - [x] System audio capture (Windows)
 - [x] System audio capture (Linux)
 - [x] System audio capture (macOS, only captures microphone for now)
 - [x] Live Whisper transcription
-- [ ] Translation
-- [ ] Language selection
-- [X] Own model download script
-- [X] Model download from control panel
-- [ ] Confidence-based text coloring
-- [ ] Speaker diarization
+- [x] GPU (Vulkan) acceleration & automatic CPU fallback
+- [x] Language selection
+- [x] Confidence-based text coloring & opacity scaling
+- [x] Magnetic window snapping & overlay positioning
+- [x] Config persistence with auto-backup & repair
+- [x] Automated monkey event testing harness
+- [x] Own model download script
+- [x] Model download from control panel (with SHA-256 verification & resume support)
 - [x] Multiple model support
+- [x] Translation (Currently only Whisper's auto transcription to the selected language)
+- [ ] Speaker diarization
