@@ -30,12 +30,16 @@ static float audioChunk[SAMPLE_SIZE];
 static bool chunkReady = false;
 static bool textUpdated = false;
 static bool paused = false;
-static SDL_Mutex *textMutex;
+static SDL_Mutex *subtitleMutex;
+static SDL_Mutex *audioMutex;
 static Uint64 lastTextUpdateTime = 0; // timestamp of the last whisper text update (ms)
 static bool done = false;
+static volatile bool modelReloadRequested = false;
 
 static SubtitleToken outputTokens[1024];
 static int tokenNum;
+
+static SDL_Thread *wThread = NULL;
 
 #ifdef RTS_MONKEY_TEST
 static SDL_Thread *monkeyThread = NULL;
@@ -46,6 +50,8 @@ int whisperThread(void *data);
 void handleEvents(bool *done, bool *needsRedraw, int timeout, AppConfig *config);
 
 static void handleModelReload(AppConfig *config);
+
+static void resetSubtitleState(void);
 
 int main(int argc, char *argv[]) {
 #ifdef RTS_MONKEY_TEST
@@ -129,8 +135,9 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    textMutex = SDL_CreateMutex();
-    SDL_Thread *wThread = SDL_CreateThread(whisperThread, "whisper", config);
+    subtitleMutex = SDL_CreateMutex();
+    audioMutex = SDL_CreateMutex();
+    wThread = SDL_CreateThread(whisperThread, "whisper", config);
     if (!wThread) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to create whisper thread: %s", SDL_GetError());
     }
@@ -144,14 +151,16 @@ int main(int argc, char *argv[]) {
     done = false;
     bool needsRedraw = true;
     while (!done) {
+        RTS_LockMutex(audioMutex);
         if (audioChunkReady(SAMPLE_SIZE) && !chunkReady) {
             if (getAudioChunk(audioChunk, SAMPLE_SIZE)) {
                 chunkReady = true; // signal the whisper thread
             }
         }
+        RTS_UnlockMutex(audioMutex);
 
+        RTS_LockMutex(subtitleMutex);
         if (textUpdated) {
-            RTS_LockMutex(textMutex);
             if (!strcmp(subtitleText, " [BLANK_AUDIO]"))
                 subtitleText[0] = '\0'; // whisper outputs " [BLANK_AUDIO]" on empty audio, to not print it exactly
             updateSubtitleText(font, outputTokens, tokenNum, config);
@@ -159,8 +168,8 @@ int main(int argc, char *argv[]) {
             textUpdated = false;
             needsRedraw = true;
             lastTextUpdateTime = SDL_GetTicks();
-            RTS_UnlockMutex(textMutex);
         }
+        RTS_UnlockMutex(subtitleMutex);
 
         modelManagerPoll();
         bool cpOpen = isControlPanelOpen();
@@ -173,12 +182,7 @@ int main(int argc, char *argv[]) {
 
         // Clear the subtitle overlay if no new text has arrived within the timeout
         if (hasSubtitleText() && lastTextUpdateTime > 0 && SDL_GetTicks() - lastTextUpdateTime > (Uint64)(CHUNK_LENGTH_SECONDS + 1) * 1000) {
-            RTS_LockMutex(textMutex);
-            subtitleText[0] = '\0';
-            tokenNum = 0;
-            RTS_UnlockMutex(textMutex);
-
-            clearSubtitleText();
+            resetSubtitleState();
             needsRedraw = true;
         }
 
@@ -214,14 +218,29 @@ int main(int argc, char *argv[]) {
                     }
                 }
                 // Trigger subtitle redraw only if a subtitle is currently active
-                RTS_LockMutex(textMutex);
+                RTS_LockMutex(subtitleMutex);
                 if (subtitleText[0] != '\0' && hasSubtitleText()) {
                     textUpdated = true;
                 }
-                RTS_UnlockMutex(textMutex);
+                RTS_UnlockMutex(subtitleMutex);
             }
             if (cpStatus.modelChanged) {
-                handleModelReload(config);
+                modelReloadRequested = true;
+            }
+        }
+
+        // If the model is being reloaded, show a spinner in the Control Panel status bar
+        if (modelReloadRequested) {
+            static Uint64 lastSpinnerTime = 0;
+            static int spinnerIdx = 0;
+            Uint64 now = SDL_GetTicks();
+            if (now - lastSpinnerTime >= 100) {
+                lastSpinnerTime = now;
+                const char spinner[] = "|/-\\";
+                char statusBuf[64];
+                (void)SDL_snprintf(statusBuf, sizeof(statusBuf), "Status: Reloading Model... [%c]", spinner[spinnerIdx]);
+                setControlPanelWhisperError(true, statusBuf);
+                spinnerIdx = (spinnerIdx + 1) % 4;
             }
         }
 
@@ -251,9 +270,8 @@ int main(int argc, char *argv[]) {
     whisperFree();
     cleanupAudio();
     destroyTray();
-    if (textMutex) {
-        SDL_DestroyMutex(textMutex);
-    }
+    SDL_DestroyMutex(subtitleMutex);
+    SDL_DestroyMutex(audioMutex);
     TTF_CloseFont(font);
     TTF_Quit();
     SDL_Quit();
@@ -278,11 +296,7 @@ void handleEvents(bool *pDone, bool *needsRedraw, int timeout, AppConfig *config
                     pauseAudio();
                     setTrayPauseState(true);
                     // Immediately clear the on-screen text
-                    RTS_LockMutex(textMutex);
-                    subtitleText[0] = '\0';
-                    tokenNum = 0;
-                    RTS_UnlockMutex(textMutex);
-                    clearSubtitleText();
+                    resetSubtitleState();
                 } else if (event.user.code == APP_EVENT_RESUME) {
                     paused = false;
                     resumeAudio();
@@ -312,15 +326,37 @@ void handleEvents(bool *pDone, bool *needsRedraw, int timeout, AppConfig *config
 
 int whisperThread(void *data) {
     const AppConfig *config = (AppConfig *)data;
+    static float localChunk[SAMPLE_SIZE];
     while (!done) {
-        if (chunkReady && !paused) {
-            RTS_LockMutex(textMutex);
-            subtitleText[0] = '\0';
-            whisperProcess(audioChunk, SAMPLE_SIZE, subtitleText, sizeof(subtitleText), config->cpu_threads, config->language, outputTokens,
-                           &tokenNum);
-            textUpdated = true;
-            RTS_UnlockMutex(textMutex);
+        if (modelReloadRequested) {
+            modelReloadRequested = false;
+            handleModelReload((AppConfig *)config);
+        }
+
+        bool hasChunk = false;
+        RTS_LockMutex(audioMutex);
+        if (chunkReady) {
+            if (!paused) {
+                memcpy(localChunk, audioChunk, sizeof(localChunk));
+                hasChunk = true;
+            }
             chunkReady = false;
+        }
+        RTS_UnlockMutex(audioMutex);
+
+        if (hasChunk) {
+            char localText[512] = {0};
+            int localTokenNum = 0;
+            SubtitleToken localTokens[1024];
+
+            whisperProcess(localChunk, SAMPLE_SIZE, localText, sizeof(localText), config->cpu_threads, config->language, localTokens, &localTokenNum);
+
+            RTS_LockMutex(subtitleMutex);
+            SDL_strlcpy(subtitleText, localText, sizeof(subtitleText));
+            tokenNum = localTokenNum;
+            memcpy(outputTokens, localTokens, (size_t)localTokenNum * sizeof(SubtitleToken));
+            textUpdated = true;
+            RTS_UnlockMutex(subtitleMutex);
 
             // Wake up the main event loop immediately
             SDL_Event event;
@@ -328,9 +364,8 @@ int whisperThread(void *data) {
             event.type = SDL_EVENT_USER;
             event.user.code = APP_EVENT_TEXT_UPDATED;
             SDL_PushEvent(&event);
-        } else if (chunkReady && paused) {
-            chunkReady = false; // discard stale audio collected while paused
         }
+
         SDL_Delay(10);
     }
     return 0;
@@ -356,4 +391,12 @@ static void handleModelReload(AppConfig *config) {
         setControlPanelWhisperError(true, "Status: Whisper Offline (Model Load Failed)");
         openControlPanelToTranscriptionWithError(config, "Failed to reload the Whisper model.\n\nPlease select or download another model.");
     }
+}
+
+static void resetSubtitleState(void) {
+    RTS_LockMutex(subtitleMutex);
+    subtitleText[0] = '\0';
+    tokenNum = 0;
+    RTS_UnlockMutex(subtitleMutex);
+    clearSubtitleText();
 }

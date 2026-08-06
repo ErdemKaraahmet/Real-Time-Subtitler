@@ -5,3 +5,5 @@ race:ma_*
 race:libvulkan*
 race:libSDL3*
 race:ggml_*
+race:libg*
+deadlock:libdbus*
