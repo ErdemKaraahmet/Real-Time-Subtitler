@@ -1,6 +1,7 @@
 #include <SDL3/SDL.h>
 #include <SDL3_ttf/SDL_ttf.h>
 #include <math.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
@@ -52,6 +53,36 @@ void handleEvents(bool *done, bool *needsRedraw, int timeout, AppConfig *config)
 static void handleModelReload(AppConfig *config);
 
 static void resetSubtitleState(void);
+
+typedef struct {
+    float fontSize;
+    TTF_Font *font;
+    char foundPath[512];
+    char foundRelativeFont[512];
+} FontFallbackData;
+
+static SDL_EnumerationResult SDLCALL scanFontsFallbackCallback(void *userdata, const char *dirname, const char *fname) {
+    (void)dirname;
+    FontFallbackData *data = (FontFallbackData *)userdata;
+    if (data->font != NULL) {
+        return SDL_ENUM_SUCCESS;
+    }
+    size_t len = strlen(fname);
+    if (len > 4 && (SDL_strcasecmp(fname + len - 4, ".ttf") == 0 || SDL_strcasecmp(fname + len - 4, ".otf") == 0)) {
+        char fontRel[512];
+        (void)snprintf(fontRel, sizeof(fontRel), "fonts/%s", fname);
+        char absPath[512];
+        utilsResolvePath(absPath, sizeof(absPath), fontRel);
+        TTF_Font *testFont = TTF_OpenFont(absPath, data->fontSize);
+        if (testFont) {
+            data->font = testFont;
+            SDL_strlcpy(data->foundPath, absPath, sizeof(data->foundPath));
+            SDL_strlcpy(data->foundRelativeFont, fontRel, sizeof(data->foundRelativeFont));
+            return SDL_ENUM_SUCCESS;
+        }
+    }
+    return SDL_ENUM_CONTINUE;
+}
 
 int main(int argc, char *argv[]) {
 #ifdef RTS_MONKEY_TEST
@@ -115,9 +146,32 @@ int main(int argc, char *argv[]) {
     char initialFontPath[512];
     utilsResolvePath(initialFontPath, sizeof(initialFontPath), config->font);
     TTF_Font *font = TTF_OpenFont(initialFontPath, (float)config->font_size);
+    char fontErrorMsg[2048] = {0};
+    bool fontLoadFailed = false;
+
     if (!font) {
-        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Couldn't load font %s: %s", config->font, SDL_GetError());
-        return 1;
+        fontLoadFailed = true;
+        SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Couldn't load configured font '%s': %s. Attempting fallback...", config->font, SDL_GetError());
+
+        FontFallbackData fallbackData = {0};
+        fallbackData.fontSize = (float)config->font_size;
+        char fontsDir[512];
+        utilsResolvePath(fontsDir, sizeof(fontsDir), "fonts");
+        SDL_EnumerateDirectory(fontsDir, scanFontsFallbackCallback, &fallbackData);
+
+        if (fallbackData.font != NULL) {
+            font = fallbackData.font;
+            (void)snprintf(fontErrorMsg, sizeof(fontErrorMsg), "Configured font '%s' could not be loaded.\n\nFell back to '%s'.", config->font,
+                           fallbackData.foundRelativeFont);
+            SDL_strlcpy(config->font, fallbackData.foundRelativeFont, sizeof(config->font));
+            saveConfig(config);
+        } else {
+            (void)snprintf(
+                fontErrorMsg, sizeof(fontErrorMsg),
+                "Failed to load configured font '%s'.\n\nNo valid fonts were found in the fonts/ directory. Please import or select a font.",
+                config->font);
+            SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "%s", fontErrorMsg);
+        }
     }
 
     // Create a transparent window with fixed container dimensions measured from font
@@ -126,7 +180,8 @@ int main(int argc, char *argv[]) {
     computeContainerDimensions(font, config, &containerW, &containerH);
     if (!initWindow(containerW, containerH)) {
         SDL_Log("Couldn't create window: %s", SDL_GetError());
-        TTF_CloseFont(font);
+        if (font)
+            TTF_CloseFont(font);
         return 1;
     }
     setWindowCenter(config->window_x, config->window_y);
@@ -134,7 +189,9 @@ int main(int argc, char *argv[]) {
     SDL_Log("Initializing system tray...");
     initTray();
 
-    if (config->open_control_panel_on_startup && !isControlPanelOpen()) {
+    if (fontLoadFailed) {
+        openControlPanelToViewWithError(config, fontErrorMsg);
+    } else if (config->open_control_panel_on_startup && !isControlPanelOpen()) {
         openControlPanel(config);
     }
 

@@ -147,6 +147,15 @@ void openControlPanelToTranscriptionWithError(AppConfig *liveConfig, const char 
     }
 }
 
+void openControlPanelToViewWithError(AppConfig *liveConfig, const char *errorMessage) {
+    cpActivePage = CP_PAGE_VIEW;
+    openControlPanel(liveConfig);
+
+    if (errorMessage) {
+        triggerGlobalError("%s", errorMessage);
+    }
+}
+
 void openControlPanel(AppConfig *liveConfig) {
     if (cpOpen) {
         // Bring to front
