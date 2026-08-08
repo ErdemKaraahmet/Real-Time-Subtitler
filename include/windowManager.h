@@ -4,14 +4,15 @@
 #include "configManager.h"
 #include "whisperEngine.h"
 
-bool initWindow(void);
+bool initWindow(int width, int height);
+void computeContainerDimensions(TTF_Font *font, const AppConfig *config, int *outW, int *outH);
 void destroyWindow(void);
 void setWindowCenter(int centerX, int centerY);
 void getWindowCenter(int *centerX, int *centerY);
 void setWindowMoveMode(bool enabled);
 bool isWindowID(SDL_WindowID id);
 
-bool updateSubtitleText(TTF_Font *font, SubtitleToken *outputTokens, int tokenNum, const AppConfig *config);
+bool updateSubtitleText(TTF_Font *font, SubtitleToken *outputTokens, int tokenNum, const AppConfig *config, bool is_new_tokens);
 void clearSubtitleText(void);
 bool hasSubtitleText(void);
 void renderSubtitleWindow(void);

@@ -111,10 +111,22 @@ int main(int argc, char *argv[]) {
         setControlPanelWhisperError(true, "Status: Whisper Offline (Model Load Failed)");
     }
 
-    // Create a transparent window
+    // Load a font
+    char initialFontPath[512];
+    utilsResolvePath(initialFontPath, sizeof(initialFontPath), config->font);
+    TTF_Font *font = TTF_OpenFont(initialFontPath, (float)config->font_size);
+    if (!font) {
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Couldn't load font %s: %s", config->font, SDL_GetError());
+        return 1;
+    }
+
+    // Create a transparent window with fixed container dimensions measured from font
     SDL_Log("Creating window...");
-    if (!initWindow()) {
+    int containerW = 800, containerH = 100;
+    computeContainerDimensions(font, config, &containerW, &containerH);
+    if (!initWindow(containerW, containerH)) {
         SDL_Log("Couldn't create window: %s", SDL_GetError());
+        TTF_CloseFont(font);
         return 1;
     }
     setWindowCenter(config->window_x, config->window_y);
@@ -124,15 +136,6 @@ int main(int argc, char *argv[]) {
 
     if (config->open_control_panel_on_startup && !isControlPanelOpen()) {
         openControlPanel(config);
-    }
-
-    // Load a font
-    char initialFontPath[512];
-    utilsResolvePath(initialFontPath, sizeof(initialFontPath), config->font);
-    TTF_Font *font = TTF_OpenFont(initialFontPath, (float)config->font_size);
-    if (!font) {
-        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Couldn't load font %s: %s", config->font, SDL_GetError());
-        return 1;
     }
 
     subtitleMutex = SDL_CreateMutex();
@@ -163,7 +166,7 @@ int main(int argc, char *argv[]) {
         if (textUpdated) {
             if (!strcmp(subtitleText, " [BLANK_AUDIO]"))
                 subtitleText[0] = '\0'; // whisper outputs " [BLANK_AUDIO]" on empty audio, to not print it exactly
-            updateSubtitleText(font, outputTokens, tokenNum, config);
+            updateSubtitleText(font, outputTokens, tokenNum, config, true);
 
             textUpdated = false;
             needsRedraw = true;
@@ -174,10 +177,16 @@ int main(int argc, char *argv[]) {
         modelManagerPoll();
         bool cpOpen = isControlPanelOpen();
         bool snapBusy = updateWindowSnap();
+        bool scrollAnimBusy = isCaptionScrollAnimating();
 
-        // Wait for events. Timeout is 16ms when Control Panel is open or a snap drag/animation
-        // is in progress, 100ms when idle/stationary.
-        int timeout = (cpOpen || snapBusy) ? 16 : 100;
+        if (scrollAnimBusy) {
+            updateSubtitleText(font, outputTokens, tokenNum, config, false);
+            needsRedraw = true;
+        }
+
+        // Wait for events. Timeout is 16ms when Control Panel is open, snap drag/animation,
+        // or line scroll animation is in progress, 100ms when idle/stationary.
+        int timeout = (cpOpen || snapBusy || scrollAnimBusy) ? 16 : 100;
         handleEvents(&done, &needsRedraw, timeout, config);
 
         // Clear the subtitle overlay if no new text has arrived within the timeout
@@ -209,6 +218,7 @@ int main(int argc, char *argv[]) {
                         if (font)
                             TTF_CloseFont(font);
                         font = new_font;
+                        computeContainerDimensions(font, config, NULL, NULL);
                     } else {
                         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to reload font %s: %s. Reverting to previous font.", config->font,
                                      SDL_GetError());
@@ -397,6 +407,7 @@ static void resetSubtitleState(void) {
     RTS_LockMutex(subtitleMutex);
     subtitleText[0] = '\0';
     tokenNum = 0;
+    resetCaptionBuffer();
     RTS_UnlockMutex(subtitleMutex);
     clearSubtitleText();
 }

@@ -66,7 +66,7 @@ void updatePreviewTexture(void) {
     }
 
     // Render preview texture
-    previewTexture = createTextTexture(cpRenderer, font, sample, 3, &uiConfig, &previewWidth, &previewHeight);
+    previewTexture = createPreviewTextTexture(cpRenderer, font, sample, 3, &uiConfig, &previewWidth, &previewHeight);
     TTF_CloseFont(font);
 }
 
@@ -209,32 +209,28 @@ void renderViewPage(void) {
     ImDrawList_AddRect(drawList, previewPos, (ImVec2_c){previewPos.x + UI_PREVIEW_BOX_WIDTH, previewPos.y + UI_PREVIEW_BOX_HEIGHT},
                        IM_COL32(80, 80, 80, 255), 0.0f, 1.0f, 0);
 
-    // Render the texture inside the box
+    // Render the texture inside the box at 1:1 scale, clipped to container borders
     if (previewFontLoadFailed) {
         igSetCursorScreenPos((ImVec2_c){previewPos.x + 10.0f, previewPos.y + 10.0f});
         igTextColored((ImVec4_c){1.0f, 0.3f, 0.3f, 1.0f}, "Preview unavailable (No valid fonts found)");
     } else if (previewTexture) {
-        // Clamp and scale preview if it exceeds bounds to prevent overflow
-        float maxPreviewW = UI_PREVIEW_BOX_WIDTH - 20.0f;
-        float maxPreviewH = UI_PREVIEW_BOX_HEIGHT - 20.0f;
         float displayW = previewWidth;
         float displayH = previewHeight;
+        float boxW = UI_PREVIEW_BOX_WIDTH - 4.0f;
+        float boxH = UI_PREVIEW_BOX_HEIGHT - 4.0f;
 
-        if (displayW > maxPreviewW || displayH > maxPreviewH) {
-            float scaleX = maxPreviewW / displayW;
-            float scaleY = maxPreviewH / displayH;
-            float scale = (scaleX < scaleY) ? scaleX : scaleY;
-            displayW *= scale;
-            displayH *= scale;
-        }
+        // Center the 1:1 preview texture inside the box, inset 2px from border lines
+        float startX = previewPos.x + 2.0f + (boxW - displayW) / 2.0f;
+        float startY = previewPos.y + 2.0f + (boxH - displayH) / 2.0f;
 
-        // Center the scaled preview texture inside the box
-        float startX = previewPos.x + (UI_PREVIEW_BOX_WIDTH - displayW) / 2.0f;
-        float startY = previewPos.y + (UI_PREVIEW_BOX_HEIGHT - displayH) / 2.0f;
+        ImVec2_c clipMin = {previewPos.x + 2.0f, previewPos.y + 2.0f};
+        ImVec2_c clipMax = {previewPos.x + UI_PREVIEW_BOX_WIDTH - 2.0f, previewPos.y + UI_PREVIEW_BOX_HEIGHT - 2.0f};
 
+        ImDrawList_PushClipRect(drawList, clipMin, clipMax, true);
         igSetCursorScreenPos((ImVec2_c){startX, startY});
         ImTextureRef_c texRef = {NULL, (ImTextureID)(intptr_t)previewTexture};
         igImage(texRef, (ImVec2_c){displayW, displayH}, (ImVec2_c){0, 0}, (ImVec2_c){1, 1});
+        ImDrawList_PopClipRect(drawList);
     }
 
     // Dummy element to advance the cursor past the preview box

@@ -13,10 +13,63 @@ static SDL_Renderer *s_renderer = NULL;
 static SDL_Texture *s_texture = NULL;
 static float s_textWidth = 0.0f;
 static float s_textHeight = 0.0f;
-static int s_width = 240;
-static int s_height = 80;
+static int s_width = 800;
+static int s_height = 100;
 
-bool initWindow(void) {
+// Magnetic Window Snapping State
+typedef struct {
+    bool dragActive;     // true while WINDOW_MOVED events are still arriving
+    Uint64 lastMoveTime; // timestamp of the most recent WINDOW_MOVED event
+    bool animating;      // true while tweening into the snapped position
+    Uint64 animStart;
+    int fromX, fromY;
+    int toX, toY;
+    bool isProgrammaticMove; // true if position update was triggered by code, not user drag
+} SnapState;
+
+static SnapState s_snapState = {0};
+
+void computeContainerDimensions(TTF_Font *font, const AppConfig *config, int *outW, int *outH) {
+    int newW = 1000;
+    int newH = s_height;
+
+    if (font && config) {
+        int fontH = TTF_GetFontHeight(font);
+        int thickness = config->outline_thickness;
+        int lineH = fontH + (2 * thickness) + 4;
+        newH = 2 * lineH;
+    }
+
+    if (s_window != NULL && (s_width != newW || s_height != newH)) {
+        int curX = 0, curY = 0, curW = 0, curH = 0;
+        if (SDL_GetWindowPosition(s_window, &curX, &curY) && SDL_GetWindowSize(s_window, &curW, &curH)) {
+            int centerX = curX + (curW / 2);
+            int centerY = curY + (curH / 2);
+            int targetX = centerX - (newW / 2);
+            int targetY = centerY - (newH / 2);
+
+            s_snapState.isProgrammaticMove = true;
+            SDL_SetWindowPosition(s_window, targetX, targetY);
+        }
+        s_snapState.isProgrammaticMove = true;
+        SDL_SetWindowSize(s_window, newW, newH);
+    }
+
+    s_width = newW;
+    s_height = newH;
+
+    if (outW)
+        *outW = s_width;
+    if (outH)
+        *outH = s_height;
+}
+
+bool initWindow(int width, int height) {
+    if (width > 0)
+        s_width = width;
+    if (height > 0)
+        s_height = height;
+
     // Create a transparent window
     s_window = SDL_CreateWindow("Subtitle Overlay", s_width, s_height,
                                 SDL_WINDOW_TRANSPARENT | SDL_WINDOW_BORDERLESS | SDL_WINDOW_ALWAYS_ON_TOP | SDL_WINDOW_UTILITY);
@@ -83,25 +136,33 @@ void getWindowCenter(int *centerX, int *centerY) {
         *centerY = winY + (winH / 2);
 }
 
-bool updateSubtitleText(TTF_Font *font, SubtitleToken *outputTokens, int tokenNum, const AppConfig *config) {
+bool updateSubtitleText(TTF_Font *font, SubtitleToken *outputTokens, int tokenNum, const AppConfig *config, bool is_new_tokens) {
     clearSubtitleText();
     if (!s_renderer || !font || !outputTokens || tokenNum <= 0 || !config) {
         return false;
     }
 
-    s_texture = createTextTexture(s_renderer, font, outputTokens, tokenNum, config, &s_textWidth, &s_textHeight);
+    s_texture = createTextTexture(s_renderer, font, outputTokens, tokenNum, config, &s_textWidth, &s_textHeight, is_new_tokens);
     if (s_texture != NULL) {
         SDL_SetRenderDrawBlendMode(s_renderer, SDL_BLENDMODE_BLEND);
 
-        int currentX, currentY;
-        SDL_GetWindowPosition(s_window, &currentX, &currentY);
-        int offsetX = (int)(((float)s_width - s_textWidth) * 0.5f);
-        int offsetY = (int)(((float)s_height - s_textHeight) * 0.5f);
-        SDL_SetWindowPosition(s_window, currentX + offsetX, currentY + offsetY);
-
-        s_width = (int)s_textWidth;
-        s_height = (int)s_textHeight;
-        SDL_SetWindowSize(s_window, s_width, s_height);
+        if (!s_snapState.dragActive) {
+            int currentX = 0, currentY = 0;
+            if (SDL_GetWindowPosition(s_window, &currentX, &currentY)) {
+                int offsetX = (int)(((float)s_width - s_textWidth) * 0.5f);
+                int offsetY = (int)(((float)s_height - s_textHeight) * 0.5f);
+                if (offsetX != 0 || offsetY != 0) {
+                    s_snapState.isProgrammaticMove = true;
+                    SDL_SetWindowPosition(s_window, currentX + offsetX, currentY + offsetY);
+                }
+            }
+            if (s_width != (int)s_textWidth || s_height != (int)s_textHeight) {
+                s_width = (int)s_textWidth;
+                s_height = (int)s_textHeight;
+                s_snapState.isProgrammaticMove = true;
+                SDL_SetWindowSize(s_window, s_width, s_height);
+            }
+        }
         return true;
     }
     return false;
@@ -130,18 +191,6 @@ bool isWindowID(SDL_WindowID id) {
 }
 
 // Magnetic Window Snapping
-
-typedef struct {
-    bool dragActive;     // true while WINDOW_MOVED events are still arriving
-    Uint64 lastMoveTime; // timestamp of the most recent WINDOW_MOVED event
-    bool animating;      // true while tweening into the snapped position
-    Uint64 animStart;
-    int fromX, fromY;
-    int toX, toY;
-    bool isProgrammaticMove; // true if position update was triggered by code, not user drag
-} SnapState;
-
-static SnapState s_snapState = {0};
 
 static void beginSnapCheck(void) {
     if (!s_window)
