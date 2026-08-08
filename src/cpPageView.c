@@ -177,6 +177,35 @@ void renderViewPage(void) {
         previewNeedsUpdate = true;
     }
 
+    float bgColor[3];
+    sdlColorToFloats(uiConfig.text_bg_color, bgColor);
+    int bgOpacityPercent = (int)SDL_roundf((float)uiConfig.text_bg_color.a * 100.0f / 255.0f);
+    igAlignTextToFramePadding();
+    igText("Text Background");
+    igSameLine(180.0f, 0.0f);
+
+    float availWidth = igGetContentRegionAvail().x;
+    float opacityWidth = 65.0f;
+    float colorEditWidth = availWidth - opacityWidth - 8.0f;
+    if (colorEditWidth < 80.0f) {
+        colorEditWidth = 80.0f;
+    }
+
+    igSetNextItemWidth(colorEditWidth);
+    if (igColorEdit3("##Text Background", bgColor, 0)) {
+        SDL_Color newColor = floatsToSdlColor(bgColor);
+        newColor.a = uiConfig.text_bg_color.a;
+        uiConfig.text_bg_color = newColor;
+        previewNeedsUpdate = true;
+    }
+    igSameLine(0.0f, 8.0f);
+    igSetNextItemWidth(opacityWidth);
+    if (igDragInt("##Background Opacity", &bgOpacityPercent, 0.5f, 0, 100, "%d", 0)) {
+        int clampedPercent = SDL_clamp(bgOpacityPercent, 0, 100);
+        uiConfig.text_bg_color.a = (uint8_t)SDL_roundf((float)clampedPercent * 255.0f / 100.0f);
+        previewNeedsUpdate = true;
+    }
+
     int displayModeSelection = uiConfig.display_mode;
     const char *displayModeNames[2] = {"Plain Text", "Confidence-Based Opacity"};
 
@@ -198,7 +227,6 @@ void renderViewPage(void) {
     igSpacing();
 
     // Live Preview
-    igText("Live Preview:");
     ImVec2_c previewPos = igGetCursorScreenPos();
 
     // Draw a dark background rectangle for the preview (no rounding)

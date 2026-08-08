@@ -203,11 +203,37 @@ static SDL_Surface *renderLinePlainSurface(TTF_Font *font, const CaptionLine *li
         SDL_DestroySurface(foreGroundText);
     }
 
+    if (config->text_bg_color.a > 0) {
+        int padX = 6;
+        int padY = 2;
+
+        int rectW = backGroundText->w + 2 * padX;
+        int rectH = backGroundText->h + 2 * padY;
+
+        SDL_Surface *bgSurface = SDL_CreateSurface(rectW, rectH, SDL_PIXELFORMAT_ABGR8888);
+        if (bgSurface) {
+            SDL_PixelFormat format = bgSurface->format;
+            const SDL_PixelFormatDetails *details = SDL_GetPixelFormatDetails(format);
+            SDL_Palette *palette = SDL_GetSurfacePalette(bgSurface);
+            Uint32 clearColor = SDL_MapRGBA(details, palette, 0, 0, 0, 0);
+            SDL_FillSurfaceRect(bgSurface, NULL, clearColor);
+            Uint32 bgColor =
+                SDL_MapRGBA(details, palette, config->text_bg_color.r, config->text_bg_color.g, config->text_bg_color.b, config->text_bg_color.a);
+            SDL_Rect bgRect = {0, 0, bgSurface->w, bgSurface->h};
+            SDL_FillSurfaceRect(bgSurface, &bgRect, bgColor);
+
+            SDL_Rect textDst = {padX, padY, backGroundText->w, backGroundText->h};
+            SDL_BlitSurface(backGroundText, NULL, bgSurface, &textDst);
+            SDL_DestroySurface(backGroundText);
+            return bgSurface;
+        }
+    }
+
     return backGroundText;
 }
 
-static void renderLineOpacityToCanvas(TTF_Font *font, const CaptionLine *line, SDL_Surface *canvas, int yOffset, int startX,
-                                      const AppConfig *config) {
+static void renderLineOpacityToCanvas(TTF_Font *font, const CaptionLine *line, SDL_Surface *canvas, int yOffset, int startX, const AppConfig *config,
+                                      int refH) {
     if (!font || !line || !canvas || line->word_count == 0)
         return;
 
@@ -249,7 +275,12 @@ static void renderLineOpacityToCanvas(TTF_Font *font, const CaptionLine *line, S
                 SDL_DestroySurface(foreGroundText);
             }
 
-            SDL_Rect canvasRect = {(int)cursor_x, yOffset, backGroundText->w, backGroundText->h};
+            int tokenY = yOffset + (refH - backGroundText->h) / 2;
+            if (tokenY < yOffset) {
+                tokenY = yOffset;
+            }
+
+            SDL_Rect canvasRect = {(int)cursor_x, tokenY, backGroundText->w, backGroundText->h};
             SDL_BlitSurface(backGroundText, NULL, canvas, &canvasRect);
 
             int advance = backGroundText->w > (2 * thickness) ? (backGroundText->w - 2 * thickness) : backGroundText->w;
@@ -260,30 +291,69 @@ static void renderLineOpacityToCanvas(TTF_Font *font, const CaptionLine *line, S
     }
 }
 
+static SDL_Surface *renderLineConfidenceSurface(TTF_Font *font, const CaptionLine *line, const AppConfig *config) {
+    if (line->word_count == 0)
+        return NULL;
+
+    char lineText[2048] = {0};
+    for (int i = 0; i < line->word_count; ++i) {
+        if (i > 0) {
+            SDL_strlcat(lineText, " ", sizeof(lineText));
+        }
+        SDL_strlcat(lineText, line->words[i].full_text, sizeof(lineText));
+    }
+    if (lineText[0] == '\0')
+        return NULL;
+
+    int thickness = config->outline_thickness;
+    TTF_SetFontOutline(font, thickness);
+    SDL_Surface *refSurf = TTF_RenderText_Blended(font, lineText, 0, config->text_outline_color);
+    TTF_SetFontOutline(font, 0);
+
+    if (!refSurf)
+        return NULL;
+
+    int refW = refSurf->w;
+    int refH = refSurf->h;
+    SDL_DestroySurface(refSurf);
+
+    int padX = (config->text_bg_color.a > 0) ? 6 : 0;
+    int padY = (config->text_bg_color.a > 0) ? 2 : 0;
+
+    int canvasW = refW + 2 * padX;
+    int canvasH = refH + 2 * padY;
+
+    SDL_Surface *canvas = SDL_CreateSurface(canvasW, canvasH, SDL_PIXELFORMAT_ABGR8888);
+    if (!canvas)
+        return NULL;
+
+    SDL_PixelFormat format = canvas->format;
+    const SDL_PixelFormatDetails *details = SDL_GetPixelFormatDetails(format);
+    SDL_Palette *palette = SDL_GetSurfacePalette(canvas);
+    Uint32 clearColor = SDL_MapRGBA(details, palette, 0, 0, 0, 0);
+    SDL_FillSurfaceRect(canvas, NULL, clearColor);
+
+    if (config->text_bg_color.a > 0) {
+        Uint32 bgColor =
+            SDL_MapRGBA(details, palette, config->text_bg_color.r, config->text_bg_color.g, config->text_bg_color.b, config->text_bg_color.a);
+        SDL_Rect bgRect = {0, 0, canvas->w, canvas->h};
+        SDL_FillSurfaceRect(canvas, &bgRect, bgColor);
+    }
+
+    renderLineOpacityToCanvas(font, line, canvas, padY, padX, config, refH);
+    return canvas;
+}
+
 static SDL_Surface *getOrRenderLineSurface(TTF_Font *font, CaptionLine *line, const AppConfig *config) {
     if (!line || line->word_count == 0)
         return NULL;
     if (line->cachedSurface != NULL)
         return line->cachedSurface;
 
-    int thickness = config->outline_thickness;
-    int fontH = TTF_GetFontHeight(font);
-    int lineH = fontH + (2 * thickness) + 4;
-
     if (config->display_mode == 0) {
         line->cachedSurface = renderLinePlainSurface(font, line, config);
     } else {
-        int totalW = line->total_width + (2 * thickness);
-        SDL_Surface *canvas = SDL_CreateSurface(totalW > 0 ? totalW : 1, lineH, SDL_PIXELFORMAT_ABGR8888);
-        if (canvas) {
-            SDL_PixelFormat format = canvas->format;
-            const SDL_PixelFormatDetails *details = SDL_GetPixelFormatDetails(format);
-            SDL_Palette *palette = SDL_GetSurfacePalette(canvas);
-            Uint32 clearColor = SDL_MapRGBA(details, palette, 0, 0, 0, 0);
-            SDL_FillSurfaceRect(canvas, NULL, clearColor);
-            renderLineOpacityToCanvas(font, line, canvas, 0, 0, config);
-            line->cachedSurface = canvas;
-        }
+        line->cachedSurface = renderLineConfidenceSurface(font, line, config);
     }
     return line->cachedSurface;
 }
@@ -424,29 +494,16 @@ SDL_Texture *createPreviewTextTexture(SDL_Renderer *renderer, TTF_Font *font, Su
         return NULL;
     }
 
-    int fontH = TTF_GetFontHeight(font);
-    int lineH = fontH + (2 * thickness) + 4;
-    int totalW = localLine.total_width + (2 * thickness);
-
-    SDL_Surface *canvas = SDL_CreateSurface(totalW, lineH, SDL_PIXELFORMAT_ABGR8888);
-    if (!canvas)
-        return NULL;
-
-    SDL_PixelFormat format = canvas->format;
-    const SDL_PixelFormatDetails *details = SDL_GetPixelFormatDetails(format);
-    SDL_Palette *palette = SDL_GetSurfacePalette(canvas);
-    Uint32 clearColor = SDL_MapRGBA(details, palette, 0, 0, 0, 0);
-    SDL_FillSurfaceRect(canvas, NULL, clearColor);
-
+    SDL_Surface *canvas = NULL;
     if (config->display_mode == 0) {
-        SDL_Surface *s = renderLinePlainSurface(font, &localLine, config);
-        if (s) {
-            SDL_Rect r = {0, 0, s->w, s->h};
-            SDL_BlitSurface(s, NULL, canvas, &r);
-            SDL_DestroySurface(s);
-        }
+        canvas = renderLinePlainSurface(font, &localLine, config);
     } else {
-        renderLineOpacityToCanvas(font, &localLine, canvas, 0, 0, config);
+        canvas = renderLineConfidenceSurface(font, &localLine, config);
+    }
+
+    if (!canvas) {
+        freeCaptionLine(&localLine);
+        return NULL;
     }
 
     SDL_Texture *resultTexture = SDL_CreateTextureFromSurface(renderer, canvas);

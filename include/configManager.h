@@ -11,6 +11,7 @@ typedef struct {
     int display_mode; // 0 for normal, 1 for confidence opacity
     SDL_Color text_color;
     SDL_Color text_outline_color;
+    SDL_Color text_bg_color;
     char modelPath[512];
     bool use_gpu;
     int cpu_threads;

@@ -98,6 +98,7 @@ static SDL_Color parseColorObject(const cJSON *obj, SDL_Color fallback) {
     const cJSON *r = cJSON_GetObjectItemCaseSensitive(obj, "r");
     const cJSON *g = cJSON_GetObjectItemCaseSensitive(obj, "g");
     const cJSON *b = cJSON_GetObjectItemCaseSensitive(obj, "b");
+    const cJSON *a = cJSON_GetObjectItemCaseSensitive(obj, "a");
 
     if (cJSON_IsNumber(r))
         c.r = (Uint8)SDL_clamp(r->valueint, 0, 255);
@@ -105,6 +106,8 @@ static SDL_Color parseColorObject(const cJSON *obj, SDL_Color fallback) {
         c.g = (Uint8)SDL_clamp(g->valueint, 0, 255);
     if (cJSON_IsNumber(b))
         c.b = (Uint8)SDL_clamp(b->valueint, 0, 255);
+    if (cJSON_IsNumber(a))
+        c.a = (Uint8)SDL_clamp(a->valueint, 0, 255);
     return c;
 }
 
@@ -122,6 +125,7 @@ static cJSON *colorToJson(SDL_Color c) {
     cJSON_AddNumberToObject(obj, "r", c.r);
     cJSON_AddNumberToObject(obj, "g", c.g);
     cJSON_AddNumberToObject(obj, "b", c.b);
+    cJSON_AddNumberToObject(obj, "a", c.a);
     return obj;
 }
 
@@ -156,6 +160,7 @@ ConfigLoadStatus loadConfig(AppConfig *conf) {
     getJsonIntClamped(root, "display_mode", &conf->display_mode, 0, 1);
     getJsonColor(root, "text_color", &conf->text_color);
     getJsonColor(root, "text_outline_color", &conf->text_outline_color);
+    getJsonColor(root, "text_bg_color", &conf->text_bg_color);
     getJsonString(root, "modelPath", conf->modelPath, sizeof(conf->modelPath));
     getJsonBool(root, "use_gpu", &conf->use_gpu);
     getJsonIntClamped(root, "cpu_threads", &conf->cpu_threads, 1, maxThreads);
@@ -182,6 +187,7 @@ bool saveConfig(const AppConfig *conf) {
     cJSON_AddNumberToObject(root, "display_mode", conf->display_mode);
     cJSON_AddItemToObject(root, "text_color", colorToJson(conf->text_color));
     cJSON_AddItemToObject(root, "text_outline_color", colorToJson(conf->text_outline_color));
+    cJSON_AddItemToObject(root, "text_bg_color", colorToJson(conf->text_bg_color));
     cJSON_AddStringToObject(root, "modelPath", conf->modelPath);
     cJSON_AddBoolToObject(root, "use_gpu", conf->use_gpu);
     cJSON_AddNumberToObject(root, "cpu_threads", conf->cpu_threads);
@@ -219,6 +225,7 @@ AppConfig loadDefaultConfig(void) {
         .display_mode = 0,
         .text_color = {255, 255, 255, 255},
         .text_outline_color = {0, 0, 0, 255},
+        .text_bg_color = {0, 0, 0, 0},
         .modelPath = "",
         .use_gpu = whisperHasGpu(),
         .cpu_threads = SDL_GetNumLogicalCPUCores() / 2,
@@ -246,7 +253,9 @@ bool areConfigsEqual(const AppConfig *a, const AppConfig *b) {
            a->display_mode == b->display_mode && a->text_color.r == b->text_color.r && a->text_color.g == b->text_color.g &&
            a->text_color.b == b->text_color.b && a->text_color.a == b->text_color.a && a->text_outline_color.r == b->text_outline_color.r &&
            a->text_outline_color.g == b->text_outline_color.g && a->text_outline_color.b == b->text_outline_color.b &&
-           a->text_outline_color.a == b->text_outline_color.a && strcmp(a->modelPath, b->modelPath) == 0 && a->use_gpu == b->use_gpu &&
-           a->cpu_threads == b->cpu_threads && strcmp(a->language, b->language) == 0 && a->window_x == b->window_x && a->window_y == b->window_y &&
+           a->text_outline_color.a == b->text_outline_color.a && a->text_bg_color.r == b->text_bg_color.r &&
+           a->text_bg_color.g == b->text_bg_color.g && a->text_bg_color.b == b->text_bg_color.b && a->text_bg_color.a == b->text_bg_color.a &&
+           strcmp(a->modelPath, b->modelPath) == 0 && a->use_gpu == b->use_gpu && a->cpu_threads == b->cpu_threads &&
+           strcmp(a->language, b->language) == 0 && a->window_x == b->window_x && a->window_y == b->window_y &&
            a->open_control_panel_on_startup == b->open_control_panel_on_startup;
 }

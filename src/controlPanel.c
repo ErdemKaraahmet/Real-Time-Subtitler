@@ -12,8 +12,8 @@ const float UI_PADDING = 12.0f;
 const float UI_SPACING = 8.0f;
 const float UI_BUTTON_WIDTH = 120.0f;
 const float UI_PREVIEW_BOX_WIDTH = 556.0f; // 580 - 24
-const float UI_PREVIEW_BOX_HEIGHT = 70.0f;
-const float UI_WINDOW_HEIGHT = 450.0f;
+const float UI_PREVIEW_BOX_HEIGHT = 100.0f;
+const float UI_WINDOW_HEIGHT = 500.0f;
 
 int g_DeleteTargetIndex = -1;
 char g_DeleteTargetFontFilename[256] = "";
