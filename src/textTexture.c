@@ -61,6 +61,21 @@ void resetCaptionBuffer(void) {
     s_scrollAnimStart = 0;
 }
 
+void invalidateCaptionLineCache(void) {
+    if (s_line1.cachedSurface != NULL) {
+        SDL_DestroySurface(s_line1.cachedSurface);
+        s_line1.cachedSurface = NULL;
+    }
+    if (s_line2.cachedSurface != NULL) {
+        SDL_DestroySurface(s_line2.cachedSurface);
+        s_line2.cachedSurface = NULL;
+    }
+    if (s_oldLine1.cachedSurface != NULL) {
+        SDL_DestroySurface(s_oldLine1.cachedSurface);
+        s_oldLine1.cachedSurface = NULL;
+    }
+}
+
 static int getSpaceWidth(TTF_Font *font, int thickness) {
     int spaceW = 0, h = 0;
     TTF_SetFontOutline(font, thickness);
@@ -362,6 +377,15 @@ SDL_Texture *createTextTexture(SDL_Renderer *renderer, TTF_Font *font, SubtitleT
                                float *text_width, float *text_height, bool is_new_tokens) {
     if (font == NULL || textToken == NULL || textTokenNum <= 0 || config == NULL || !renderer) {
         return NULL;
+    }
+
+    static AppConfig s_lastConfig = {0};
+    static bool s_hasLastConfig = false;
+
+    if (!s_hasLastConfig || !areConfigsEqual(&s_lastConfig, config)) {
+        invalidateCaptionLineCache();
+        s_lastConfig = *config;
+        s_hasLastConfig = true;
     }
 
     int thickness = config->outline_thickness;

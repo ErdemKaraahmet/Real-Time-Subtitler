@@ -18,14 +18,16 @@ static void SDLCALL openFontDialogCallback(void *userdata, const char *const *fi
     }
 }
 
-static void sdlColorToFloats(SDL_Color c, float out[3]) {
+static void sdlColorToFloats(SDL_Color c, float out[4]) {
     out[0] = (float)c.r / 255.0f;
     out[1] = (float)c.g / 255.0f;
     out[2] = (float)c.b / 255.0f;
+    out[3] = (float)c.a / 255.0f;
 }
 
-static SDL_Color floatsToSdlColor(const float in[3]) {
-    return (SDL_Color){(uint8_t)(in[0] * 255.0f), (uint8_t)(in[1] * 255.0f), (uint8_t)(in[2] * 255.0f), 255};
+static SDL_Color floatsToSdlColor(const float in[4]) {
+    return (SDL_Color){(uint8_t)SDL_clamp(in[0] * 255.0f, 0.0f, 255.0f), (uint8_t)SDL_clamp(in[1] * 255.0f, 0.0f, 255.0f),
+                       (uint8_t)SDL_clamp(in[2] * 255.0f, 0.0f, 255.0f), (uint8_t)SDL_clamp(in[3] * 255.0f, 0.0f, 255.0f)};
 }
 
 void updatePreviewTexture(void) {
@@ -155,54 +157,36 @@ void renderViewPage(void) {
     }
 
     // Color Picking
-    float textColor[3];
+    float textColor[4];
     sdlColorToFloats(uiConfig.text_color, textColor);
     igAlignTextToFramePadding();
     igText("Text Color");
     igSameLine(180.0f, 0.0f);
     igSetNextItemWidth(-1.0f);
-    if (igColorEdit3("##Text Color", textColor, 0)) {
+    if (igColorEdit4("##Text Color", textColor, 0)) {
         uiConfig.text_color = floatsToSdlColor(textColor);
         previewNeedsUpdate = true;
     }
 
-    float outlineColor[3];
+    float outlineColor[4];
     sdlColorToFloats(uiConfig.text_outline_color, outlineColor);
     igAlignTextToFramePadding();
     igText("Outline Color");
     igSameLine(180.0f, 0.0f);
     igSetNextItemWidth(-1.0f);
-    if (igColorEdit3("##Outline Color", outlineColor, 0)) {
+    if (igColorEdit4("##Outline Color", outlineColor, 0)) {
         uiConfig.text_outline_color = floatsToSdlColor(outlineColor);
         previewNeedsUpdate = true;
     }
 
-    float bgColor[3];
+    float bgColor[4];
     sdlColorToFloats(uiConfig.text_bg_color, bgColor);
-    int bgOpacityPercent = (int)SDL_roundf((float)uiConfig.text_bg_color.a * 100.0f / 255.0f);
     igAlignTextToFramePadding();
     igText("Text Background");
     igSameLine(180.0f, 0.0f);
-
-    float availWidth = igGetContentRegionAvail().x;
-    float opacityWidth = 65.0f;
-    float colorEditWidth = availWidth - opacityWidth - 8.0f;
-    if (colorEditWidth < 80.0f) {
-        colorEditWidth = 80.0f;
-    }
-
-    igSetNextItemWidth(colorEditWidth);
-    if (igColorEdit3("##Text Background", bgColor, 0)) {
-        SDL_Color newColor = floatsToSdlColor(bgColor);
-        newColor.a = uiConfig.text_bg_color.a;
-        uiConfig.text_bg_color = newColor;
-        previewNeedsUpdate = true;
-    }
-    igSameLine(0.0f, 8.0f);
-    igSetNextItemWidth(opacityWidth);
-    if (igDragInt("##Background Opacity", &bgOpacityPercent, 0.5f, 0, 100, "%d", 0)) {
-        int clampedPercent = SDL_clamp(bgOpacityPercent, 0, 100);
-        uiConfig.text_bg_color.a = (uint8_t)SDL_roundf((float)clampedPercent * 255.0f / 100.0f);
+    igSetNextItemWidth(-1.0f);
+    if (igColorEdit4("##Text Background", bgColor, 0)) {
+        uiConfig.text_bg_color = floatsToSdlColor(bgColor);
         previewNeedsUpdate = true;
     }
 
