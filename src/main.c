@@ -34,7 +34,7 @@ static bool paused = false;
 static SDL_Mutex *subtitleMutex;
 static SDL_Mutex *audioMutex;
 static Uint64 lastTextUpdateTime = 0; // timestamp of the last whisper text update (ms)
-static bool done = false;
+static volatile bool done = false;
 static volatile bool modelReloadRequested = false;
 
 static SubtitleToken outputTokens[1024];
@@ -48,7 +48,7 @@ static SDL_Thread *monkeyThread = NULL;
 
 int whisperThread(void *data);
 
-void handleEvents(bool *done, bool *needsRedraw, int timeout, AppConfig *config);
+void handleEvents(volatile bool *done, bool *needsRedraw, int timeout, AppConfig *config);
 
 static void handleModelReload(AppConfig *config);
 
@@ -346,7 +346,7 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 
-void handleEvents(bool *pDone, bool *needsRedraw, int timeout, AppConfig *config) {
+void handleEvents(volatile bool *pDone, bool *needsRedraw, int timeout, AppConfig *config) {
     SDL_Event event;
     if (SDL_WaitEventTimeout(&event, timeout)) {
         do {
