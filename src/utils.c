@@ -77,7 +77,7 @@ bool utilsIsMonkeyModeEnabled(void) {
 }
 
 int utilsRunMonkeyEventLoop(void *data) {
-    const volatile bool *pDone = (volatile bool *)data;
+    SDL_AtomicInt *pDone = (SDL_AtomicInt *)data;
     unsigned int monkeySeed = g_monkeySeed;
     SDL_Log("[MONKEY] Event monkey testing thread started with seed: %u", monkeySeed);
     unsigned int state = monkeySeed;
@@ -86,7 +86,7 @@ int utilsRunMonkeyEventLoop(void *data) {
     const AppUserEvent events[] = {APP_EVENT_PAUSE, APP_EVENT_RESUME, APP_EVENT_MOVE_WINDOW, APP_EVENT_OPEN_CONTROL};
     const int numEvents = (int)(sizeof(events) / sizeof(events[0]));
 
-    while (pDone && !*pDone) {
+    while (pDone && !SDL_GetAtomicInt(pDone)) {
         // LCG pseudo-random generator
         state = state * 1103515245U + 12345U;
         int idx = (int)((state / 65536U) % (unsigned int)numEvents);

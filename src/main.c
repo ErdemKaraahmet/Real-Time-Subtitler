@@ -34,8 +34,8 @@ static bool paused = false;
 static SDL_Mutex *subtitleMutex;
 static SDL_Mutex *audioMutex;
 static Uint64 lastTextUpdateTime = 0; // timestamp of the last whisper text update (ms)
-static volatile bool done = false;
-static volatile bool modelReloadRequested = false;
+static SDL_AtomicInt done = {0};
+static SDL_AtomicInt modelReloadRequested = {0};
 
 static SubtitleToken outputTokens[1024];
 static int tokenNum;
@@ -48,7 +48,7 @@ static SDL_Thread *monkeyThread = NULL;
 
 int whisperThread(void *data);
 
-void handleEvents(volatile bool *done, bool *needsRedraw, int timeout, AppConfig *config);
+void handleEvents(SDL_AtomicInt *done, bool *needsRedraw, int timeout, AppConfig *config);
 
 static void handleModelReload(AppConfig *config);
 
@@ -208,9 +208,9 @@ int main(int argc, char *argv[]) {
     }
 #endif
 
-    done = false;
+    SDL_SetAtomicInt(&done, 0);
     bool needsRedraw = true;
-    while (!done) {
+    while (!SDL_GetAtomicInt(&done)) {
         RTS_LockMutex(audioMutex);
         if (audioChunkReady(SAMPLE_SIZE) && !chunkReady) {
             if (getAudioChunk(audioChunk, SAMPLE_SIZE)) {
@@ -292,12 +292,12 @@ int main(int argc, char *argv[]) {
                 RTS_UnlockMutex(subtitleMutex);
             }
             if (cpStatus.modelChanged) {
-                modelReloadRequested = true;
+                SDL_SetAtomicInt(&modelReloadRequested, 1);
             }
         }
 
         // If the model is being reloaded, show a spinner in the Control Panel status bar
-        if (modelReloadRequested) {
+        if (SDL_GetAtomicInt(&modelReloadRequested)) {
             static Uint64 lastSpinnerTime = 0;
             static int spinnerIdx = 0;
             Uint64 now = SDL_GetTicks();
@@ -346,7 +346,7 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 
-void handleEvents(volatile bool *pDone, bool *needsRedraw, int timeout, AppConfig *config) {
+void handleEvents(SDL_AtomicInt *pDone, bool *needsRedraw, int timeout, AppConfig *config) {
     SDL_Event event;
     if (SDL_WaitEventTimeout(&event, timeout)) {
         do {
@@ -354,7 +354,7 @@ void handleEvents(volatile bool *pDone, bool *needsRedraw, int timeout, AppConfi
             handleControlPanelEvent(&event);
 
             if (event.type == SDL_EVENT_QUIT) {
-                *pDone = true;
+                SDL_SetAtomicInt(pDone, 1);
             }
 
             if (event.type == SDL_EVENT_USER) {
@@ -394,9 +394,8 @@ void handleEvents(volatile bool *pDone, bool *needsRedraw, int timeout, AppConfi
 int whisperThread(void *data) {
     const AppConfig *config = (AppConfig *)data;
     static float localChunk[SAMPLE_SIZE];
-    while (!done) {
-        if (modelReloadRequested) {
-            modelReloadRequested = false;
+    while (!SDL_GetAtomicInt(&done)) {
+        if (SDL_CompareAndSwapAtomicInt(&modelReloadRequested, 1, 0)) {
             handleModelReload((AppConfig *)config);
         }
 
