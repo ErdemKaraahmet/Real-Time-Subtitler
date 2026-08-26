@@ -84,7 +84,7 @@ if ($Sanitizers -or $TSan -or $Tidy -or $Monkey -or ($currentMonkey -eq "ON")) {
 }
 
 # Build the project using CMake
-cmake --build build -j $(nproc)
+cmake --build build -j $((Get-CimInstance Win32_ComputerSystem).NumberOfLogicalProcessors)
 
 # copy default sample if no test MP3 exists
 if (-not (Test-Path "bin/*.mp3")) {

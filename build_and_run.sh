@@ -100,7 +100,7 @@ if [ "$USE_SANITIZERS" = "ON" ] || [ "$USE_TSAN" = "ON" ] || [ "$USE_TIDY" = "ON
         -DRTS_MONKEY_TEST=$USE_MONKEY
 fi
 
-cmake --build build -j $(nproc)
+cmake --build build -j $( (command -v nproc >/dev/null 2>&1 && nproc) || (command -v sysctl >/dev/null 2>&1 && sysctl -n hw.ncpu) || echo ${NUMBER_OF_PROCESSORS:-1} )
 
 # copy default sample if no test MP3 exists
 ls bin/*.mp3 &>/dev/null || cp deps/whisper.cpp/samples/jfk.mp3 bin/jfk.mp3 2>/dev/null
