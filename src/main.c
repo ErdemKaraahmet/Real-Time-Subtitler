@@ -26,13 +26,14 @@
 #define SAMPLE_SIZE (CHUNK_LENGTH_SECONDS * SAMPLE_RATE) // CHUNK_LENGTH_SECONDS second * sample rate = 32000 frames
 
 // shared state between threads
-static char subtitleText[124] = "";
+static char subtitleText[128] = "";
 static float audioChunk[SAMPLE_SIZE];
 static bool chunkReady = false;
 static bool textUpdated = false;
 static bool paused = false;
 static SDL_Mutex *subtitleMutex;
 static SDL_Mutex *audioMutex;
+static SDL_Condition *cond;
 static Uint64 lastTextUpdateTime = 0; // timestamp of the last whisper text update (ms)
 static SDL_AtomicInt done = {0};
 static SDL_AtomicInt modelReloadRequested = {0};
@@ -197,6 +198,7 @@ int main(int argc, char *argv[]) {
 
     subtitleMutex = SDL_CreateMutex();
     audioMutex = SDL_CreateMutex();
+    cond = SDL_CreateCondition();
     wThread = SDL_CreateThread(whisperThread, "whisper", config);
     if (!wThread) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Failed to create whisper thread: %s", SDL_GetError());
@@ -214,7 +216,8 @@ int main(int argc, char *argv[]) {
         RTS_LockMutex(audioMutex);
         if (audioChunkReady(SAMPLE_SIZE) && !chunkReady) {
             if (getAudioChunk(audioChunk, SAMPLE_SIZE)) {
-                chunkReady = true; // signal the whisper thread
+                chunkReady = true;
+                SDL_SignalCondition(cond);
             }
         }
         RTS_UnlockMutex(audioMutex);
@@ -293,6 +296,9 @@ int main(int argc, char *argv[]) {
             }
             if (cpStatus.modelChanged) {
                 SDL_SetAtomicInt(&modelReloadRequested, 1);
+                RTS_LockMutex(audioMutex);
+                SDL_SignalCondition(cond);
+                RTS_UnlockMutex(audioMutex);
             }
         }
 
@@ -339,6 +345,7 @@ int main(int argc, char *argv[]) {
     destroyTray();
     SDL_DestroyMutex(subtitleMutex);
     SDL_DestroyMutex(audioMutex);
+    SDL_DestroyCondition(cond);
     TTF_CloseFont(font);
     TTF_Quit();
     SDL_Quit();
@@ -355,6 +362,7 @@ void handleEvents(SDL_AtomicInt *pDone, bool *needsRedraw, int timeout, AppConfi
 
             if (event.type == SDL_EVENT_QUIT) {
                 SDL_SetAtomicInt(pDone, 1);
+                SDL_SignalCondition(cond);
             }
 
             if (event.type == SDL_EVENT_USER) {
@@ -395,12 +403,23 @@ int whisperThread(void *data) {
     const AppConfig *config = (AppConfig *)data;
     static float localChunk[SAMPLE_SIZE];
     while (!SDL_GetAtomicInt(&done)) {
-        if (SDL_CompareAndSwapAtomicInt(&modelReloadRequested, 1, 0)) {
-            handleModelReload((AppConfig *)config);
+        bool hasChunk = false;
+        bool doReload = false;
+
+        RTS_LockMutex(audioMutex);
+        while (!(SDL_GetAtomicInt(&done) || SDL_GetAtomicInt(&modelReloadRequested) || chunkReady)) {
+            SDL_WaitCondition(cond, audioMutex);
         }
 
-        bool hasChunk = false;
-        RTS_LockMutex(audioMutex);
+        if (SDL_GetAtomicInt(&done)) {
+            RTS_UnlockMutex(audioMutex);
+            break;
+        }
+
+        if (SDL_CompareAndSwapAtomicInt(&modelReloadRequested, 1, 0)) {
+            doReload = true;
+        }
+
         if (chunkReady) {
             if (!paused) {
                 memcpy(localChunk, audioChunk, sizeof(localChunk));
@@ -409,6 +428,10 @@ int whisperThread(void *data) {
             chunkReady = false;
         }
         RTS_UnlockMutex(audioMutex);
+
+        if (doReload) {
+            handleModelReload((AppConfig *)config);
+        }
 
         if (hasChunk) {
             char localText[512] = {0};
@@ -431,8 +454,6 @@ int whisperThread(void *data) {
             event.user.code = APP_EVENT_TEXT_UPDATED;
             SDL_PushEvent(&event);
         }
-
-        SDL_Delay(10);
     }
     return 0;
 }
